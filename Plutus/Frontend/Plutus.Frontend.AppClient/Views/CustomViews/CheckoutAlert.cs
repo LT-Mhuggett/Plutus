@@ -71,6 +71,14 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
         private readonly Label _note = new() { FontSize = 12 };
 
         /// <summary>
+        /// WP14 — which machine the cashier should reach for. ⚠ Its own label, never merged into
+        /// <see cref="_note"/>: that one is rewritten every time the card fee goes on or comes off
+        /// (<see cref="SetTotal"/>), so sharing it would make the gateway line flicker away the
+        /// instant somebody typed in the card row — which is the exact moment it is being read.
+        /// </summary>
+        private readonly Label _cardHint = new() { FontSize = 12 };
+
+        /// <summary>
         /// What the basket owes RIGHT NOW — not readonly, because the card fee can change it while the
         /// screen is open. See <see cref="SetTotal"/>.
         /// </summary>
@@ -137,7 +145,12 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
         /// <param name="offerGiftCard">Whether to show the "Pay with a gift card" button below the
         /// tenders. ⚠ False while a card is already attached, while the basket SELLS a card, and on a
         /// refund — the same three cases the web till suppresses it in.</param>
-        public CheckoutAlert(long totalPence, IReadOnlyList<Row> rows, string note, bool offerGiftCard)
+        /// <param name="card">WP14 — how this tenant takes card payments. ⚠ Never null: the caller
+        /// resolves it through <see cref="PaymentGateway"/>, which answers standalone for a failed
+        /// lookup, an offline till and a tenant that has chosen no provider alike.</param>
+        public CheckoutAlert(
+            long totalPence, IReadOnlyList<Row> rows, string note, bool offerGiftCard,
+            CardPaymentDisplay card)
         {
             _totalPence = totalPence;
             _rows = rows?.ToList() ?? new List<Row>();
@@ -155,6 +168,15 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
             _note.Text = note ?? string.Empty;
             _note.IsVisible = !string.IsNullOrWhiteSpace(note);
             stack.Children.Add(_note);
+
+            // ⚠ WP14, and it sits WHERE THE WEB TILL PUTS IT — after the fee/refund notes, above the
+            // tender rows. An operator moving between tills mid-shift reads the same sentence in the
+            // same place (Matt, 2026-08-19). ⚠ Always shown, including the standalone default: the
+            // sentence a cashier needs most is the one that says nobody is going to drive the
+            // terminal for them.
+            _cardHint.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
+            _cardHint.FormattedText = Formatted(CardHintFor(card, refunding: totalPence < 0));
+            stack.Children.Add(_cardHint);
 
             foreach (var row in _rows) stack.Children.Add(TenderRow(row));
 
@@ -213,6 +235,99 @@ namespace Plutus.Frontend.AppClient.Views.CustomViews
 
         /// <summary>Can the sale actually be completed right now? ⚠ The button's own answer, not a second one.</summary>
         public bool CanComplete => _complete.IsEnabled;
+
+        // ── WP14: what the screen says about cards ────────────────────────────
+
+        /// <summary>
+        /// One run of the card sentence, and whether it is bold.
+        ///
+        /// ⚠⚠ A PLAIN RECORD AND NOT A `Span`, DELIBERATELY. `FormattedString` derives from
+        /// `Element`, so merely constructing one spins up the MAUI handler registry and throws a
+        /// `COMException` outside a UI host — which is to say the sentence would have been
+        /// untestable, on a screen whose whole family of defects (2026-08-10, ×3) shipped because
+        /// the checkout could only be checked by a person clicking it. The view turns these into
+        /// spans; the decision about what to say never touches a MAUI type.
+        /// </summary>
+        public sealed record HintSpan(string Text, bool Bold);
+
+        /// <summary>Turn the composed sentence into something a `Label` can show. ⚠ The only part of
+        /// WP14 that needs a UI host, and it decides nothing.</summary>
+        private static FormattedString Formatted(IReadOnlyList<HintSpan> spans)
+        {
+            var text = new FormattedString();
+            foreach (var s in spans)
+            {
+                text.Spans.Add(new Span
+                {
+                    Text = s.Text,
+                    FontAttributes = s.Bold ? FontAttributes.Bold : FontAttributes.None,
+                });
+            }
+            return text;
+        }
+
+        /// <summary>
+        /// The card-payment sentence, WORD FOR WORD the web till's `CheckoutDialog.tsx`.
+        ///
+        /// ⚠⚠ THE DECISION IS NOT MADE HERE. Which of the three cases applies is
+        /// <see cref="PaymentGateway.Resolve"/>'s answer, already taken before this is called — this
+        /// only turns a <see cref="CardPaymentDisplay"/> into English. That split is the house rule
+        /// (C1): the rule returns a verdict, the client composes the sentence, so nothing in
+        /// `Client.Core` carries a translatable string.
+        ///
+        /// ⚠⚠ AND THE RULE IS THE THING THAT MUST NOT DRIFT, not the wording. `PaymentGateway`'s own
+        /// header says it mirrors the web till, *"where the same three cases are decided inline"* —
+        /// so today the decision genuinely exists twice, in two languages, with nothing pinning the
+        /// copies. **C2 row added 2026-08-21.** A till that reads "waiting for the terminal" while
+        /// the other says "use the terminal by hand" is a queue and a confused cashier.
+        ///
+        /// ⚠ Bold on the provider name, because the web till bolds it — and the provider name is the
+        /// only part of this line that differs between two shops.
+        ///
+        /// ⚠ Static and free of any MAUI construction so it can be tested without a UI host, which
+        /// is the whole reason `Settle` was pulled out of the screen too.
+        /// </summary>
+        /// <param name="card">⚠ Null is tolerated and reads as standalone — the caller should never
+        /// pass it, but a blank line here would be a screen that says nothing about cards at all.</param>
+        /// <param name="refunding">Changes only the verb: money going back is not "approved".</param>
+        public static IReadOnlyList<HintSpan> CardHintFor(CardPaymentDisplay card, bool refunding)
+        {
+            // ⚠ "No provider chosen" is the ONLY case that is standalone AND not pending — a named
+            // provider without an integration is standalone too, and it must say the provider's name.
+            // ⚠ Tested by shape, not by comparing `Label` against `StandaloneLabel`: a tenant is free
+            // to call their provider anything, and one who typed "your card terminal" as a label
+            // would silently take the wrong branch.
+            if (card is null || (card.Flow == CardFlow.Standalone && !card.PendingIntegration))
+            {
+                // ⚠ The tenant has chosen no provider. Say what to DO, not what is unconfigured — a
+                // cashier does not care what the till failed to look up.
+                return new[]
+                {
+                    new HintSpan(refunding
+                        ? "💳 Card: refund on the chip & pin terminal, confirm it went through, then complete."
+                        : "💳 Card: take payment on the chip & pin terminal, confirm it's approved, then complete.",
+                        Bold: false),
+                };
+            }
+
+            var spans = new List<HintSpan>
+            {
+                new("💳 Card via ", Bold: false),
+                new(card.Label, Bold: true),
+            };
+
+            // ⚠⚠ THE CASE THAT EARNS THIS WHOLE FEATURE. A named provider with no wired integration
+            // is STILL the standalone flow — so a cashier who reads only "Card via Worldpay" waits
+            // for a terminal prompt that is never coming, with a customer in front of them.
+            if (card.PendingIntegration)
+            {
+                spans.Add(new HintSpan(
+                    " (integration pending — use the terminal and confirm approval as usual)", Bold: false));
+            }
+
+            spans.Add(new HintSpan(".", Bold: false));
+            return spans;
+        }
 
         // ── rows ──────────────────────────────────────────────────────────────
 

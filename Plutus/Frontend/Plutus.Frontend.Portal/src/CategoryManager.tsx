@@ -6,6 +6,7 @@ import {
   createCategory, deleteCategory, fetchCategories, reassignCategory, renameCategory,
   type Category,
 } from "./api.ts";
+import DialogX from "./DialogX.tsx";
 
 // WP4.4 category manager (webstore-critical). The missing editor: category CRUD existed in the API
 // but nothing consumed it. Delete is guarded server-side (409 while items reference it, or if it's
@@ -108,6 +109,7 @@ function CategoryDialog({ cat, onClose, onDone }: { cat: Category | null; onClos
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <form className="dialog" onSubmit={submit}>
+        <DialogX onClose={onClose} disabled={busy} />
         <h3>{cat ? "Rename category" : "New category"}</h3>
         <div className="form-grid">
           <label>Name<input value={name} onChange={(e) => setName(e.target.value)} required disabled={busy} /></label>
@@ -141,6 +143,7 @@ function ReassignDialog({ from, all, onClose, onDone }: { from: Category; all: C
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} disabled={busy} />
         <h3>“{from.name}” holds {from.itemCount} item{from.itemCount === 1 ? "" : "s"}</h3>
         <p className="muted small">Move them to another category. You can keep “{from.name}” or delete it once it's empty.</p>
         {others.length === 0

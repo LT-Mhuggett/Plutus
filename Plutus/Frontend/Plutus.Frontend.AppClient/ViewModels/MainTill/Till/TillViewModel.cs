@@ -3321,7 +3321,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             // two payments on one method two different objects.
             var models = payMeths.ToDictionary(kv => kv.Key, kv => kv.Value());
 
-            var (surchargeBp, surchargeFlat) = await Services.Storage.GatewaySurcharge.GetAsync();
+            // ⚠ ONE round trip for both. WP14's card display and the surcharge come off the SAME
+            // `GET /api/v1/payments/gateway/active` the checkout already made — see `GatewaySettings`,
+            // which used to keep two of the answer's five fields and throw the other three away.
+            var gateway = await Services.Storage.GatewaySettings.GetAsync();
+            var (surchargeBp, surchargeFlat) = (gateway.Bp, gateway.FlatPence);
 
             while (true)
             {
@@ -3354,7 +3358,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     };
                 }).ToList();
 
-                var alert = await ShowCheckoutAsync(sale, rows, refundOnly, surchargeBp, surchargeFlat);
+                var alert = await ShowCheckoutAsync(sale, rows, refundOnly, surchargeBp, surchargeFlat, gateway.Card);
 
                 // ⚠ THREE OUTCOMES, NOT TWO. "They want the gift-card box" is not a cancel: the basket
                 // stays, the card is scanned, and the screen reopens with a gift-card row on it.
@@ -3471,7 +3475,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             IReadOnlyList<Views.CustomViews.CheckoutAlert.Row> rows,
             bool refundOnly,
             int surchargeBp,
-            long surchargeFlat)
+            long surchargeFlat,
+            Plutus.Client.Core.CardPaymentDisplay card)
         {
             var note = refundOnly
                 ? "↩ This basket returns more than it sells, so it is a refund: enter how much goes "
@@ -3490,7 +3495,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     && GiftCardAvailablePence == 0
                     && !Basket.Any(r => r is BasketItem b
                         && string.Equals(b.Item?.Id, SharedKernel.GiftCards.ItemIdOne,
-                                         StringComparison.OrdinalIgnoreCase)));
+                                         StringComparison.OrdinalIgnoreCase)),
+                card);
 
             body.CardTenderedChanged += (_, cardNow) =>
             {

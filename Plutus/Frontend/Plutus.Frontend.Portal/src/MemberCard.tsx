@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchCompanies } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
+import DialogX from "./DialogX.tsx";
 
 // FE2: a printable loyalty card. Sized CR80 (85.6 × 54 mm — the standard bank/loyalty card), so it
 // prints onto card stock or adhesive card blanks from an ordinary printer; no hardware dependency
@@ -24,6 +25,7 @@ export default function MemberCard({ data, onClose }: { data: MemberCardData; on
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} />
         <h3 className="no-print">Membership card</h3>
         <p className="muted small no-print">
           Print onto card stock at 100% scale (no “fit to page”, or the barcode narrows and may not

@@ -3,6 +3,7 @@ import { ApiError } from "./api.ts";
 import { accessToken } from "./auth.ts";
 import CustomerDialog from "./CustomerDialog.tsx";
 import DataTable from "./DataTable.tsx";
+import DialogX from "./DialogX.tsx";
 
 // Phase 8 portal: the full customer book. The per-customer editor (details / credit / membership)
 // is the shared CustomerDialog, also opened from the Loyalty tab (WP5.1). WP1.3: the list is now the
@@ -78,6 +79,7 @@ export default function CustomersPage() {
       {creating && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setCreating(false)}>
           <form className="dialog" onSubmit={submitCreate}>
+            <DialogX onClose={() => setCreating(false)} />
             <h3>Add customer</h3>
             <label>Name <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
             <label>Email <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>

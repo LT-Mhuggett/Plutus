@@ -6,6 +6,7 @@ import {
   sendPasswordReset, setUserPassword, unassignRole,
   type Assignment, type AuditRow, type PermissionInfo, type PortalUser, type Role,
 } from "./api.ts";
+import DialogX from "./DialogX.tsx";
 
 /** Users & roles (WP3.1/3.2 + FE9): who holds which role at which scope, what each role actually
  *  grants, and per-user access. The permission catalogue itself is fixed in code — this surface
@@ -116,6 +117,7 @@ export default function UsersPage() {
       {creating && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setCreating(false)}>
           <form className="dialog" onSubmit={submitCreate}>
+            <DialogX onClose={() => setCreating(false)} />
             <h3>Add user</h3>
             <label>First name <input required value={form.fName} onChange={(e) => setForm({ ...form, fName: e.target.value })} /></label>
             <label>Last name <input value={form.lName} onChange={(e) => setForm({ ...form, lName: e.target.value })} /></label>
@@ -161,6 +163,7 @@ function PasswordDialog({ user, onClose, onDone }:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} disabled={busy} />
         <h3>{user.fName} {user.lName} — password</h3>
         {!user.hasLogin && (
           <p className="callout small">
@@ -227,6 +230,7 @@ function RemoveDialog({ user, onClose, onDone, onShowActivity }:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} disabled={busy} />
         <h3>Remove {fullName}?</h3>
         <p className="small">This will:</p>
         <ul className="small">
@@ -283,6 +287,7 @@ function ActivityDialog({ user, onClose }: { user: PortalUser; onClose: () => vo
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog wide">
+        <DialogX onClose={onClose} />
         <h3>Activity — {fullName}</h3>
         <p className="muted small">
           Administrative changes only (roles, prices, inventory edits, tills, settings). Everyday
@@ -438,6 +443,7 @@ function AccessDialog({ user, roles, perms, companyId, onClose }:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} />
         <h3>{user.fName} {user.lName} — access</h3>
         {error && <p className="error small">{error}</p>}
 

@@ -30,6 +30,26 @@ the order. Everything below it is reference.
 
 **§G56 · §G56a · §G52 · §G56e · §G56f.** Do not re-run these unless something near them changes.
 
+### 🆕🆕 NEWEST — 2026-08-21. ⚠⚠ **TWO OF THESE THREE ARE NOT IN ANY BUILD YOU CAN RUN YET**
+
+| Section | What | Where it is |
+|---|---|---|
+| **§G71** | **Every portal dialog now has a ✕** — 21 boxes, 12 pages | ⚠ **Portal 1.17.0 is BUILT NOWHERE.** Needs a portal build + deploy first |
+| **§G70** | **The web till's login screen says whether Plutus is reachable** | ⚠ **Web till 1.30.0 is BUILT NOWHERE.** Needs a build + deploy first |
+| **§G69** | **The checkout says which card machine to use** (WP14) | ⚠⚠ **Both halves.** MAUI's is in **1.111.0**, which **HAS NOT BEEN BUILT** — the artefact on the box is **1.110.0** and does not contain it |
+
+> ⚠⚠ **DO NOT RUN §G69–§G71 AGAINST WHAT IS ON THE BOX TODAY — YOU WILL BE TESTING THE OLD CODE AND
+> REPORTING IT BROKEN.** This warning is here because it has already happened once: on 2026-08-20 Matt
+> reported the till buttons walking off the bottom **for the second time** — *"I thought I had asked for
+> this already"* — and he had. The fix was real, committed, and sitting in an undeployed bundle while he
+> tested the previous version. **A fix that is built and not shipped is indistinguishable from a fix that
+> was never made.**
+>
+> ⚠ **Also: none of the 2026-08-21 TypeScript has been typechecked or unit-tested.** There is no node on
+> the Windows box, so `tsc --noEmit`, vitest and eslint have to run **on the Mac** before any of it is
+> built. The .NET half is verified — unit **1561**, integration **177**, MAUI **628**, architecture **31**,
+> all green.
+
 ### 🆕 New and ready to run — built and deployed 2026-08-19 (late)
 
 **§G57** carrier bags · **§G58** the one-screen checkout · **§G59** typed member numbers · **§G60**
@@ -1546,6 +1566,157 @@ screen — the figures are the point), and it does not show bold or double-heigh
 printer's emphasis has no honest text equivalent. Neither is a bug; report anything else.
 
 ---
+
+## G69. The checkout says which card machine to use — **till 1.111.0 + web till 1.30.0** (WP14)
+
+> ⚠⚠ **THE POINT OF THIS ONE IS THE SENTENCE, NOT A BUTTON.** Every payment provider on this platform
+> reports "no integration wired" today. So a shop that picks a provider in the portal and then reads
+> only *"Card via Worldpay"* has a cashier **standing still, waiting for a terminal prompt that is
+> never coming**, with a customer in front of them. The till now says which it is.
+>
+> ⚠ **Kapow is on the standalone default**, so the everyday line is the first one below. §G69c is the
+> only way to see the other two, and it needs a portal change you must put back.
+
+### G69a. The everyday line — both tills
+
+Put anything in the basket and open **Checkout** (MAUI: *Checkout*; web till: *Checkout*).
+
+**✅ Expected — the same sentence, in the same place on both tills**, above the payment rows and below
+the total:
+
+> 💳 Card: take payment on the chip & pin terminal, confirm it's approved, then complete.
+
+⚠ **Read it on both tills and say if the wording differs by so much as a word.** That is the check —
+an operator moving between tills mid-shift should not meet two different explanations of the same
+machine.
+
+⚠ It should be there **whether or not you intend to pay by card**, and it must not move or disappear
+when you type into the card row. (If it vanishes when the card fee appears, say so — that is the
+exact bug the separate label was written to avoid.)
+
+### G69b. A refund says "refund", not "approved"
+
+Ring a **return** so the basket owes money back, and open Checkout.
+
+**✅ Expected:**
+
+> 💳 Card: refund on the chip & pin terminal, confirm it went through, then complete.
+
+⚠ Money going back is not "approved". If it still says "take payment… confirm it's approved", say so.
+
+### G69c. ⚠ The case this was built for — a provider with no integration
+
+**Portal → Company → Card payments.** Note what the provider is set to now, **write it down**, then
+set it to any real provider (e.g. Worldpay) and save.
+
+Back on the till, open Checkout again. ⚠ **MAUI reads this at checkout-open**, so just close and
+reopen the checkout; you do not need to restart.
+
+**✅ Expected, on both tills:**
+
+> 💳 Card via **Worldpay** (integration pending — use the terminal and confirm approval as usual).
+
+⚠⚠ **The bracketed half is the whole feature.** If you see *"Card via Worldpay"* with nothing after
+it, stop and say so — that is a cashier waiting for a machine that will never beep.
+
+⚠ **PUT THE PROVIDER BACK** to what you wrote down, and confirm the till returns to the §G69a
+sentence.
+
+### G69d. It survives the network going away
+
+With the provider still set (before you put it back), pull the network on the MAUI till and open
+Checkout.
+
+**✅ Expected:** it still says **Card via Worldpay (integration pending…)** — the setting is cached.
+
+Now try it on a till that has **never** been online since this build (or clear the till's local data
+if that is easy). **✅ Expected:** the §G69a standalone sentence, **not** a blank line and not an
+error. A till that cannot ask must still tell the cashier what to do.
+
+## G70. The web till's login screen says whether Plutus is reachable — **web till 1.30.0** (WP16a)
+
+> ⚠⚠ **MAUI HAS HAD THIS AND THE WEB TILL HAD NOTHING** — a shop whose backend was down got a failed
+> sign-in it could not tell from a wrong password. This is a two-minute check and it is worth doing
+> **beside the MAUI login screen**, because matching them is the point.
+
+### G70a. Signed out, connected
+
+Sign out of the web till (or open it in a private window).
+
+**✅ Expected:** under the **Sign in** button, a **green dot** and:
+
+> Connected to Plutus.
+
+with a smaller grey line beneath giving the server version (e.g. *Server v1.20.0*).
+
+⚠ **Open MAUI's login screen next to it.** The dot, the sentence and the smaller line should read the
+same. Say so if they do not.
+
+### G70b. Tap it to re-check
+
+Click the badge.
+
+**✅ Expected:** it says *"Checking connection…"* briefly, then settles back. It must **not** submit
+the login form, navigate anywhere, or clear what you have typed in the email/password boxes.
+⚠ Type something into both boxes first, then click it — losing what you typed would be worse than
+having no badge at all.
+
+### G70c. ⚠ The one that matters — the network down
+
+Turn off wifi / pull the cable, then reload the login page.
+
+**✅ Expected:** a **red dot** and:
+
+> No network — this till is offline.
+
+⚠ **Now try to sign in anyway.** It must still work if you have signed in on this browser before —
+offline sign-in is a supported path and the badge must not block it. If the badge stops you signing
+in, that is a fault, not a feature.
+
+### G70d. Network up, server down (ask before doing this one)
+
+⚠ **This one needs the backend stopped, so do not do it during trading.** With the network up and the
+Plutus backend stopped:
+
+**✅ Expected:** a **red dot** and a *different* sentence:
+
+> Can't reach Plutus — the network is up but the server didn't answer.
+
+⚠⚠ **THE TWO SENTENCES MUST DIFFER.** That difference is the entire feature: one sends the operator
+to check a cable, the other tells them there is nothing to do at the till. If both cases say the same
+thing, this is not working, however red the dot is.
+
+## G71. Every portal dialog has a ✕ — **portal 1.17.0**
+
+> ⚠ **Five minutes, and it is clicking rather than reading.** Matt, 2026-08-18: *"add x's to all
+> relevant boxes … so that it is not missed in future."* The portal had **none** — found by accident
+> on 2026-08-20, closed on 2026-08-21 across 21 dialogs.
+
+Open each of these and check for a **✕ in the top-right corner** of the box, then click it and check
+the box closes **without saving anything**:
+
+| Page | The box to open |
+|---|---|
+| **Inventory → Categories** | *New category*, and the *move items* box you get when deleting a category that holds items |
+| **Inventory → an item** | the item editor |
+| **Customers** | *Add customer*, and a customer's detail box |
+| **Customers → a member** | the membership card |
+| **Loyalty** | *Add member*, and *Manage tiers* |
+| **Gift cards** | *Issue a card*, a card's detail, and the printable card |
+| **Prices** | the price-edit box |
+| **Stock** | the stock-adjust box |
+| **Users** | *Add user*, *password*, *remove*, *activity*, *access* — five boxes |
+| **Webstore** | the *bind to a web product* box |
+| **Sales → a sale** | the sale detail |
+
+**✅ Expected, every time:** a ✕ top-right; clicking it closes the box; nothing is saved.
+
+⚠ **On the boxes that are saving something when you press Save** (users, prices, stock), start a save
+and check the ✕ **greys out while it is working** — closing mid-save leaves the page waiting on a
+request whose box has gone.
+
+⚠ **Escape and clicking the grey backdrop should also close every one of them.** They always did; the
+✕ is there because nothing told you so.
 
 # §W — WEB till checks
 

@@ -4,6 +4,7 @@ import {
   type LoyaltyTier, type LoyaltyTierInput,
 } from "./api.ts";
 import { ask } from "./Ask.tsx";
+import DialogX from "./DialogX.tsx";
 
 // FE1: the loyalty tier catalogue manager — this is where "specific tiers" are defined so a
 // membership is ASSIGNED a level instead of re-typing a name + rate every time. Writes are gated
@@ -59,6 +60,7 @@ export default function TierManagerDialog({ onClose }: { onClose: () => void }) 
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} />
         <div className="toolbar" style={{ justifyContent: "space-between" }}>
           <h3>Loyalty tiers</h3>
           <button className="primary small" onClick={() => setEditing("new")}>+ Add tier</button>
@@ -144,6 +146,7 @@ function TierForm({ tier, onClose, onDone }:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <form className="dialog" onSubmit={submit}>
+        <DialogX onClose={onClose} disabled={busy} />
         <h3>{tier ? `Edit ${tier.name}` : "Add tier"}</h3>
         <div className="form-grid">
           <label>Name <input value={name} onChange={(e) => setName(e.target.value)} maxLength={50} required disabled={busy} placeholder="e.g. Gold" /></label>

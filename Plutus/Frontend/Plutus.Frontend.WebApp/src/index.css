@@ -1615,3 +1615,62 @@ button.primary.slim {
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0 0 12px; }
 .facts dt { opacity: 0.7; }
 .facts dd { margin: 0; }
+
+/* ── WP16a: the login screen's connection badge ──────────────────────────────
+   ⚠⚠ MAUI HAS HAD THIS SINCE WP16a AND THIS TILL HAD NOTHING. Matt, 2026-08-19: *"I need the
+   functionality and look and feel to be the same across both tills."* Same three states, same
+   sentences, same dot, same tap-to-refresh (`LoginView.xaml` 72–97).
+
+   ⚠ A `<button>` because it is tappable and a keyboard user must reach it — so the default button
+   chrome has to be undone explicitly, and `text-align: left` restored.
+
+   ⚠ COLOUR IS NEVER THE ONLY SIGNAL. The dot is redundant with the sentence beside it, which is why
+   a colour-blind operator loses nothing: the words say which of the three faults it is. */
+.login-conn {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.login-conn:disabled {
+  cursor: progress;
+}
+
+.login-conn:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.login-conn .dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--ink-muted);
+}
+
+/* ⚠ The detail line spans BOTH columns, indented under the summary rather than beside the dot —
+   it is for whoever the operator rings, not for the sales floor. */
+.login-conn .detail {
+  grid-column: 2;
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+}
+
+.login-conn.good .dot { background: light-dark(#15803d, #4ade80); }
+
+/* ⚠ Amber, not red: the server is right there and a DEPLOY fixes it, not a cable. Same split as
+   `TillConnectionCheck.ColourFor` — colouring one indicator by two unrelated states is how a screen
+   stops being trusted. */
+.login-conn.warn .dot { background: light-dark(#b45309, #fbbf24); }
+
+.login-conn.bad .dot { background: light-dark(#b3261e, #ff9494); }

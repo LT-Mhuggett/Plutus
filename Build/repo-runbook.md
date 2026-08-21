@@ -529,6 +529,42 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     check reported `ExecuteAlterTransaction` as broken when it was already fixed — it looked for a
     `finally` and missed an explicit `IsBusy = false`. **Read the call site before believing the sweep.**
 
+22. ⚠⚠ **`perl -0pi -e` DOUBLE-ENCODES EVERY ⚠ IN THE FILE — and this repo is full of them.**
+    Cost time on 2026-08-21 and corrupted a source file that had to be reverted.
+
+    With no encoding layer, perl reads the file's UTF-8 bytes as individual Latin-1 characters. The
+    moment your **replacement** contains one character above U+00FF (`⚠`, `—`, `…`), perl re-encodes
+    the *entire* output string as UTF-8 — so every ⚠ that was already in the file becomes `â\x9a\xa0`.
+    The only warning is a single line: *"Wide character in print"*. The build still succeeds; the
+    comments are just quietly mangled.
+
+    ✅ **Pass the replacement as raw BYTES.** Either put it in an environment variable (perl reads
+    `%ENV` as bytes, so nothing is ever "wide"):
+
+    ```bash
+    REPL='            // ⚠ the new line' perl -0pi -e 's{\Qold\E}{$ENV{REPL}}' File.cs
+    ```
+
+    …or spell the characters as byte escapes in a `/e` replacement: `\x{e2}\x{9a}\x{a0}` for ⚠,
+    `\x{e2}\x{80}\x{94}` for —, `\x{e2}\x{80}\x{a6}` for …. ⚠ Get all three bytes: `\x{e2}\x{9a}`
+    alone silently produces a `�`.
+
+    ⚠ **And read `git diff` after every scripted edit.** Both faults above were invisible in the
+    tool's own output and obvious in the diff.
+
+23. ⚠⚠ **A `perl -0pi` one-liner that reassigns `@ARGV` MID-STREAM TRUNCATES THE FILE TO ZERO BYTES.**
+    `local(@ARGV, $/) = "other-file"` inside the `-e` script — a common idiom for slurping a
+    replacement from disk — destroys the in-place edit's own file handle. `CheckoutDialog.tsx` went to
+    0 bytes on 2026-08-21 and was recovered only because there was a commit an hour old.
+
+    ✅ Read the auxiliary file in a **separate** `perl -e` step, or use `$ENV{}`. ⚠ **And commit before
+    a batch of scripted edits, not after** — that commit is what made this a two-minute recovery
+    instead of an afternoon.
+
+    ⚠ There is no python on this box (`python3` resolves to the Microsoft Store shim and exits 49), and
+    **no node either** — so perl and `sed` are the scripting tools available on Windows, and these two
+    traps are the price.
+
 
 ⚠ **The standing check these came from:** a green suite proves a component works, never that
 anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillStore.SearchAsync` were

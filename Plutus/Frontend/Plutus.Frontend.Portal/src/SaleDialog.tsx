@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchSaleDetail, gbp, type SaleDetail } from "./api.ts";
 import Barcode39 from "./Barcode39.tsx";
+import DialogX from "./DialogX.tsx";
 
 // One sale, fully expanded: details view + a printable copy-receipt with its scannable barcode.
 // Extracted from Dashboard.tsx (WP3.2) so both the Dashboard drill-down and the Reporting→Custom
@@ -45,6 +46,7 @@ export default function SaleDialog({ id, onClose }: { id: string; onClose: () =>
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} />
         <div className="r-row">
           <h3 className="grow">Sale {id.slice(0, 8)}…</h3>
           {sale && <button className="ghost small" onClick={() => setAsReceipt((v) => !v)}>{asReceipt ? "Details" : "View receipt"}</button>}

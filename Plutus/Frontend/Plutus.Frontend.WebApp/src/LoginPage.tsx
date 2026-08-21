@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { login, serverAnswered, BUSINESS_NAME } from "./api.ts";
 import { setSession, type Session } from "./session.ts";
 import { PlutusMark } from "./PlutusMark.tsx";
 import { sessionExpiresAt, signInOffline } from "./offlineLogin.ts";
+import { checkConnection, clockIsSuspect, toneFor, type ConnectionStatus } from "./connectionCheck.ts";
 
 interface Props {
   onLogin: (session: Session) => void;
@@ -14,6 +15,36 @@ export default function LoginPage({ onLogin }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   /** W-P4: a stale-but-usable till says so after signing in offline. */
+
+  // ── WP16a: can this till see Plutus? ──────────────────────────────────────
+  //
+  // ⚠⚠ MAUI'S LOGIN SCREEN HAS HAD THIS SINCE WP16a AND THIS ONE HAD NOTHING, so a shop whose
+  // backend was down met a failed sign-in it could not tell from a wrong password. Matt, 2026-08-19:
+  // *"I need the functionality and look and feel to be the same across both tills."* Same three
+  // states, same sentences, same dot, same tap-to-refresh — `LoginView.xaml` lines 72–97.
+  //
+  // ⚠ IT NEVER GATES SIGN-IN. A broken connection check must not be the reason nobody can sign in,
+  // and offline sign-in (W-P4) is a supported path — this only tells the operator which fault they
+  // are looking at.
+  const [conn, setConn] = useState<ConnectionStatus | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const refreshConnection = useCallback(async () => {
+    setChecking(true);
+    try {
+      setConn(await checkConnection());
+    } catch {
+      // ⚠ `checkConnection` is documented never to throw; if that ever changes, a login screen must
+      // still render. Show nothing rather than a stuck spinner.
+      setConn(null);
+    } finally {
+      setChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshConnection();
+  }, [refreshConnection]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,6 +133,37 @@ export default function LoginPage({ onLogin }: Props) {
 
         <button className="primary" type="submit" disabled={busy || !email.trim() || !password}>
           {busy ? "Signing in…" : "Sign in"}
+        </button>
+
+        {/* WP16a — the connection badge, in MAUI's own words and order.
+            ⚠ A BUTTON, not a div: it is tappable (MAUI has a TapGestureRecognizer on the same row)
+            and a keyboard user must be able to reach it. `type="button"` because it sits inside the
+            login form and must never submit it.
+            ⚠ Below the sign-in button, so it can never push the fields around while it resolves. */}
+        <button
+          type="button"
+          className={`login-conn ${conn ? toneFor(conn.state) : "checking"}`}
+          onClick={() => void refreshConnection()}
+          disabled={checking}
+          title="Check the connection again"
+        >
+          <span className="dot" aria-hidden="true" />
+          <span className="summary">
+            {checking || !conn ? "Checking connection…" : conn.summary}
+          </span>
+          {/* ⚠ The diagnostic line is for whoever the operator RINGS, not for the sales floor —
+              which is why it is smaller and separate rather than folded into the summary. */}
+          {!checking && conn && (clockIsSuspect(conn) || conn.detail) && (
+            <span className="detail">
+              {clockIsSuspect(conn)
+                // ⚠ Worth saying out loud: device tokens expire and VAT bands are effective-dated,
+                // so a till an hour out can have a day's takings judged against a different instant
+                // — and nothing else in the app would ever mention it.
+                ? `⚠ This till's clock is out by ${Math.round(Math.abs(conn.clockSkewMs ?? 0) / 1000)}s.`
+                  + (conn.detail ? ` ${conn.detail}` : "")
+                : conn.detail}
+            </span>
+          )}
         </button>
 
         <p className="muted small centre">Test environment</p>

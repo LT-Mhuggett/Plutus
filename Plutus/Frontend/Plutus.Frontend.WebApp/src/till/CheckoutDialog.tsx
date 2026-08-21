@@ -10,6 +10,7 @@ import {
 } from "./tendering.ts";
 import type { BasketLine } from "./basket.ts";
 import { cachedSurcharge, cardIsTendered, rememberSurcharge, surchargeLine } from "./surcharge.ts";
+import { isUnconfigured, resolveCardPayment } from "./cardPayment.ts";
 import type { ReceiptData } from "./Receipt.tsx";
 
 // Synthetic pay-method id for the store-credit tender (Phase 8 retrofit). Real PayMethod ids
@@ -176,6 +177,14 @@ export default function CheckoutDialog(
   const tenders: PayMethod[] = card
     ? [...methods, { id: GIFTCARD_PAYID, name: `Gift card ${card.pretty}`, charge: 0, minimumCharge: 0, isChangeable: false, isCashBackable: false }]
     : methods;
+
+  // WP14 — which machine the cashier reaches for. ⚠ `resolveCardPayment`, never a test on
+  // `gateway.provider` here: that decision is the C2 twin of `PaymentGateway.Resolve` and MAUI takes
+  // it the same way. ⚠ `gateway` is null until the fetch lands and stays null if it fails, and both
+  // resolve to standalone — the flow the till would have run anyway. A cosmetic lookup must never
+  // stop a card sale.
+  // ⚠ Named `cardPayment` and not `card`, which in this component is the GIFT card.
+  const cardPayment = resolveCardPayment(gateway);
 
   // ── W-P7: the card surcharge ────────────────────────────────────────────────
   //
@@ -374,16 +383,22 @@ export default function CheckoutDialog(
           </p>
         )}
 
-        {/* 17.2 card-payment setup hint: standalone (default) = external chip & pin, cashier
-            confirms; an integrated provider shows its name until its integration is wired. */}
-        {(!gateway || gateway.provider === "standalone") ? (
+        {/* WP14 card-payment hint: standalone (default) = external chip & pin, cashier confirms; a
+            chosen provider shows its name, and says so until its integration is wired.
+            ⚠⚠ THE DECISION IS `cardPayment.ts`, THE C2 TWIN OF `PaymentGateway.cs`. It used to be an
+            inline `gateway.provider === "standalone"` right here, and it diverged from MAUI in three
+            ways nobody had noticed: it was case- and whitespace-sensitive (so "Standalone" and
+            " standalone " both rendered "💳 Card via Standalone (integration pending…)"), an empty
+            provider rendered "💳 Card via " with nothing after it, and a provider with no label did
+            the same instead of falling back to the provider key. */}
+        {isUnconfigured(cardPayment) ? (
           <p className="muted small">
             💳 Card: {refunding
               ? "refund on the chip & pin terminal, confirm it went through, then complete."
               : "take payment on the chip & pin terminal, confirm it's approved, then complete."}
           </p>
         ) : (
-          <p className="muted small">💳 Card via <strong>{gateway.label}</strong>{!gateway.integrated && " (integration pending — use the terminal and confirm approval as usual)"}.</p>
+          <p className="muted small">💳 Card via <strong>{cardPayment.label}</strong>{cardPayment.pendingIntegration && " (integration pending — use the terminal and confirm approval as usual)"}.</p>
         )}
 
         {/* FE7: take a gift card as payment. Scan it (keyboard-wedge types + Enter) or type the code;

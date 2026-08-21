@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError } from "./api.ts";
 import { accessToken } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
+import DialogX from "./DialogX.tsx";
 
 // WP5.2 stock screens: central view (all locations) / per-store view (location filter),
 // per-item movements drill, manual adjustment, stock-take count, transfers + in-transit.
@@ -299,6 +300,7 @@ function ItemDialog({ level, locations, onClose }: { level: LevelRow; locations:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} />
         <h3>{level.itemIdOne} — {level.name ?? "?"} @ {level.location}</h3>
         {error && <p className="error small">{error}</p>}
 

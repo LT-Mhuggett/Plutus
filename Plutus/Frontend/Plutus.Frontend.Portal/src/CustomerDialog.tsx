@@ -3,6 +3,7 @@ import { ApiError, fetchLoyaltyTiers, gbp, type LoyaltyTier } from "./api.ts";
 import { accessToken } from "./auth.ts";
 import Barcode39 from "./Barcode39.tsx";
 import MemberCard from "./MemberCard.tsx";
+import DialogX from "./DialogX.tsx";
 
 // The full customer editor (details / store credit / membership), extracted from CustomersPage
 // (WP5.1) so BOTH the Customers tab and the Loyalty tab open the same dialog — loyalty is now
@@ -68,6 +69,7 @@ export default function CustomerDialog({ id, onClose }: { id: string; onClose: (
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog">
+        <DialogX onClose={onClose} />
         {error && <p className="error small">{error}</p>}
         {detail && (
           <>

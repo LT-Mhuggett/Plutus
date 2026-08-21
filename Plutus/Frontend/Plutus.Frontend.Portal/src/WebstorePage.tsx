@@ -8,6 +8,7 @@ import {
 } from "./api.ts";
 import DataTable from "./DataTable.tsx";
 import { ask } from "./Ask.tsx";
+import DialogX from "./DialogX.tsx";
 
 // FE4.3 row aliases for the alignment tables (the API groups them under AlignmentResp).
 type PriceDiffRow = AlignmentRow;
@@ -183,6 +184,7 @@ function ReviewQueue({ id }: { id: string }) {
       {bindFor && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setBindFor(null)}>
           <div className="dialog">
+            <DialogX onClose={() => setBindFor(null)} />
             <h3>Bind {bindFor.sku}</h3>
             <p className="muted small">Enter the existing catalogue item's barcode this web SKU corresponds to.</p>
             <label>Barcode <input autoFocus value={barcode} onChange={(e) => setBarcode(e.target.value)} /></label>

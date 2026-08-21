@@ -3,6 +3,7 @@ import { createCustomer, fetchLoyalty, gbp, type LoyaltyRow } from "./api.ts";
 import DataTable from "./DataTable.tsx";
 import CustomerDialog from "./CustomerDialog.tsx";
 import TierManagerDialog from "./TierManagerDialog.tsx";
+import DialogX from "./DialogX.tsx";
 
 /** Members & store-credit view — customers who are members or hold a credit balance. WP5.1: now
  *  EDITABLE where you look at it — each row opens the shared CustomerDialog (details/credit/
@@ -105,6 +106,7 @@ export default function LoyaltyPage() {
       {adding && (
         <div className="overlay" onClick={(e) => e.target === e.currentTarget && setAdding(false)}>
           <form className="dialog" onSubmit={submitAdd}>
+            <DialogX onClose={() => setAdding(false)} />
             <h3>Add member</h3>
             <label>Name <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
             <label>Email <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>

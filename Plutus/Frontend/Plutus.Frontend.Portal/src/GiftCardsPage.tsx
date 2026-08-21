@@ -9,6 +9,7 @@ import {
 import Barcode39 from "./Barcode39.tsx";
 import DataTable from "./DataTable.tsx";
 import { ask } from "./Ask.tsx";
+import DialogX from "./DialogX.tsx";
 
 /**
  * FE7 gift cards. Codes are minted here (worthless until a till sells one), sold and spent at the
@@ -288,6 +289,7 @@ function GenerateDialog({ onClose, onDone }: { onClose: () => void; onDone: (car
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <form className="dialog" onSubmit={submit}>
+        <DialogX onClose={onClose} disabled={busy} />
         <h3>Generate gift cards</h3>
         <p className="muted small">
           Creates unique codes to print. They are <strong>worthless until a till sells one</strong>, so it's
@@ -325,6 +327,7 @@ function BatchPrintDialog({ cards, onClose }: { cards: GeneratedCard[]; onClose:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog wide">
+        <DialogX onClose={onClose} />
         <h3 className="no-print">{cards.length} card(s) ready to print</h3>
         <p className="muted small no-print">
           Print, then keep the sheet behind the counter. A card only becomes spendable when a till sells
@@ -387,6 +390,7 @@ function CardDialog({ code, onClose, onNotice }:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="dialog wide">
+        <DialogX onClose={onClose} disabled={busy} />
         <h3>Gift card {card ? card.pretty : code}</h3>
         {error && <p className="error small">{error}</p>}
         {!card ? <p className="muted">Loading…</p> : (
@@ -541,6 +545,7 @@ function PrintDialog({ card, shopName, kind, onClose }:
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog wide">
+        <DialogX onClose={onClose} />
         <div className={kind === "a4" ? "gc-a4" : "gc-voucher"}>
           <div className="gc-shop">{shop}</div>
           <div className="gc-title">{kind === "a4" ? "Gift Certificate" : "GIFT CARD"}</div>
