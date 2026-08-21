@@ -28,9 +28,21 @@ namespace Plutus.Webstore
             // review queue (unknown SKU) instead of silently selling something withdrawn.
             var hit = _db.Items.AsNoTracking()
                 .Where(i => i.IdOne == s && i.BinnedAtUtc == null)
-                .Select(i => new { i.IdTwo })
+                .Select(i => new { i.IdTwo, i.IdOne })
                 .FirstOrDefault();
-            return hit is null ? (Guid?)null : DeterministicGuid.ForItem(hit.IdTwo, s);
+
+            // ⚠⚠ HASHED FROM THE ITEM'S OWN IdOne, NOT FROM THE SKU STRING WE WERE GIVEN.
+            // Behaviour-neutral today — the query matched on `IdOne`, so `s == hit.IdOne` always —
+            // and it was `ForItem(hit.IdTwo, s)` until 2026-08-20. Corrected as part of the
+            // multi-barcode work (plan D11) because the day this resolver learns about aliases, the
+            // old form would mint a DIFFERENT item GUID for the same physical item than every till
+            // does, and a webstore sale would land under an id nothing else uses.
+            //
+            // ⚠ This resolver is still EXACT-IdOne-only: a Woo SKU matching an alias does not
+            // resolve, and routes to the review queue as an unknown SKU. Making it alias-aware is
+            // deliberately out of scope (plan §8) — `WooOrderMapper` writes the raw SKU onto the
+            // sale line, and that would have to be canonicalised first.
+            return hit is null ? (Guid?)null : DeterministicGuid.ForItem(hit.IdTwo, hit.IdOne);
         }
     }
 }

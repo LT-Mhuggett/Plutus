@@ -406,7 +406,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                 fields, "Send to Plutus", true, "Raise a ticket", "Cancel".Translate());
 
-            if (answers is null) return;
+            // ⚠ `Count == 0`, NOT `is null` — the helper returns an EMPTY dictionary on back-out
+            // (`?? new Dictionary<…>()` in `InputAlertHelper.ShowAsync`), never null.
+            if (answers.Count == 0) return;
 
             answers.TryGetValue(1, out string subject);
             answers.TryGetValue(2, out string body);
@@ -474,7 +476,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                 fields, "Send reply", true, ticket.Subject, "Cancel".Translate());
 
-            if (answers is null) return;
+            // ⚠ `Count == 0`, NOT `is null` — the helper returns an EMPTY dictionary on back-out.
+            if (answers.Count == 0) return;
             answers.TryGetValue(1, out string reply);
 
             if (string.IsNullOrWhiteSpace(reply)) return;

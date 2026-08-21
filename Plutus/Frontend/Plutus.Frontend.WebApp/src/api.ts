@@ -6,6 +6,8 @@ import { fetchCarrierBags as fetchBagList, type CarrierBag } from "./till/carrie
 import { getSession, setSession, type Session } from "./session.ts";
 import { accessToken, signOut } from "./auth.ts";
 import {
+  cacheAliases,
+  cachedItemByAlias,
   cachedItemById,
   cachedItemSearch,
   cachedMeta,
@@ -16,6 +18,7 @@ import {
   queueSale,
   queuedSales,
   removeQueued,
+  type ItemAlias,
 } from "./offline.ts";
 import { businessDay, getDeviceCredential, itemGuid, postSale, uuidv7, type IngestLine, type IngestSaleRequest } from "./pipeline.ts";
 import { getPrefs } from "./prefs.ts";
@@ -172,6 +175,11 @@ export interface Discount {
   autoApply: boolean;
 }
 
+/** One scheduled discount rule as `GET /api/v1/discounts/rules` sends it. ⚠ The evaluation lives in
+ *  `till/scheduledDiscounts.ts`, whose `ScheduledDiscount` this must stay assignable to — the shape
+ *  is declared there because that is where the C2 twin is pinned. */
+export type DiscountRule = import("./till/scheduledDiscounts.ts").ScheduledDiscount;
+
 export interface SaleTransaction {
   amount: number;
   itemCostExPrice: number;
@@ -279,16 +287,34 @@ export async function searchItemsOfflineAware(term: string): Promise<Item[]> {
   }
 }
 
-/** Exact barcode/id lookup; null when unknown. Falls back to the offline cache. */
+/**
+ * Exact barcode/id lookup; null when unknown. Falls back to the offline cache.
+ *
+ * ⚠⚠ AN ITEM MAY HAVE MORE THAN ONE BARCODE (2026-08-20, `Build/archive/Multi-barcode plan.md`). The
+ * server resolves an ADDITIONAL barcode for us — `GET /api/Item/{code}` consults the alias table on
+ * a miss — and this function resolves one from the cache when the server cannot be asked, or answers
+ * 404 because it does not know the code at all.
+ *
+ * ⚠⚠ A 404 NOW CONSULTS THE CACHE, AND IT DID NOT BEFORE. The old code returned null the instant the
+ * server said 404, so a till with a perfectly warm cache would fall through to the unknown-scan
+ * "Add this item" offer — which mints a DUPLICATE item on the scanned code. A stale cache hit is the
+ * better failure by a wide margin: the worst case is an item the portal has since withdrawn, which
+ * the next sync corrects, against a duplicate catalogue row that somebody has to find and merge.
+ *
+ * ⚠ Whatever comes back is the CANONICAL item — its `idOne` is its own, never the scanned alias
+ * (plan D2). Everything downstream (pricing, basket merge, the deterministic item GUID, the sale
+ * line) keys on that, and an alias leaking into it would create a phantom stock row and drop the
+ * line's VAT band, both silently.
+ */
 export async function findItemById(id: string): Promise<Item | null> {
   try {
     const res = await fetch(`/api/Item/${encodeURIComponent(id)}`, { headers: headers() });
     handle401(res);
-    if (res.status === 404) return null;
+    if (res.status === 404) return (await cachedItemById(id)) ?? (await cachedItemByAlias(id)) ?? null;
     if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
     return res.json();
   } catch {
-    return (await cachedItemById(id)) ?? null;
+    return (await cachedItemById(id)) ?? (await cachedItemByAlias(id)) ?? null;
   }
 }
 
@@ -339,6 +365,34 @@ export async function fetchDiscounts(): Promise<Discount[]> {
     const cached = await cachedMeta<Discount[]>("discounts");
     if (cached) return cached;
     throw e;
+  }
+}
+
+/**
+ * The scheduled discount rules this shop has published — "Wednesday Warhammer".
+ *
+ * ⚠⚠ CACHED, AND THE CACHE IS WHAT MAKES THIS WORK AT ALL. The rules carry their schedule RAW and
+ * the till decides whether it is Wednesday, so a cached rule set keeps discounting correctly for as
+ * long as the till keeps trading — which is the entire reason the server does not pre-evaluate it.
+ *
+ * ⚠ FAILS TO AN EMPTY LIST, never a throw. A till that could not fetch its rules must still sell:
+ * the worst case of an empty list is a customer charged full price, which the operator can fix by
+ * hand at the counter, while a throw on the selling path is a dead till. (The FIRST fetch on a brand
+ * new till has no cache, and that is the case this protects.)
+ *
+ * ⚠ Deliberately NOT merged with `fetchDiscounts` above, which reads the LEGACY list for the manual
+ * picker. Two audiences, two shapes: that one is "what may an operator choose", this one is "what
+ * applies by itself". Collapsing them would mean the picker had to filter on `autoApply` and the
+ * resolver on `active`, in two places each.
+ */
+export async function fetchDiscountRules(): Promise<DiscountRule[]> {
+  try {
+    const r = await get<{ rules: DiscountRule[] }>(`/api/v1/discounts/rules`);
+    const rules = r?.rules ?? [];
+    void cacheMeta("discountRules", rules);
+    return rules;
+  } catch {
+    return (await cachedMeta<DiscountRule[]>("discountRules")) ?? [];
   }
 }
 
@@ -634,8 +688,89 @@ export async function syncCatalogue(onProgress?: (n: number) => void): Promise<n
     if (batch.length < 2000) break;
     page++;
   }
+
+  // ⚠⚠ MULTI-BARCODE (2026-08-20): the items' ADDITIONAL barcodes, cached alongside them so an alias
+  // scans with the line down. ⚠ AFTER the items, deliberately: an alias resolves BY looking its item
+  // up, so aliases without items would resolve to nothing.
+  //
+  // ⚠ FAILURE KEEPS THE LAST-KNOWN-GOOD SET rather than clearing it. A promotions-style "fail to
+  // nothing" would be wrong here: an alias that stops resolving sends the operator into the
+  // unknown-scan "Add this item" flow, which mints a duplicate catalogue row. Keeping yesterday's
+  // aliases is strictly safer than having none.
+  try {
+    await cacheAliases(await fetchItemBarcodes());
+  } catch {
+    // A till that cannot refresh its aliases keeps the ones it has. Silent on purpose — this runs
+    // fire-and-forget at boot and must never interrupt selling.
+  }
+
   return total;
 }
+
+/**
+ * Every additional barcode this shop has, and the item each resolves to.
+ *
+ * ⚠ The WHOLE set in one call — the web till holds no catalogue cursor and re-pulls on every boot,
+ * so a per-item endpoint would be one request per item. `cacheAliases` replaces the local set with
+ * it, which is what makes a barcode REMOVED in the portal stop scanning here.
+ */
+export const fetchItemBarcodes = () => get<ItemAlias[]>(`/api/v1/items/barcodes`);
+
+// ── managing an item's additional barcodes, from the till's item editor ──────
+//
+// ⚠ Matt, 2026-08-20: *"When I am trying to edit an item in the portal or on the webtill, I cannot
+// edit or add a new barcode?"* — so the till's Inventory Management editor gets the same controls the
+// portal has. ⚠ Gated on `portal.stock.adjust` server-side; `canManageBarcodes()` hides the UI for an
+// operator who does not hold it rather than showing them a control that refuses.
+
+/**
+ * ⚠⚠ THROWS THE SERVER'S SENTENCE, NOT `API 400 {"detail":…}`. The shared `send` helper wraps a
+ * failure as the status plus the raw body, which is right for a background call nobody reads and wrong
+ * here: these refusals ("That is the shape of a membership card…") are written to be shown to whoever
+ * is trying to set the barcode up, and a wrapped JSON blob in front of them is not that.
+ */
+async function barcodeCall(method: string, url: string, body?: unknown): Promise<void> {
+  const res = await fetch(url, {
+    method,
+    headers: { ...headers(), "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  handle401(res);
+  if (res.ok) return;
+
+  let detail = `${res.status}`;
+  try { detail = (await res.json())?.detail ?? detail; } catch { /* keep the status */ }
+  throw new Error(detail);
+}
+
+/** Give an item another barcode. ⚠ Refusals arrive as a SENTENCE — show it verbatim; the server owns
+ *  what may be a barcode (reserved card shapes, bag ids, platform ids, clashes). */
+export const addItemBarcode = (itemIdOne: string, code: string) =>
+  barcodeCall("POST", `/api/v1/items/${encodeURIComponent(itemIdOne)}/barcodes`, { code });
+
+/** Take a barcode off an item. Idempotent server-side. */
+export const removeItemBarcode = (itemIdOne: string, code: string) =>
+  barcodeCall("DELETE", `/api/v1/items/${encodeURIComponent(itemIdOne)}/barcodes/${encodeURIComponent(code)}`);
+
+/** Correct a mistyped barcode. ⚠ ONE call, not delete-then-add: two calls could fail between them and
+ *  leave the item with neither code. */
+export const renameItemBarcode = (itemIdOne: string, from: string, to: string) =>
+  barcodeCall("PUT", `/api/v1/items/${encodeURIComponent(itemIdOne)}/barcodes/${encodeURIComponent(from)}`, { code: to });
+
+/** One line of an item's change history. `by` is null for a change with no recorded actor — an
+ *  import, or anything from before audit logging existed. */
+export interface ItemHistoryRow {
+  atUtc: string;
+  type: string;
+  detail: string;
+  by: string | null;
+}
+
+/** Everything that has happened to one item, newest first. ⚠ `perm:portal.reports.view` — see
+ *  `canViewItemHistory()`. Online only: an audit trail read from a stale cache would be worse than
+ *  no audit trail, because it would look complete. */
+export const fetchItemHistory = (itemIdOne: string) =>
+  get<{ total: number; rows: ItemHistoryRow[] }>(`/api/v1/items/${encodeURIComponent(itemIdOne)}/history`);
 
 /** Lines of an existing sale. Quirk: for composite Transaction the "businessId"
  *  header slot is the second key — the SALE id. */
@@ -1294,9 +1429,28 @@ export async function checkout(
           vatBand: l.giftCardCode && l.exPricePence !== l.pricePence
             ? "standard"
             : (vatBandForTaxId(l.item.taxId) ?? undefined),
-          discounts: l.discount && l.discount.discountId !== 0
+          // ⚠⚠ ONLY A POSITIVE ID IS A REAL CATALOGUE DISCOUNT, and this is the rule that keeps the
+          // legacy bridge safe. `discounts[]` projects into `Transaction_Discount` rows keyed on a
+          // REAL `DiscountId`, so anything without one would FK-fail the projection of the whole
+          // sale. Two kinds of discount have no catalogue row: the members' tier (sentinel 0) and a
+          // figure the operator typed (`AD_HOC_DISCOUNT_ID`, −1).
+          //
+          // ⚠ It was `!== 0` until 2026-08-20, which was correct while the sentinel was the only
+          // exception. `> 0` covers both without needing a list of exceptions to keep up to date —
+          // and a future third sentinel is safe by construction rather than by remembering.
+          //
+          // ⚠ A SCHEDULED discount DOES ride here, and that is the point of extending the existing
+          // catalogue rather than inventing a rival entity: its id is real, so "what did Wednesday
+          // Warhammer cost us" is answerable from the same table every other discount reports through.
+          discounts: l.discount && l.discount.discountId > 0
             ? [{ id: l.discount.discountId, rate: l.discount.amount }]
             : undefined,
+          // ⚠ Multi-barcode (2026-08-20): WHICH code was scanned, when it was not the item's own.
+          // A snapshot for debugging a supplier's barcode migration — `itemIdOne` above stays
+          // canonical and is what every reader keys on. ⚠ Omitted when it matches, so an ordinary
+          // line's metadata is byte-identical to what it was before this field existed.
+          barcodeScanned:
+            l.scannedBarcode && l.scannedBarcode !== l.item.idOne ? l.scannedBarcode : undefined,
           // Binding default 22(c) — Matt, 2026-08-13: "All discounts need to be tracked — till,
           // logged-in employee and reason."
           //

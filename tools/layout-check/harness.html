@@ -1,0 +1,34 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="index.css"></head>
+<body>
+<main class="shell till-locked" id="shell">
+  <header class="appbar"><h1>Plutus</h1><nav class="tabs"><button class="tab active">Till</button></nav></header>
+  <div class="page">
+    <div class="till-classic">
+      <div class="scan-row"><div class="qty-box"><span class="qty-value">1</span></div><input class="scan grow"><button class="ghost">Bag &pound;0.10</button><button class="ghost">Return Item</button></div>
+      <div class="customer-bar"><button class="ghost small">Loyalty customer lookup</button></div>
+      <div class="basket-grid" id="basket">
+        <table><thead><tr><th class="col-qty">Quantity</th><th>Name</th><th class="num">Price</th><th class="num col-tax">Tax</th><th class="col-x"></th></tr></thead>
+        <tbody id="rows"></tbody></table>
+      </div>
+      <div class="totals-strip"><span>Sale Ex. Tax</span><span class="totals-val">&pound;120.69</span><span class="spacer"></span><span>Sale Inc. Tax</span><span class="totals-val">&pound;124.04</span></div>
+      <div class="action-grid" id="actions">
+        <button class="action alter">Alter Transaction</button><button class="action save">Save Transaction</button>
+        <button class="action retrieve">Retrieve Transaction</button><button class="action cancel">Cancel Transaction</button>
+        <button class="action checkout primary">Checkout</button>
+      </div>
+    </div>
+  </div>
+  <footer class="muted">Paul Thornton &middot; Kapow Comics ltd</footer>
+</main>
+<script>
+  var n = Number(new URLSearchParams(location.search).get("rows") || 8);
+  var html = "";
+  for (var i = 0; i < n; i++) {
+    html += '<tr><td class="qty-cell"><button class="step">-</button><span>1</span><button class="step">+</button></td>'
+         +  '<td>ITEM ' + (i + 1) + ' SOME REASONABLY LONG PRODUCT NAME <span class="mono muted small barcode">978140124' + i + '</span></td>'
+         +  '<td class="num">&pound;14.99</td><td class="num col-tax">&pound;0.00</td>'
+         +  '<td class="col-x line-tools"><button class="step">^</button><button class="step">v</button><button class="ghost">x</button></td></tr>';
+  }
+  document.getElementById("rows").innerHTML = html;
+</script>
+</body></html>

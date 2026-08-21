@@ -244,6 +244,16 @@ public sealed class PlutusApiClient
     public Task<VatBandsResult?> GetVatBandsAsync(CancellationToken ct = default) =>
         GetAsync<VatBandsResult>("/api/v1/vat/bands", ct);
 
+    /// <summary>
+    /// The shop's scheduled discount rules — "Wednesday Warhammer".
+    ///
+    /// ⚠ Cache the result: the schedule arrives RAW and the TILL decides whether it is Wednesday, so
+    /// a cached rule set keeps discounting correctly for as long as the till keeps trading. That is
+    /// the whole reason the server does not pre-evaluate it — see <see cref="DiscountRuleDto"/>.
+    /// </summary>
+    public Task<DiscountRulesResult?> GetDiscountRulesAsync(CancellationToken ct = default) =>
+        GetAsync<DiscountRulesResult>("/api/v1/discounts/rules", ct);
+
     // ── WP5b noticeboard: things a till has to put in front of a human ──
 
     /// <summary>Pick-from-floor notes. ⚠ Returns a BARE ARRAY, not an envelope — unlike most of this

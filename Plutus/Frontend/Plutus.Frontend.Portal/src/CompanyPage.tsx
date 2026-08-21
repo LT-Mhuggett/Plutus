@@ -17,12 +17,16 @@ export default function CompanyPage() {
 
   return (
     <>
-      <section className="panel">
-        <h2>Company</h2>
+      {/* ⚠ Every section is a CLOSED <details>, exactly the Locations page's idiom (Matt,
+          2026-08-20: "In the portal, company, can you collapse all sections like we have in
+          'Locations and Tills'"). Same classes on purpose — a second collapsible style is a
+          second thing to learn. */}
+      <details className="card store-card">
+        <summary><strong>Company</strong></summary>
         {error && <p className="error">{error}</p>}
         {companies.map((c) => <CompanyEditor key={c.id} company={c} onSaved={refresh} />)}
         {companies.length === 0 && !error && <p className="muted">Loading…</p>}
-      </section>
+      </details>
       <PaymentGatewaySection />
       {/* Ruling 2026-08-19 — carrier bags are defined here and every till offers them.
           ⚠ Here rather than under Locations (where themes and published reports live) for the reason
@@ -57,8 +61,8 @@ function SecuritySection() {
   const dirty = current !== null && mfa !== current;
 
   return (
-    <section className="panel">
-      <h2>Security &amp; sign-in</h2>
+    <details className="card store-card">
+      <summary><strong>Security &amp; sign-in</strong></summary>
       <p className="muted small">Control how your team signs in to Plutus.</p>
       {error && <p className="error">{error}</p>}
       {msg && <p className="muted small">{msg}</p>}
@@ -89,7 +93,7 @@ function SecuritySection() {
           <button className="ghost small" onClick={() => { if (current !== null) setMfa(current); setMsg(""); }}>Cancel</button>
         </div>
       )}
-    </section>
+    </details>
   );
 }
 
@@ -126,8 +130,8 @@ function PaymentGatewaySection() {
   const info = catalogue.find((p) => p.key === provider);
 
   return (
-    <section className="panel">
-      <h2>Card payments</h2>
+    <details className="card store-card">
+      <summary><strong>Card payments</strong></summary>
       <p className="muted small">How this company takes card payments. <strong>Standalone terminal</strong> keeps today's flow — take payment on your chip &amp; pin machine, then confirm on the till. Pick an integrated provider to store its keys ready for integration.</p>
       {error && <p className="error">{error}</p>}
       {msg && <p className="muted small">{msg}</p>}
@@ -192,7 +196,7 @@ function PaymentGatewaySection() {
           Save payment setup
         </button>
       </div>
-    </section>
+    </details>
   );
 }
 

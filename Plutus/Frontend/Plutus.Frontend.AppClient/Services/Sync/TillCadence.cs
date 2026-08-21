@@ -328,6 +328,33 @@ namespace Plutus.Frontend.AppClient.Services.Sync
                 Analytics.CrashLog.Write("TillCadence.VatBands", ex);
             }
 
+            // 4a. The shop's SCHEDULED DISCOUNT RULES — "Wednesday Warhammer".
+            //
+            // ⚠⚠ THE WHOLE RULE, SCHEDULE INCLUDED, never "the discounts that apply today". The till
+            // decides whether it is Wednesday against its own clock at the moment of the sale, which
+            // is what makes a Wednesday rule work on a till that has been offline since Monday. A
+            // pre-evaluated answer cached here would apply Monday's discounts all week.
+            //
+            // ⚠ Beside the VAT bands on purpose: both are "the portal decides, the till obeys" feeds
+            // whose whole timeline has to reach the till, and putting them on different cadences is
+            // how two tills come to disagree about the same basket.
+            //
+            // ⚠ Never blocks the tick. A rules refresh that fails leaves the last-known-good in place;
+            // the worst case is a customer charged the shelf price, which the operator can fix at the
+            // counter, and the alternative — a till that stops selling over a promotions feed — is not
+            // a trade anybody would make.
+            try
+            {
+                await TillStoreAccess.UseAsync(
+                    store => new DiscountRuleCache(api, new Plutus.Client.Storage.MetaDiscountRuleStore(store))
+                        .RefreshAsync(ct),
+                    ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (!ct.IsCancellationRequested)
+            {
+                Analytics.CrashLog.Write("TillCadence.DiscountRules", ex);
+            }
+
             // 4b. The store's RECEIPT LAYOUT, set in the portal (step 26).
             //
             // ⚠ REFRESHED ON THE CADENCE, NEVER AT PRINT TIME. A printer job must not wait on the

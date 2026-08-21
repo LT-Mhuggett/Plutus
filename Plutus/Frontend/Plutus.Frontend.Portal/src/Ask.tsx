@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import DialogX from "./DialogX.tsx";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // In-app confirm / choose dialogs, replacing window.confirm and window.prompt.
@@ -145,6 +146,10 @@ export default function AskHost() {
     >
       <div className="dialog">
         <h3>{pending.opts.title}</h3>
+        {/* ⚠ D4 rule 1. Escape, the backdrop and an always-rendered Cancel already closed this — the
+            Cancel label falls back to "Cancel" when a caller supplies none — so the ✕ is the intuitive
+            exit rather than the only one. */}
+        <DialogX onClose={() => close(null)} />
         {pending.opts.body}
 
         {pending.kind === "choose" && (

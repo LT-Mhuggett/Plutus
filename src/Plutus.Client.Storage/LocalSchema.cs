@@ -87,15 +87,38 @@ public class PriceScheduleEntry
     public long PricePence { get; set; }
 }
 
-// ⚠ `BarcodeAlias` WAS HERE AND IS DELETED (2026-08-09). The table existed, was mapped, and was
-// read by FindByBarcodeAsync — and **nothing in the history of this repo ever wrote a row to it**,
-// because the platform has no barcode entity for a feed to carry. Matt confirmed the same day that
-// multi-barcode items are not needed.
-//
-// Deleted rather than left empty: a mapped table and a live read path advertise a feature that does
-// not exist, so the next person asked for multiple barcodes would reasonably believe the till
-// already half-supports them and go looking for the bug. `CatalogueItem.IdOne` IS the barcode.
-// Real support needs a server entity, a feed field and a portal UI first.
+/// <summary>
+/// One ADDITIONAL barcode that resolves to a catalogue item — multi-barcode
+/// (`Build/archive/Multi-barcode plan.md`, MB3), schema v7.
+///
+/// ⚠⚠ THIS TABLE EXISTED BEFORE, AS `BarcodeAlias`, AND WAS DELETED ON 2026-08-09. What was deleted
+/// was a mapped table and a live read path that **nothing had ever written a row to**, because the
+/// platform had no barcode entity for a feed to carry; Matt confirmed the same day that multi-barcode
+/// items were not needed. That note also said what real support would require first: *"a server
+/// entity, a feed field and a portal UI."*
+///
+/// ⚠ **All three now exist** — `Plutus.Entities.Models.ItemBarcode`, `CatalogueItemDto.Barcodes`, and
+/// the portal's barcode list — so this table is written by `TillStore.ApplyCatalogueAsync` on every
+/// sync, and read by `FindByBarcodeAsync`. Matt asked for it on 2026-08-20. That is the difference
+/// between this row and the one that was removed: it is fed.
+///
+/// ⚠⚠ AN ALIAS IS NOT AN IDENTITY. `CatalogueItem.IdOne` remains the item's identity and the only id
+/// that may travel onto a basket line, a sale line, a price lookup or a stock movement. This table
+/// answers one question — *"which item does this scanned string belong to?"* — and the answer is an
+/// item, never a string a caller passes on.
+///
+/// ⚠ Keyed on <see cref="Code"/>: one code cannot point at two items, which is the same guarantee
+/// `CatalogueItems.IdOne`'s unique index gives. A scan that resolved to two items is unresolvable at
+/// a counter.
+/// </summary>
+public class LocalItemBarcode
+{
+    /// <summary>The alias exactly as it is scanned. ⚠ The primary key — see the class note.</summary>
+    public string Code { get; set; } = "";
+
+    /// <summary>⚠ The CANONICAL <see cref="CatalogueItem.IdOne"/> this code resolves to.</summary>
+    public string ItemIdOne { get; set; } = "";
+}
 
 /// <summary>An operator who may sign in at this till, with the credential hash and permission set
 /// synced down so login works with the network off (§9.2, WP8).</summary>

@@ -239,10 +239,22 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // leaves this basket, and the one somebody forgets is the one where a member is
                 // silently charged full price.
                 //
-                // ⚠ RE-ENTRANT BY CONSTRUCTION: the refresh adds and removes a `BasketAlteration`,
-                // which fires this very handler. `RefreshMemberDiscount` guards on a flag and is a
+                // ⚠ RE-ENTRANT BY CONSTRUCTION: the refresh adds and removes `BasketAlteration`s,
+                // which fires this very handler. `RefreshAutoDiscounts` guards on a flag and is a
                 // no-op while it is running.
-                RefreshMemberDiscount();
+                //
+                // ⚠⚠ AN AUTOMATIC DISCOUNT THE OPERATOR REMOVED STAYS REMOVED. A removal seen while
+                // the flag is DOWN is the operator's own — ours all happen inside it — so that is the
+                // one reliable way to tell "somebody took this off" from "we are rebuilding it".
+                // Without this the rebuild below puts it straight back and full price is unreachable.
+                if (!_refreshingMemberDiscount && e.OldItems != null)
+                    foreach (var removed in e.OldItems.OfType<BasketAlteration>())
+                        if (removed.Automatic && removed.ItemsAssocitated != null)
+                            foreach (var line in removed.ItemsAssocitated)
+                                if (!_autoDiscountWaived.Any(w => ReferenceEquals(w, line)))
+                                    _autoDiscountWaived.Add(line);
+
+                RefreshAutoDiscounts();
             };
             Alterations.CollectionChanged += (sender, e) =>
             {
@@ -277,6 +289,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     CrashLog.Write("TillViewModel.LoadParkedBaskets", ex);
                 }
             });
+
+            // The shop's scheduled discount rules, from the CACHE, so the first line scanned already
+            // gets its discount rather than waiting for a cadence tick.
+            //
+            // ⚠ OFF THE UI THREAD — it opens the v2 store. `LoadDiscountRulesAsync` marshals back to
+            // the main thread before touching the basket, and swallows everything: a till that cannot
+            // read its promotions must still sell, at the shelf price.
+            _ = Task.Run(LoadDiscountRulesAsync);
 
             MessagingCenter.Subscribe<Inventory.Items.ViewAllViewModel, string>(this, "AddToBasket", (sender, arg) =>
             {
@@ -495,7 +515,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 }
 
                 if (tempItem == default)
-                    Basket.Add(new BasketItem(item, Quantity));
+                    // ⚠ The v2 category rides on the BASKET line, not on the legacy item — see
+                    // `BasketItem.CategoryId`. A scheduled discount targets it, and a line without it
+                    // is simply never matched by a category rule.
+                    Basket.Add(new BasketItem(item, Quantity)
+                    {
+                        CategoryId = lookup.CategoryId,
+                        // ⚠ Only on a NEW line: a unit merged into an existing line keeps whatever
+                        // that line recorded, because the line is one row on one receipt and its
+                        // snapshot belongs to the scan that created it.
+                        ScannedBarcode = lookup.ScannedBarcode,
+                    });
                 else
                     tempItem.IncrementQuantity(Quantity);
                 ItemId = string.Empty;
@@ -573,7 +603,17 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 }
 
                 if (tempItem == default)
-                    Basket.Add(new BasketItem(item, Quantity));
+                    // ⚠ The v2 category rides on the BASKET line, not on the legacy item — see
+                    // `BasketItem.CategoryId`. A scheduled discount targets it, and a line without it
+                    // is simply never matched by a category rule.
+                    Basket.Add(new BasketItem(item, Quantity)
+                    {
+                        CategoryId = lookup.CategoryId,
+                        // ⚠ Only on a NEW line: a unit merged into an existing line keeps whatever
+                        // that line recorded, because the line is one row on one receipt and its
+                        // snapshot belongs to the scan that created it.
+                        ScannedBarcode = lookup.ScannedBarcode,
+                    });
                 else
                     tempItem.IncrementQuantity(Quantity);
 
@@ -1468,7 +1508,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
 
             AttachedCustomer = detail;
-            RefreshMemberDiscount();
+            RefreshAutoDiscounts();
 
             Logger.LogEvent(AppLogLevel.Info, $"{GetType().Name}: Member attached",
                 new Dictionary<string, string>
@@ -1480,12 +1520,19 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
             // ⚠ Say what changed. An operator who cannot see that a discount was applied will apply
             // one by hand as well — finding W's lesson, on a different screen.
-            if (MemberDiscountBasketOn() is BasketAlteration applied)
+            //
+            // ⚠ SUMMED OVER EVERY AUTOMATIC ALTERATION, because there can now be several: the tier
+            // discount on some lines and a scheduled rule on others, whichever was worth more per
+            // line. Reporting only the first would understate what came off, which is worse than
+            // saying nothing — an operator would top it up by hand.
+            var automatic = Services.Storage.AutoDiscountBasket.ExistingOn(Basket);
+            if (automatic.Count > 0)
             {
+                var off = automatic.Sum(a => Math.Abs(a.Price));
                 await Application.Current.MainPage.DisplayAlert(
                     "Member".Translate(),
                     string.Format("{0} — {1} off this basket.",
-                        AttachedCustomerLabel, Math.Abs(applied.Price).ToString("C2", CultureInfo.CurrentCulture)),
+                        AttachedCustomerLabel, off.ToString("C2", CultureInfo.CurrentCulture)),
                     "OK".Translate());
             }
         }
@@ -1493,14 +1540,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// <summary>
         /// Take the member off this sale.
         ///
-        /// ⚠ Removes the members' discount ONLY — an operator's own manual discounts stay, because
-        /// they were a separate decision. `MemberDiscountBasket.ExistingOn` finds it by sentinel id
-        /// for exactly this reason.
+        /// ⚠ Removes AUTOMATIC discounts only — an operator's own manual discounts stay, because they
+        /// were a separate decision. `AutoDiscountBasket.ExistingOn` finds them by the `Automatic`
+        /// flag for exactly this reason.
+        ///
+        /// ⚠ And a rebuild rather than a removal: a scheduled rule that was being out-bid by the
+        /// member's tier now becomes the best offer on those lines, so the customer still gets the
+        /// shop's advertised discount after their card comes off the sale.
         /// </summary>
         private void ExecuteDetachCustomer()
         {
             AttachedCustomer = null;
-            RefreshMemberDiscount();
+            RefreshAutoDiscounts();
         }
 
         /// <summary>
@@ -1860,55 +1911,123 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             return true;
         }
 
-        private BasketAlteration MemberDiscountBasketOn() =>
-            Services.Storage.MemberDiscountBasket.ExistingOn(Basket);
+        /// <summary>
+        /// The shop's scheduled discount rules, as this till last heard them.
+        ///
+        /// ⚠ HELD IN MEMORY because the rebuild below runs from `Basket.CollectionChanged`, which is
+        /// synchronous — reaching for SQLite there would mean either blocking the UI thread on every
+        /// scan or making the discount arrive a moment after the line, which is worse than not having
+        /// it. Loaded once when the till screen opens and refreshed on the sync cadence.
+        ///
+        /// ⚠ EMPTY, NEVER NULL — "not told any rules" and "no rules" both mean full price at a counter.
+        /// </summary>
+        private IReadOnlyList<ScheduledDiscount> _discountRules = Array.Empty<ScheduledDiscount>();
 
         /// <summary>
-        /// Rebuild the members' discount to match the basket as it stands.
+        /// Lines whose AUTOMATIC discount the operator deliberately took off.
+        ///
+        /// ⚠⚠ WITHOUT THIS "you can always charge full price" LASTS UNTIL THE NEXT SCAN. Removing the
+        /// alteration fires `CollectionChanged`, the rebuild runs, the line is eligible again and the
+        /// discount comes straight back — the operator would watch it reappear with no way to stop it.
+        ///
+        /// ⚠ Reference identity on the BASKET LINE, so it is cleared by removing the line — which is
+        /// the operator's own "ring it again" gesture. ⚠ Page state, not basket state: a parked basket
+        /// keeps its records, and a waiver is a decision about the sale in front of somebody now.
+        /// </summary>
+        private readonly List<BasketItem> _autoDiscountWaived = new();
+
+        /// <summary>
+        /// Rebuild every automatic discount to match the basket as it stands — the member's tier and
+        /// any live scheduled rule, through the one shared resolver.
         ///
         /// ⚠⚠ RE-ENTRANCY IS THE WHOLE RISK HERE. This is called FROM `Basket.CollectionChanged`, and
-        /// it adds and removes a basket record — so without the flag it would recurse until the
-        /// stack ran out, on the first scan a member ever made.
+        /// it adds and removes basket records — so without the flag it would recurse until the stack
+        /// ran out, on the first scan a member ever made.
         ///
-        /// ⚠ REMOVE THEN REBUILD, never edit in place: the alteration's associated-items list is
-        /// what decides where the money lands, and mutating it would leave a stale association
-        /// pointing at lines that are no longer in the basket.
+        /// ⚠ REMOVE THEN REBUILD, never edit in place: an alteration's associated-items list is what
+        /// decides where the money lands, and mutating it would leave a stale association pointing at
+        /// lines that are no longer in the basket.
         ///
-        /// ⚠ Silent by design. A member discount that cannot be computed must not interrupt a sale;
-        /// the worst case is the pre-existing behaviour (no discount), which is visible on screen.
+        /// ⚠ THERE CAN BE MORE THAN ONE NOW. Two rules can target different categories, and a member's
+        /// tier may out-bid one of them and not the other — so this removes ALL the automatic
+        /// alterations and puts back however many the resolver produces.
+        ///
+        /// ⚠ Silent by design. A discount that cannot be computed must not interrupt a sale; the worst
+        /// case is the pre-existing behaviour (full price), which is visible on screen.
         /// </summary>
-        private void RefreshMemberDiscount()
+        private void RefreshAutoDiscounts()
         {
             if (_refreshingMemberDiscount) return;
             _refreshingMemberDiscount = true;
 
             try
             {
-                var existing = MemberDiscountBasketOn();
-                if (existing != null) Basket.Remove(existing);
+                foreach (var existing in Services.Storage.AutoDiscountBasket.ExistingOn(Basket))
+                    Basket.Remove(existing);
 
                 var m = AttachedCustomer?.Membership;
-                if (m is null) return;
+                var member = m is null
+                    ? MemberStanding.None
+                    : new MemberStanding(true, m.Expired, m.AutoDiscountRate, m.Tier);
 
-                var rebuilt = Services.Storage.MemberDiscountBasket.Build(
+                // ⚠ Nothing to do at all when there is neither a member nor a rule — the common case,
+                // and worth short-circuiting so an ordinary sale does no work per scan.
+                if (!member.HasMembership && _discountRules.Count == 0) return;
+
+                // ⚠⚠ THE TILL'S OWN CLOCK, LOCAL, at this instant. `DateTime.Now` rather than UtcNow
+                // is deliberate: the day mask and the time window are wall-clock facts about the shop
+                // floor ("Wednesdays, 09:00–17:00"), and the shared rule converts to UTC itself for
+                // the validity bounds. Passing UtcNow would make a Wednesday rule end at midnight UTC.
+                var rebuilt = Services.Storage.AutoDiscountBasket.Build(
                     Basket,
-                    m.Tier,
-                    m.AutoDiscountRate,
-                    hasMembership: true,
-                    expired: m.Expired,
-                    operatorUserId: App.GetViewModel().SignedInOperator?.UserId ?? Guid.Empty);
+                    member,
+                    _discountRules,
+                    DateTime.Now,
+                    App.GetViewModel().SignedInOperator?.UserId ?? Guid.Empty,
+                    replacing: null,
+                    waived: _autoDiscountWaived);
 
-                if (rebuilt != null) Basket.Add(rebuilt);
+                foreach (var alteration in rebuilt) Basket.Add(alteration);
             }
             catch (Exception ex)
             {
-                CrashLog.Write("TillViewModel.RefreshMemberDiscount", ex);
+                CrashLog.Write("TillViewModel.RefreshAutoDiscounts", ex);
             }
             finally
             {
                 _refreshingMemberDiscount = false;
                 OnPropertyChanged(nameof(SaleExTax));
                 OnPropertyChanged(nameof(SaleIncTax));
+            }
+        }
+
+        /// <summary>
+        /// Load this till's discount rules from the cache, then rebuild.
+        ///
+        /// ⚠ FROM THE CACHE, so it works with the line down — the refresh path is the sync cadence's
+        /// job, not this one's. ⚠ Failure is silent and leaves the rules empty: a shop must not lose
+        /// its till because a promotions feed was unreachable.
+        /// </summary>
+        private async Task LoadDiscountRulesAsync()
+        {
+            try
+            {
+                var api = await Services.Storage.TillPlacement.TryCreateApiAsync().ConfigureAwait(false);
+                if (api is null) return;
+
+                var rules = await Services.Storage.TillStoreAccess.TryUseAsync(
+                    s => new Plutus.Client.Core.DiscountRuleCache(
+                        api, new Plutus.Client.Storage.MetaDiscountRuleStore(s)).RulesAsync())
+                    .ConfigureAwait(false);
+
+                if (rules is null) return;
+
+                _discountRules = rules;
+                MainThread.BeginInvokeOnMainThread(RefreshAutoDiscounts);
+            }
+            catch (Exception ex)
+            {
+                CrashLog.Write("TillViewModel.LoadDiscountRulesAsync", ex);
             }
         }
 
@@ -3475,7 +3594,18 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// mind" are DIFFERENT and must not share a return value: telling somebody who just pressed
         /// Cancel that the item does not exist is how a working catalogue gets reported as broken.
         /// </summary>
-        private sealed record ItemLookup(ItemModel Item, bool Cancelled)
+        /// <param name="CategoryId">⚠⚠ THE PLATFORM CATEGORY, AND IT HAS TO TRAVEL SEPARATELY. The
+        /// legacy <see cref="ItemModel"/> this basket carries has an <b>int</b> `CatId` pointing at the
+        /// NatApp `Categories` table, which is EMPTY and permanently so on a portal till — so there is
+        /// nowhere on that model to put the v2 catalogue's Guid. Without this field a category-targeted
+        /// rule would silently match nothing on this till while working perfectly on the web till:
+        /// exactly the shape of the Gold-member money difference (retrofit step 27), found the same
+        /// way.</param>
+        /// <param name="ScannedBarcode">⚠ The code the operator actually scanned, when it was NOT the
+        /// item's own (multi-barcode, 2026-08-20). A snapshot for the day a supplier's barcode
+        /// migration goes wrong — never an identity. Null on every ordinary lookup.</param>
+        private sealed record ItemLookup(
+            ItemModel Item, bool Cancelled, Guid? CategoryId = null, string ScannedBarcode = null)
         {
             public static readonly ItemLookup NotFound = new(null, false);
             public static readonly ItemLookup Abandoned = new(null, true);
@@ -3542,7 +3672,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     Price = price.IncPence / 100m,
                     ExPrice = price.ExPence / 100m,
                     Vat = new TaxModel { Name = bandName ?? string.Empty },
-                }, false);
+                    // ⚠ The v2 catalogue's category rides alongside, not on this model — see
+                    // `ItemLookup.CategoryId` for why it cannot go on `CatId`.
+                    //
+                    // ⚠⚠ MULTI-BARCODE: `found.IdOne` is the CANONICAL code even when an ADDITIONAL
+                    // one was scanned — `FindByBarcodeAsync` resolves the alias and hands back the
+                    // item. The scanned string is recorded beside it and goes no further than the
+                    // sale line's metadata (plan D2).
+                }, false, found.CategoryId,
+                    string.Equals(typed, found.IdOne, StringComparison.Ordinal) ? null : typed);
             }
             catch (Exception ex)
             {

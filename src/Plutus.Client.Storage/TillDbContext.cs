@@ -18,7 +18,7 @@ public sealed class TillDbContext : DbContext
     /// <summary>⚠ Bump this AND add a matching step to <see cref="UpgradeAsync"/> in the same
     /// commit. A bump with no step silently stamps a store as current without changing it; a step
     /// with no bump never runs.</summary>
-    public const int SchemaVersion = 6;
+    public const int SchemaVersion = 7;
 
     public TillDbContext(DbContextOptions<TillDbContext> options) : base(options) { }
 
@@ -30,6 +30,8 @@ public sealed class TillDbContext : DbContext
     public DbSet<LocalRefund> LocalRefunds => Set<LocalRefund>();
     public DbSet<SavedBasket> SavedBaskets => Set<SavedBasket>();
     public DbSet<LocalCashEvent> LocalCashEvents => Set<LocalCashEvent>();
+    /// <summary>Additional barcodes that resolve to a catalogue item (multi-barcode, v7).</summary>
+    public DbSet<LocalItemBarcode> ItemBarcodes => Set<LocalItemBarcode>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -52,10 +54,23 @@ public sealed class TillDbContext : DbContext
             e.HasKey(x => new { x.ItemId, x.EffectiveFromUtc });
         });
 
-        // ⚠ The `Barcodes` table is gone (2026-08-09) — see LocalSchema. It was mapped and read and
-        // never once written, because no server-side barcode entity exists to feed it. An existing
-        // till simply keeps an empty table it no longer opens; there is nothing to migrate, and
-        // EnsureReadyAsync creates the rest unchanged.
+        // ⚠⚠ MULTI-BARCODE, v7 (2026-08-20). The old `Barcodes` table was deleted on 2026-08-09
+        // because it was mapped, read, and never once written — no server-side entity existed to feed
+        // it. All three prerequisites its own removal note named now exist (a server entity, a feed
+        // field, a portal UI), so this one IS fed: `ApplyCatalogueAsync` replaces an item's rows on
+        // every sync and `FindByBarcodeAsync` reads them. See LocalSchema for the full history.
+        //
+        // ⚠ Keyed on the CODE: one code cannot point at two items, the same guarantee
+        // `CatalogueItems.IdOne` gets above and for the same reason — an ambiguous scan is
+        // unresolvable at a counter.
+        b.Entity<LocalItemBarcode>(e =>
+        {
+            e.ToTable("LocalItemBarcodes");
+            e.HasKey(x => x.Code);
+            e.Property(x => x.ItemIdOne).IsRequired();
+            // The read `ApplyCatalogueAsync` makes to replace one item's set.
+            e.HasIndex(x => x.ItemIdOne);
+        });
 
         b.Entity<LocalOperator>(e => { e.ToTable("Operators"); e.HasKey(x => x.UserId); });
 
@@ -245,6 +260,41 @@ public sealed class TillDbContext : DbContext
             await AddColumnIfMissingAsync("LocalCashEvents", "ExpectedPence", "INTEGER NULL", ct);
             await AddColumnIfMissingAsync("LocalCashEvents", "VariancePence", "INTEGER NULL", ct);
         }
+
+        // v7 — MULTI-BARCODE: an item may be scanned under more than one code
+        // (`Build/archive/Multi-barcode plan.md`, MB3). Matt, 2026-08-20.
+        //
+        // ⚠ A TABLE, not columns — so `CREATE TABLE IF NOT EXISTS` like the v3/v4 steps above, NOT
+        // `AddColumnIfMissingAsync` (which only accepts three column DDL fragments by design).
+        //
+        // ⚠⚠ AND THE CURSOR IS RESET AGAIN, for exactly the reason v5's note gives at length: the
+        // feed pages over (ModifiedAt, IdOne), and adding a wire field changes no item's ModifiedAt.
+        // Without this an existing till would receive aliases only for items somebody edits
+        // afterwards — so a shop would set up a barcode, watch it work on a new till and not on an
+        // old one, with no error and no pattern anybody could describe. One full re-pull at start-up
+        // is a few hundred KB, once.
+        //
+        // ⚠ Safe to replay: catalogue rows are upserts keyed on the item id, and this table is
+        // replaced per item on every sync.
+        if (from < 7)
+        {
+            await Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE IF NOT EXISTS "LocalItemBarcodes" (
+                    "Code" TEXT NOT NULL CONSTRAINT "PK_LocalItemBarcodes" PRIMARY KEY,
+                    "ItemIdOne" TEXT NOT NULL
+                );
+                """, ct);
+
+            await Database.ExecuteSqlRawAsync(
+                """
+                CREATE INDEX IF NOT EXISTS "IX_LocalItemBarcodes_ItemIdOne"
+                    ON "LocalItemBarcodes" ("ItemIdOne");
+                """, ct);
+
+            await Database.ExecuteSqlRawAsync(
+                $"""DELETE FROM "Meta" WHERE "Key" = '{MetaKeys.CatalogueVersion}';""", ct);
+        }
     }
 
     /// <summary>
@@ -317,6 +367,11 @@ public static class MetaKeys
     /// them. ⚠ Never "today's rate" — the timeline is what lets an offline till apply a
     /// future-dated rate change on the correct day.</summary>
     public const string VatBands = "vatBands";
+
+    /// <summary>The shop's scheduled discount rules, as the wire sent them. ⚠ Whole rules, schedule
+    /// included — never "the discounts that apply today". The till judges the day itself, which is
+    /// what makes a Wednesday rule work on a till that has been offline since Monday.</summary>
+    public const string DiscountRules = "discountRules";
 
     /// <summary>
     /// The till's operator roster — the whole <c>TillOperatorsResult</c> as the wire sent it

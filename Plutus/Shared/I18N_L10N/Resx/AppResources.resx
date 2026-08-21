@@ -373,8 +373,13 @@ Please try again.</value>
   <data name="Till" xml:space="preserve">
     <value>Till</value>
   </data>
+  <!-- ⚠ Matt, 2026-08-20: *"can the 'Alter transaction' button be renamed 'Apply Discounts'"* — on
+       BOTH tills. "Alter Transaction" was NatApp's wording and it described the mechanism (a basket
+       alteration record) rather than the job; the only thing the button actually does is discount
+       lines. ⚠ The KEY stays `AltTransaction`: it is referenced from XAML and renaming a resx key
+       THROWS in DEBUG as the Till tab is constructed. Only the value changes. -->
   <data name="AltTransaction" xml:space="preserve">
-    <value>Alter Transaction</value>
+    <value>Apply Discounts</value>
   </data>
   <!-- Step 27 — the customer bar on the till screen. ⚠ A key missing from this file THROWS in
        DEBUG (crashing the Till tab as it is constructed) and renders the raw key as button text in
@@ -438,8 +443,15 @@ Please try again.</value>
   <data name="Discounts" xml:space="preserve">
     <value>Discounts</value>
   </data>
+  <!-- ⚠ The TITLE of MAUI's two discount dialogs — the "which discount?" action sheet and the
+       "which lines?" multi-select. Renamed with the button (Matt, 2026-08-20) because leaving them
+       as "Alterations" would mean pressing **Apply Discounts** and being shown a box called
+       something else, on the till where the operator is least able to guess they are the same thing.
+       ⚠ It matches the web till's own dialog heading, "Apply discount", under the 2026-08-19
+       look-and-feel ruling. ⚠ Used in exactly those two places — checked before renaming, because
+       this key's value is a heading and not a noun somebody else may be reusing. -->
   <data name="Alterations" xml:space="preserve">
-    <value>Alterations</value>
+    <value>Apply discount</value>
   </data>
   <data name="Cash" xml:space="preserve">
     <value>Cash</value>

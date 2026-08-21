@@ -1,5 +1,31 @@
 # Syncfusion — what it held up, and what replaced it
 
+> ## 📦 ARCHIVED 2026-08-20 — merged into [`To do/Shrink MAUI Build.md`](../To%20do/Shrink%20MAUI%20Build.md) **§4**
+>
+> **Two documents were describing the same 76 MB from two ends** — this one *"what the controls held up
+> and what replaced them"*, the other *"how big it is and the order to remove it"* — and the removal
+> order in §4.4 depends entirely on the analysis in here. Reading one without the other was the
+> failure mode: **the licence/trial-dialog hazard is the reason the order is load-bearing**, and it
+> lived in this document while the order lived in the other.
+>
+> Everything here is now in that document, nothing dropped:
+>
+> | This document's section | Now |
+> |---|---|
+> | *Why it came up* — version-specific keys, no key coming, the modal with no way back | **§4.0**, where it explains why §4.4's order matters |
+> | *What was removed, and what replaced it* — the swap table and what each swap cost | **§4.5** |
+> | *What is still left* | **§4.1** and the tiers in **§4.3** |
+> | *What to watch on the next hand-run* | **§4.6**, cross-referenced to [`Test Maui.md`](../Test%20Maui.md) |
+>
+> ⚠ **The one line worth carrying even if you read nothing else:** `SfNumericEntry`'s `Minimum="1"`
+> lived in the **control's markup**, so it left with the control — and a quantity of 0 rings a basket
+> line that charges nothing and looks exactly like a sale. **A rule that lives in a control's markup
+> leaves with the control.** That is the hazard for the rest of tier C, not the megabytes.
+>
+> ⚠ **It moved to `To do/` rather than staying here** because the work it describes is **unbuilt** —
+> tier C is blocked by L4's ruling. The folder rule decides. When the removal is done, the merged
+> document archives as one.
+
 **Matt, 2026-08-10:** *"Can Syncfusion be replaced by the reporting we have on the back end or web?"*
 then, on reading the answer: **"I am not going to renew Syncfusion, it seems like it can be
 replaced."**

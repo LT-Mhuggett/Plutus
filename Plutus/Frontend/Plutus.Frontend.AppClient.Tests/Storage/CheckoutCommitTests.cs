@@ -454,8 +454,12 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             var card = CheckoutCommit.GiftCardItem("CODE1", 2000, VoucherTreatment.Multi, 2000);
 
             var basket = new List<IBasketRecord> { goods, card };
-            basket.Add(MemberDiscountBasket.Build(
-                basket, "Gold", 0.10m, hasMembership: true, expired: false, Cashier));
+            basket.AddRange(AutoDiscountBasket.Build(
+                basket,
+                new Plutus.SharedKernel.MemberStanding(true, false, 0.10m, "Gold"),
+                System.Array.Empty<Plutus.SharedKernel.ScheduledDiscount>(),
+                new System.DateTime(2026, 8, 20, 14, 0, 0, System.DateTimeKind.Local),
+                Cashier));
 
             var lines = CheckoutCommit.LinesFrom(basket);
 

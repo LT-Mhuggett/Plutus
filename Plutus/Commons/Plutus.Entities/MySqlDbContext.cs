@@ -110,6 +110,10 @@ namespace Plutus.Entities
         public DbSet<Supplier> Suppliers { get; set; }
         public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
         public DbSet<POLine> POLines { get; set; }
+        /// <summary>Additional barcodes that resolve to an item (multi-barcode plan, MB2).
+        /// ⚠ SERVER-ONLY, deliberately on this context and not on `RepositoryContext`: the legacy
+        /// Sqlite/MSSQL contexts inherit from that one, and the tills have their own local store.</summary>
+        public DbSet<ItemBarcode> ItemBarcodes { get; set; }
         // Pricing (WP5.4): policy + effective-dated price list + store overrides.
         public DbSet<ItemPricePolicy> ItemPricePolicies { get; set; }
         public DbSet<PriceListEntry> PriceListEntries { get; set; }
@@ -213,6 +217,8 @@ namespace Plutus.Entities
             typeof(Supplier), typeof(PurchaseOrder), typeof(POLine),
             // Pricing (WP5.4).
             typeof(ItemPricePolicy), typeof(PriceListEntry), typeof(PriceOverride),
+            // Multi-barcode (MB2) — a real TenantId column, so the loop reuses it.
+            typeof(ItemBarcode),
             // Cash + payments (WP7).
             typeof(CashEvent), typeof(PaymentEvent),
             // Customers, credit, loyalty (Phase 8) + cross-channel identity (WP5.3).
@@ -829,6 +835,22 @@ namespace Plutus.Entities
                 e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
             });
             // WP5.4 pricing.
+            // Multi-barcode (MB2): additional codes that resolve to an item.
+            modelBuilder.Entity<ItemBarcode>(e =>
+            {
+                e.ToTable("ItemBarcodes");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Id).ValueGeneratedNever();
+                e.Property(x => x.Code).HasMaxLength(20).IsRequired();
+                e.Property(x => x.ItemIdOne).HasMaxLength(20).IsRequired();
+                // ⚠⚠ UNIQUE PER TENANT. Two items answering one scan is unresolvable at a counter,
+                // and it is the same guarantee the till's own `CatalogueItems.IdOne` unique index
+                // gives. ⚠ The writer additionally refuses a code that is any item's own IdOne —
+                // this index cannot see that namespace.
+                e.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+                // The read a resolver and the sync feed both make: this item's codes.
+                e.HasIndex(x => new { x.TenantId, x.ItemIdOne });
+            });
             modelBuilder.Entity<ItemPricePolicy>(e =>
             {
                 e.ToTable("ItemPricePolicies");

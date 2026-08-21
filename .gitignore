@@ -302,6 +302,13 @@ __pycache__/
 # T0.1 endpoint regression snapshots (contain real sale figures)
 Build/snapshots/
 
+# Live Kapow till backups used by the seed/ETL migrator — REAL BUSINESS DATA (sales, customers).
+# ⚠ The three files in here today are already caught by `*Database*.db` above, which is how they have
+# stayed out of the index. This rule exists because that protection is INCIDENTAL — it depends on the
+# supplier happening to put "Database" in the filename. A CSV export, a `.sqlite`, or a renamed dump
+# dropped in this folder would be committed, and it is a customer's whole trading history.
+Build/seed-data/
+
 # Editor workspace files (deliberately local-only)
 *.code-workspace
 .vscode/

@@ -57,6 +57,23 @@ export const canAddCustomers = () => mayAddCustomer(sessionScopes());
 /** WP6.3: manage this device's settings (receipt behaviour, carrier-bag barcode, printer). */
 export const canManageSettings = () => sessionScopes().includes("pos.settings.manage");
 
+/** May this operator manage an item's ADDITIONAL barcodes? (multi-barcode, 2026-08-20)
+ *
+ *  ⚠ `portal.stock.adjust` — the same permission the server gates the barcode endpoints on, and the
+ *  same one that gates category management. A cashier does not have it, which is deliberate: giving an
+ *  item another barcode changes what scans to it in every shop on the estate.
+ *
+ *  ⚠ UI-only, as every client-side check here is. The server gates regardless; this exists so an
+ *  operator who cannot do it is not shown a control that will refuse them. */
+export const canManageBarcodes = () => sessionScopes().includes("portal.stock.adjust");
+
+/** May this operator see an item's change history? (multi-barcode, 2026-08-20)
+ *
+ *  ⚠ `portal.reports.view`, matching the server's gate on `GET /api/v1/items/{id}/history` — NOT
+ *  `portal.stock.adjust`. The history names WHO changed a price and when, which is a supervisory
+ *  record rather than a stock task, and the two permissions are held by different people. */
+export const canViewItemHistory = () => sessionScopes().includes("portal.reports.view");
+
 // ── device credential (WP2.2) — one per browser, stored locally like the native till ──
 
 export interface DeviceCredential {

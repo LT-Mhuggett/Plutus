@@ -85,7 +85,11 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                     VatBandKey: null,
                     OverriddenFromPence: null,
                     IsReturn: isReturn,
-                    OriginSaleId: isReturn ? OriginOf(record) : null));
+                    OriginSaleId: isReturn ? OriginOf(record) : null,
+                    // ⚠ Multi-barcode: the code actually scanned, when it was not the item's own.
+                    // `SaleAssembler` omits it when it matches `IdOne`, so an ordinary line's
+                    // metadata is unchanged.
+                    ScannedBarcode: item.ScannedBarcode));
             }
 
             ApplyAlterations(records, sources, lines);

@@ -135,6 +135,40 @@ namespace Plutus.Frontend.AppClient.Models
         /// ⚠ Null on every ordinary line, and on a basket parked before 2026-08-16.
         /// </summary>
         public string GiftCardCode { get; set; }
+
+        /// <summary>
+        /// The V2 CATALOGUE's category for this line — what a scheduled discount targets.
+        ///
+        /// ⚠⚠ IT CANNOT LIVE ON <see cref="Item"/>, AND THAT IS WHY IT IS HERE. The legacy
+        /// <c>ItemModel</c> the basket carries has an <b>int</b> `CatId` pointing at the NatApp
+        /// `Categories` table, which is EMPTY and permanently so on a portal till. The v2 catalogue's
+        /// category is a Guid (`CatalogueItemDto.CategoryId` → `LocalItem.CategoryId`), and there is
+        /// nowhere on the legacy model to put it.
+        ///
+        /// ⚠ Without this a category-targeted rule would match NOTHING on this till while working
+        /// perfectly on the web till — silently, on every basket. That is the exact shape of the
+        /// Gold-member money difference (retrofit step 27): both tills "using the shared rule", one of
+        /// them never able to answer the question.
+        ///
+        /// ⚠ Null is safe: a rule that targets a category simply does not match, so the line is
+        /// charged the shelf price rather than guessed at. Null on a basket parked before 2026-08-20.
+        /// </summary>
+        public Guid? CategoryId { get; set; }
+
+        /// <summary>
+        /// The barcode the operator actually SCANNED, when the item has more than one and it was not
+        /// the item's own (multi-barcode, 2026-08-20).
+        ///
+        /// ⚠⚠ A SNAPSHOT, NEVER AN IDENTITY. <c>Item.Id</c> holds the CANONICAL code and is what the
+        /// sale line, the price lookup, the stock movement and the deterministic item GUID all key
+        /// on. This exists only so that when a supplier's barcode migration goes wrong somebody can
+        /// ask which code the tills actually read.
+        ///
+        /// ⚠ A plain settable property, like the audit fields on `BasketAlteration` and for the same
+        /// reason: a parked basket round-trips through Newtonsoft, and a shape it cannot rebuild is a
+        /// recall that crashes. Null on every ordinary line and on any basket parked before this.
+        /// </summary>
+        public string ScannedBarcode { get; set; }
         #endregion
         #endregion
 

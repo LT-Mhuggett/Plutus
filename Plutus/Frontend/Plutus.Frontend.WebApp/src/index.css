@@ -38,6 +38,36 @@ body {
   flex-direction: column;
 }
 
+/* ⚠⚠ THE TILL BUTTONS MUST NEVER LEAVE THE SCREEN — Matt, 2026-08-20, and he had asked once
+   already: "I always need the till buttons to stay on the screen at the bottom. I need the items in
+   the till to have a scroll bar if they go off the bottom."
+
+   The Till tab locks the shell to the viewport so `.basket-grid` (flex:1 + overflow-y, which has
+   been in this file all along) is actually BOUNDED and scrolls inside itself. Without a bound the
+   document simply grows and the totals strip and action grid walk off the bottom.
+
+   ⚠⚠ `min-height: 0` IS LOAD-BEARING AND ITS ABSENCE WOULD HAVE BROKEN THIS ON EVERY PHONE AND
+   TABLET. `.shell` sets `min-height: 100vh`, and min-height BEATS height in CSS — so on any browser
+   where `100dvh < 100vh` (anything with a retracting URL bar) the shell would still be taller than
+   the viewport and the buttons would walk off again, on exactly the devices hardest to spot it on.
+   The desktop till would have looked perfect throughout.
+
+   ⚠ Deliberately NO `overflow: hidden`: a window too short for even the fixed parts falls back to
+   body scroll rather than clipping the Checkout button somewhere unreachable. Degrading to "scroll
+   the page" is recoverable; hiding the button that takes money is not. */
+.shell.till-locked {
+  min-height: 0;
+  height: 100vh;  /* fallback for anything without dvh */
+  height: 100dvh;
+}
+
+/* ⚠ A flex ITEM will not shrink below its content unless told to — this is the link in the chain
+   that lets the basket, three levels down, be the thing that gives up height. `.till-classic`
+   already carries its own `min-height: 0` for the same reason. */
+.shell.till-locked .page {
+  min-height: 0;
+}
+
 /* blue application band, as per the original NatApp till */
 .appbar {
   display: flex;
@@ -293,8 +323,17 @@ footer {
 
 .basket-grid {
   flex: 1;
-  min-height: 14rem;
+  /* ⚠⚠ `min-height: 0`, NOT the 14rem this used to carry. A flex item's min-height is a FLOOR it
+     cannot shrink below, so 14rem meant that on a short window the basket refused to give up height
+     and pushed the totals and buttons off the bottom instead — the very fault this is fixing, just
+     needing a smaller screen to show it. The basket is now free to shrink and scroll; the fixed rows
+     around it are what keep their size. */
+  min-height: 0;
   overflow-y: auto;
+  /* ⚠ Reserve the scrollbar's width even when it is not needed, so lines do not shift sideways the
+     moment a basket grows past the fold. On a till the price column jumping is worse than a few
+     unused pixels. */
+  scrollbar-gutter: stable;
   margin-top: 0.5rem;
 }
 
@@ -1046,6 +1085,57 @@ button.primary.slim {
   padding: 0.5rem 1.2rem;
 }
 
+/* ── an item's additional barcodes (multi-barcode, 2026-08-20) ───────────────────────────────
+   ⚠ DELIBERATELY THE SAME AS THE PORTAL'S (`portal.css`, same rule names, same amber warning).
+   Matt's 2026-08-19 ruling makes look-and-feel part of parity: this list is the same list on both
+   surfaces, so an operator who learns the lock on one already knows it on the other. The indent and
+   left rule say "these belong to the barcode box above" — they are not a separate field. */
+.barcode-block {
+  margin: -0.25rem 0 0.25rem 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--line);
+}
+
+.barcode-list {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.barcode-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ⚠ Without this an input in a flex row refuses to shrink below its intrinsic width and pushes the
+   Save/Cancel buttons out of the dialog — the same fault as `.form-grid`'s `1fr` columns. */
+.barcode-list input {
+  min-width: 0;
+}
+
+.barcode-add > summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--ink-muted);
+  padding: 0.15rem 0;
+}
+
+.barcode-add p {
+  margin: 0.25rem 0;
+}
+
+/* ⚠ A WARNING IS NOT AN ERROR. Leading/trailing whitespace still saves (the server trims), so it is
+   amber and the button stays live; a real clash is `.error` and disables the button. Two colours
+   because "you can carry on" and "you cannot" must not look the same.
+   `light-dark()` to match how `.error` above states its pair — not a media query. */
+.barcode-warn {
+  color: light-dark(#b45309, #fbbf24);
+}
+
 .integrity-banner {
   margin: 0.75rem 0;
   padding: 0.7rem 0.9rem;
@@ -1218,9 +1308,15 @@ button.primary.slim {
 }
 
 /* ── forms / badges (employees, item editor, offline) ─── */
+/* ⚠⚠ `minmax(0, 1fr)`, NOT `1fr` — Matt, 2026-08-20: *"The edit item screen does not render
+   correctly. The text areas do not fit."* A bare `1fr` is `minmax(auto, 1fr)`, so a column can
+   never be narrower than its content's intrinsic minimum — and an `<input>`'s is about 20
+   characters. Inside a `.dialog` capped at 26rem that forces two columns wider than the dialog
+   itself, and the fields spill out of it. With a floor of 0 the columns shrink and the inputs
+   (below) fill whatever they are given. */
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.7rem 1rem;
   margin: 0.75rem 0;
 }
@@ -1244,6 +1340,12 @@ button.primary.slim {
   border-radius: 7px;
   background: var(--surface-2);
   color: inherit;
+  /* ⚠ The other half of the fix above. `min-width: 0` lets the field shrink with its column;
+     `width: 100%` + `border-box` stop it overflowing once padding and border are counted. Without
+     border-box the padding is ADDED to 100% and a two-column row is a few pixels too wide. */
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .offline-badge {

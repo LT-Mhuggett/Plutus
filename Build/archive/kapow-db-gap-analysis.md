@@ -1,5 +1,33 @@
 # Current Database — Gap Analysis
 
+> ## 📦 ARCHIVED 2026-08-20 — its job is done. ⚠ Still the only map of the SOURCE schema, so read §4 and ignore §5
+>
+> **This did what it was written to do: every finding it raised has been answered.** Checked against the
+> code, not against its own headers:
+>
+> | Finding | Now |
+> |---|---|
+> | **F1** Sale IDs are timestamp strings and will collide across tills | ✅ Fixed — `Uuid7`, time-sortable and per-till safe |
+> | **F2** VAT is not stored on the sale | ✅ Fixed — `VatBandStamp` + the VAT columns on `SaleLine`; the declared rate is derived from the inc/ex pair |
+> | **F3** Money is decimal TEXT everywhere | ✅ Fixed — **integer pence throughout**, and mechanically enforced by `No_module_declares_decimal_or_double_money_members` in the architecture suite |
+> | **F5** Stock is a mutable counter, and it's deeply negative | ✅ Fixed — `StockLevel` + a stock ledger with reasons |
+> | **F4** ⚠⚠ **The item primary key is the barcode** | ⛔ **DELIBERATELY NOT FIXED, and it never will be.** `Item.IdOne` remains the barcode *and* the identity: it seeds `DeterministicGuid.ForItem` (a frozen golden vector with a TypeScript twin), it is half a composite PK with five FK families on it, and it is on all 74,830 historical sale lines. Re-keying was never a migration — it was a rewrite of the sale history. ✅ **The BEHAVIOUR F4 wanted arrived anyway**, without the re-key: `ItemBarcode` (2026-08-20) gives one item many codes as *additive alias rows*. See [`Multi-barcode plan.md`](Multi-barcode%20plan.md) and [`plutus-catalogue-sync-design.md`](plutus-catalogue-sync-design.md), whose banner makes the same point at length |
+>
+> ⚠ **§5's migration order is SUPERSEDED — do not follow it.** It says *"extends `Plutus.SeedMigrator`"*.
+> The migration mechanism is now
+> [`To do/NatApp data translation agent and scripts.md`](../To%20do/NatApp%20data%20translation%20agent%20and%20scripts.md),
+> which has been **executed twice** (a bridge top-up on 2026-08-17, a full replace from the 19_08 backup
+> on 2026-08-20) and carries the runnable rerun script. That document wins on anything to do with *how*
+> data moves.
+>
+> ⚠ **AND IT ANALYSES A FILE THAT IS TWO BACKUPS OLD** — the `23_07_2026` snapshot, while `Build/seed-data/`
+> now holds `15_08` and `19_08` as well. The *shape* it describes is still right (NatApp is frozen: seven
+> migrations, 2019-06 → 2020-04, and no eighth is coming), but **every figure in it is a July count.**
+>
+> ✅ **What is still worth reading, and why it was not deleted:** **§4, the table-by-table disposition**, is
+> the only map of the legacy schema anywhere in this repo, and the cutover run has not happened yet. When
+> somebody has to answer *"what was this NatApp column for?"*, this is where the answer is.
+
 **Source:** `Kapow Comics ltd - Database - 23_07_2026 15_57_23.db` (SQLite, NatApp EF Core model, 7 migrations 2019-06 → 2020-04)
 **Companion to:** `plutus-platform-architecture.md` §14
 **Data shape:** 21,653 sales · 74,830 lines · 21,784 tenders · 20,372 items · 1 store · 1 employee · 2019-01 → today

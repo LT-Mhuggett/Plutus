@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  effectivePriceFor, fetchCarrierBags, findItemById, getCustomer, lookupGiftCard, parkTransaction,
-  searchCustomers, searchItemsOfflineAware, createCustomer, updateCustomer,
-  type CarrierBag, type CustomerDetail, type CustomerSummary, type GiftCardLookup, type Item,
+  effectivePriceFor, fetchCarrierBags, fetchDiscountRules, findItemById, getCustomer, lookupGiftCard,
+  parkTransaction, searchCustomers, searchItemsOfflineAware, createCustomer, updateCustomer,
+  type CarrierBag, type CustomerDetail, type CustomerSummary, type DiscountRule, type GiftCardLookup,
+  type Item,
 } from "../api.ts";
+import { NO_MEMBER } from "./autoDiscounts.ts";
 import { canAddCustomers, canManageCustomers } from "../pipeline.ts";
 import { requestNewItem } from "../newItemHandoff.ts";
 import { gbp, parsePence } from "../money.ts";
@@ -74,6 +76,24 @@ export default function TillPage() {
     return () => { live = false; };
   }, []);
 
+  /**
+   * The shop's scheduled discount rules ("Wednesday Warhammer"), fetched once and cached.
+   *
+   * ⚠ FETCHED ONCE, NOT POLLED, and that is decision D5 again: re-fetching mid-sale could change
+   * what a basket costs while the operator is looking at it. A rule created in the portal reaches
+   * this till when it is next opened or reloaded — which is the same freshness the manual discount
+   * list has always had, and a till tab that stays open for days already shows an update badge.
+   *
+   * ⚠ It cannot throw: `fetchDiscountRules` answers with the cache, or an empty list, rather than
+   * failing — a shop must not lose its till because a promotions feed was unreachable.
+   */
+  const [rules, setRules] = useState<DiscountRule[]>([]);
+  useEffect(() => {
+    let live = true;
+    void fetchDiscountRules().then((rows) => { if (live) setRules(rows); });
+    return () => { live = false; };
+  }, []);
+
   const prefs = getPrefs();
   // NatApp TillListOrderReversed: display order only — checkout order is unaffected
   const displayLines = prefs.newestFirst ? [...basket.lines].reverse() : basket.lines;
@@ -126,13 +146,33 @@ export default function TillPage() {
     } catch { /* private mode — the basket still works */ }
   }, [customer, customerRestored]);
 
-  // Auto-apply the members' discount to eligible lines whenever a member is attached or a new
-  // line is added (applyMemberDiscount only touches lines without a discount — no stacking).
+  /**
+   * Every AUTOMATIC discount — the member's tier and any live scheduled rule — recomputed whenever
+   * the basket or the customer changes, through the one shared resolver.
+   *
+   * ⚠⚠ DECISION D5: THE INSTANT THAT MATTERS IS THE MOMENT A LINE IS ADDED, and this effect is
+   * deliberately NOT on a timer. A basket must not silently re-price under the operator's hands
+   * because a rule expired at 17:00 while a customer was deciding — that is the live-data lesson
+   * (D5 in till-design) applied to money instead of to a table. A basket rung up on Wednesday and
+   * parked keeps its Wednesday prices when it is recalled, because nothing re-runs this on recall
+   * either.
+   *
+   * ⚠ It re-runs on `lines.length`, not on the lines themselves: adding, removing or scanning
+   * changes the count, and the resolver is idempotent, so a deeper dependency would just churn.
+   * A QUANTITY change does re-price correctly — `quantity` is folded into the discount arithmetic at
+   * display time, not frozen here.
+   */
   useEffect(() => {
     const m = customer?.membership;
-    if (m && !m.expired && m.autoDiscountRate > 0)
-      dispatch({ type: "applyMemberDiscount", rate: m.autoDiscountRate, name: `${m.tier} ${(m.autoDiscountRate * 100).toFixed(0)}%` });
-  }, [customer, basket.lines.length, dispatch]);
+    dispatch({
+      type: "autoDiscounts",
+      member: m
+        ? { hasMembership: true, expired: m.expired, autoDiscountRate: m.autoDiscountRate, tierName: m.tier }
+        : NO_MEMBER,
+      rules,
+      nowMs: Date.now(),
+    });
+  }, [customer, basket.lines.length, rules, dispatch]);
 
   async function doCustSearch() {
     try {
@@ -154,8 +194,10 @@ export default function TillPage() {
   }
 
   function detachCustomer() {
+    // ⚠ No clear-down call any more: the effect above re-runs with no member and recomputes every
+    // automatic discount from scratch, so a detached member's tier discount comes off and a scheduled
+    // rule that was being out-bid by it lands instead. One code path, so there is nothing to forget.
     setCustomer(null);
-    dispatch({ type: "clearMemberDiscount" });
   }
 
   async function submitCustForm(e: React.FormEvent) {
@@ -184,12 +226,17 @@ export default function TillPage() {
     if (dialog === "none" && editingKey === null) scanRef.current?.focus();
   }, [dialog, editingKey, basket.lines.length]);
 
-  async function addItem(item: Item) {
+  /**
+   * @param scannedBarcode ⚠ What the operator actually scanned, when it may not be the item's own
+   *   code (multi-barcode, 2026-08-20). Recorded on the line as a SNAPSHOT; `item.idOne` stays
+   *   canonical and is what pricing, merging and the sale line key on.
+   */
+  async function addItem(item: Item, scannedBarcode?: string) {
     // WP5.4 retrofit: sell at the effective price (store override → central → legacy), not the
     // catalogue price. effectivePriceFor falls back to the cached legacy price when offline.
     const eff = await effectivePriceFor(item);
     const priced = { ...item, price: eff.pricePence / 100, exPrice: eff.exPricePence / 100 };
-    dispatch({ type: "add", item: priced, quantity: qty });
+    dispatch({ type: "add", item: priced, quantity: qty, scannedBarcode });
     setQty(1); // NatApp resets the pending quantity after each add
     setScan("");
     setResults(null);
@@ -317,7 +364,10 @@ export default function TillPage() {
 
       const exact = await findItemById(term);
       if (exact) {
-        await addItem(exact);
+        // ⚠ Multi-barcode: `exact` may have been resolved from an ADDITIONAL barcode, in which case
+        // its `idOne` is the canonical code and `term` is what was scanned. The reducer records the
+        // difference and drops it when there is none.
+        await addItem(exact, term);
         return;
       }
       const found = await searchItemsOfflineAware(term); // all matches — the list scrolls
@@ -680,8 +730,12 @@ export default function TillPage() {
       </div>
 
       <div className="action-grid">
+        {/* ⚠ Matt, 2026-08-20: renamed from "Alter Transaction" on BOTH tills. That was NatApp's
+            wording and it named the mechanism (a basket alteration) rather than the job — the only
+            thing this button does is discount lines. The MAUI half is the `AltTransaction` resx
+            VALUE; its key is unchanged because renaming a key throws in DEBUG. */}
         <button className="action alter" disabled={basket.lines.length === 0} onClick={() => setDialog("discount")}>
-          Alter Transaction
+          Apply Discounts
         </button>
         <button className="action save" disabled={basket.lines.length === 0 || busy} onClick={saveTransaction}>
           Save Transaction
@@ -758,12 +812,28 @@ export default function TillPage() {
       )}
       {dialog === "discount" && (
         <DiscountDialog
-          lines={basket.lines}
+          // ⚠⚠ `displayLines`, NOT `basket.lines` — Matt, 2026-08-20: *"the order of the list needs to
+          // match the order of the till. The till is ordered newest at the top, the discount opens
+          // newest at the bottom."* This dialog read the RAW basket (insertion order) while the till
+          // screen renders `displayLines`, which honours the `newestFirst` preference. With that
+          // preference on, the two lists were exact mirrors of each other — so the operator ticked
+          // against a reversed list to discount the item they had just scanned.
+          //
+          // ⚠ Ordering is presentation only: every line is identified by its `key`, so which lines get
+          // discounted cannot change. What changes is whether a person can trust what they are ticking
+          // — and on a money dialog that is the whole point.
+          lines={displayLines}
           onClose={() => setDialog("none")}
           onApply={(discount, keys, reason, authorisedBy) => {
             // ⚠ W-P3: `authorisedBy` is the supervisor who signed for an over-ceiling discount, or
             // null. It must reach the sale, or the record says a cashier gave it alone.
             dispatch({ type: "applyDiscount", discount, keys, reason, authorisedBy });
+            setDialog("none");
+          }}
+          onApplyAdHoc={(kind, amount, label, keys, reason, authorisedBy) => {
+            // D8 — a typed figure. It carries no catalogue id, so checkout keeps it off
+            // `LineMeta.discounts[]`; the money and the authority still travel.
+            dispatch({ type: "applyAdHocDiscount", kind, amount, label, keys, reason, authorisedBy });
             setDialog("none");
           }}
         />

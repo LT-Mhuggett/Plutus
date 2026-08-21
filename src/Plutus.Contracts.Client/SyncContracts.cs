@@ -130,7 +130,28 @@ public sealed record CatalogueItemDto(
     /// ⚠ It is margin data. It belongs on a till only because the item editor writes it back, and
     /// the PUT binds the whole entity — an editor that could not see cost would zero it.
     /// </summary>
-    long CostPence = 0);
+    long CostPence = 0,
+
+    /// <summary>
+    /// The item's ADDITIONAL barcodes — multi-barcode (`Build/archive/Multi-barcode plan.md`, MB2).
+    ///
+    /// ⚠⚠ ALIASES, NOT IDENTITIES. <see cref="IdOne"/> is still the item's identity and the only id
+    /// anything downstream may carry; these are extra codes that RESOLVE to it. A till that let one
+    /// of these reach a sale line would cause two silent faults — a phantom `StockLevel` from
+    /// `StockProjectionConsumer`, and a null VAT band from `VatBandStamp`.
+    ///
+    /// ⚠⚠ THE WHOLE SET, EVERY TIME, AND THE TILL REPLACES ITS ROWS WITH IT. That is what makes
+    /// REMOVAL work without tombstones: an item that loses a barcode simply arrives with a smaller
+    /// array. Applying the same payload twice is therefore harmless, which is the property the
+    /// catalogue-sync design calls for ("full-row payloads, not diffs").
+    ///
+    /// ⚠ NULL when the item has none — not an empty array — so an item with no aliases serialises
+    /// byte-identically to what it did before this field existed.
+    ///
+    /// ⚠ An alias write TOUCHES `Item.ModifiedAt` server-side. Without that the feed's cursor never
+    /// moves and no till ever hears about it: the cursor pages by the ITEM, not by this table.
+    /// </summary>
+    string[]? Barcodes = null);
 
 /// <summary>
 /// GET /api/v1/catalogue/changes?since={cursor}&amp;limit={n}

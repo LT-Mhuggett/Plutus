@@ -147,14 +147,161 @@ public class TillStoreTests : IAsyncLifetime
         _db.CatalogueItems.Add(new CatalogueItem { Id = binnedId, IdOne = "9999", Name = "Withdrawn", PricePence = 100, Removed = true });
         await _db.SaveChangesAsync();
 
-        // ⚠ IdOne IS the barcode — one code per item. The alias table it used to fall back to was
-        // never written by anything and is deleted (2026-08-09, Matt: multi-barcode not needed).
+        // ⚠ `IdOne` is the item's OWN barcode and always resolves. Since 2026-08-20 an item may also
+        // have ADDITIONAL barcodes (multi-barcode, MB3) — those live in `LocalItemBarcodes` and are
+        // covered by the tests below; this one pins the canonical path, which they must not disturb.
         Assert.Equal(id, (await _store.FindByBarcodeAsync("5010"))!.Id);
         Assert.Null(await _store.FindByBarcodeAsync("nope"));
         // FE5.4: a binned item must stop selling on an OFFLINE till too, which is why the feed
         // carries tombstones rather than just upserts.
         Assert.Null(await _store.FindByBarcodeAsync("9999"));
     }
+
+    // ── multi-barcode (MB3) ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// ⚠⚠ THE FEATURE. A scan of an ADDITIONAL barcode resolves to the item — and the caller gets the
+    /// item, whose `IdOne` is its own. That last part is the whole safety property (plan D2): if the
+    /// alias string travelled onward, `StockProjectionConsumer` would create a phantom `StockLevel`
+    /// and `VatBandStamp` would leave the sale line's VAT band null, both silently.
+    /// </summary>
+    [Fact]
+    public async Task An_alias_scans_to_its_item_and_yields_the_CANONICAL_code()
+    {
+        var id = Uuid7.New();
+        _db.CatalogueItems.Add(new CatalogueItem { Id = id, IdOne = "5010", Name = "Mug", PricePence = 500 });
+        _db.ItemBarcodes.Add(new LocalItemBarcode { Code = "5011NEWSUPPLIER", ItemIdOne = "5010" });
+        await _db.SaveChangesAsync();
+
+        var found = await _store.FindByBarcodeAsync("5011NEWSUPPLIER");
+
+        Assert.NotNull(found);
+        Assert.Equal(id, found!.Id);
+        // ⚠ The canonical code, NOT the alias that was scanned.
+        Assert.Equal("5010", found.IdOne);
+    }
+
+    /// <summary>⚠ Plan D10: the Bin withdraws an item from sale, and that cannot be worked around by
+    /// scanning a different code for the same thing.</summary>
+    [Fact]
+    public async Task An_alias_of_a_binned_item_does_not_scan()
+    {
+        _db.CatalogueItems.Add(new CatalogueItem
+        {
+            Id = Uuid7.New(), IdOne = "9999", Name = "Withdrawn", PricePence = 100, Removed = true,
+        });
+        _db.ItemBarcodes.Add(new LocalItemBarcode { Code = "9999-OLD", ItemIdOne = "9999" });
+        await _db.SaveChangesAsync();
+
+        Assert.Null(await _store.FindByBarcodeAsync("9999-OLD"));
+    }
+
+    /// <summary>⚠ Matching is exact (plan D6) — no case folding, exactly as `IdOne` matches. Folding
+    /// only for aliases would make one match where the item's own barcode would not.</summary>
+    [Fact]
+    public async Task Alias_matching_is_exact_not_case_folded()
+    {
+        _db.CatalogueItems.Add(new CatalogueItem { Id = Uuid7.New(), IdOne = "5010", Name = "Mug", PricePence = 500 });
+        _db.ItemBarcodes.Add(new LocalItemBarcode { Code = "ABC123", ItemIdOne = "5010" });
+        await _db.SaveChangesAsync();
+
+        Assert.NotNull(await _store.FindByBarcodeAsync("ABC123"));
+        Assert.Null(await _store.FindByBarcodeAsync("abc123"));
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE ONE THAT MAKES REMOVAL WORK. The feed sends an item's WHOLE alias set, and the till
+    /// replaces its rows with it — so an item that loses a barcode arrives with a smaller array and
+    /// the delete falls out of the replacement. If the upsert appended instead, a removed alias would
+    /// go on scanning for ever on every till that had already seen it, with nothing to say so.
+    /// </summary>
+    [Fact]
+    public async Task Aliases_are_REPLACED_per_item_so_a_removed_one_stops_scanning()
+    {
+        var dto = ItemDto("5010", "Mug", barcodes: new[] { "OLD-CODE", "SECOND-CODE" });
+        await _store.ApplyCatalogueAsync(new[] { dto }, "c1");
+
+        Assert.NotNull(await _store.FindByBarcodeAsync("OLD-CODE"));
+        Assert.NotNull(await _store.FindByBarcodeAsync("SECOND-CODE"));
+
+        // The portal removed one of them: the item arrives again with a smaller set.
+        await _store.ApplyCatalogueAsync(new[] { dto with { Barcodes = new[] { "SECOND-CODE" } } }, "c2");
+
+        Assert.Null(await _store.FindByBarcodeAsync("OLD-CODE"));
+        Assert.NotNull(await _store.FindByBarcodeAsync("SECOND-CODE"));
+        // ⚠ And no duplicates accumulated.
+        Assert.Equal(1, await _db.ItemBarcodes.CountAsync());
+    }
+
+    /// <summary>⚠ All of an item's aliases go when the feed says it has none — the same replacement
+    /// rule, at its limit.</summary>
+    [Fact]
+    public async Task An_item_whose_aliases_all_went_keeps_none()
+    {
+        var dto = ItemDto("5010", "Mug", barcodes: new[] { "A1", "A2" });
+        await _store.ApplyCatalogueAsync(new[] { dto }, "c1");
+        await _store.ApplyCatalogueAsync(new[] { dto with { Barcodes = null } }, "c2");
+
+        Assert.Empty(await _db.ItemBarcodes.ToListAsync());
+        // ⚠ The item itself is untouched and still scans on its own code.
+        Assert.NotNull(await _store.FindByBarcodeAsync("5010"));
+    }
+
+    /// <summary>
+    /// ⚠ Two items swapping a code between them in ONE page must not collide. The alias table is
+    /// keyed on the code, so the old row has to be gone before the new one is inserted — which is why
+    /// the upsert deletes the whole page's rows in one pass before inserting any.
+    /// </summary>
+    [Fact]
+    public async Task A_code_moving_between_two_items_in_one_page_does_not_collide()
+    {
+        await _store.ApplyCatalogueAsync(new[]
+        {
+            ItemDto("1111", "First", barcodes: new[] { "SHARED" }),
+            ItemDto("2222", "Second"),
+        }, "c1");
+
+        Assert.Equal("1111", (await _store.FindByBarcodeAsync("SHARED"))!.IdOne);
+
+        // The shop moved the code to the other item — both rows arrive in the same page.
+        await _store.ApplyCatalogueAsync(new[]
+        {
+            ItemDto("1111", "First"),
+            ItemDto("2222", "Second", barcodes: new[] { "SHARED" }),
+        }, "c2");
+
+        Assert.Equal("2222", (await _store.FindByBarcodeAsync("SHARED"))!.IdOne);
+        Assert.Equal(1, await _db.ItemBarcodes.CountAsync());
+    }
+
+    /// <summary>⚠ An alias equal to the item's OWN barcode is dropped rather than stored. The server
+    /// refuses it, so it should be impossible — but the till is the side that could not resolve the
+    /// ambiguity, so it declines rather than trusting the feed.</summary>
+    [Fact]
+    public async Task An_alias_that_shadows_the_items_own_code_is_not_stored()
+    {
+        await _store.ApplyCatalogueAsync(
+            new[] { ItemDto("5010", "Mug", barcodes: new[] { "5010", "GENUINE-ALIAS" }) }, "c1");
+
+        Assert.Equal(1, await _db.ItemBarcodes.CountAsync());
+        Assert.Equal("5010", (await _store.FindByBarcodeAsync("5010"))!.IdOne);
+    }
+
+    /// <summary>A catalogue page built the way the feed builds one. ⚠ `Id` is DERIVED exactly as the
+    /// server derives it, so the upsert matches on the same key a real sync would.</summary>
+    private static CatalogueItemDto ItemDto(string idOne, string name, string[]? barcodes = null) =>
+        new(
+            Id: DeterministicGuid.ForItem(Guid.Parse("d5a31aac-159e-9a30-706b-02f9eb935600"), idOne),
+            IdOne: idOne,
+            Name: name,
+            PricePence: 500,
+            ExPricePence: 417,
+            TaxId: 1,
+            CategoryId: null,
+            StockUntracked: false,
+            Removed: false,
+            UpdatedAtUtc: new DateTime(2026, 8, 20, 12, 0, 0, DateTimeKind.Utc),
+            Barcodes: barcodes);
 
     [Fact]
     public async Task A_tombstone_in_the_changes_feed_withdraws_an_item_already_on_the_till()

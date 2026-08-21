@@ -84,11 +84,117 @@ th.sortable:hover { color: var(--ink); }
 .link-btn { border: none; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--accent);
   text-decoration: underline; cursor: pointer; }
 .link-btn:hover { text-decoration: none; }
-.dialog { background: var(--panel); border-radius: 10px; padding: 20px; width: min(680px, 100%); max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+/* ⚠ `position: relative` ANCHORS THE CLOSE ✕ (`.dialog-x` below). Without it the button positions
+   against the OVERLAY and lands in the corner of the screen instead of the corner of the dialog. */
+.dialog { background: var(--panel); border-radius: 10px; padding: 20px; width: min(680px, 100%); max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 8px; position: relative; }
+
+/* ⚠⚠ THE CLOSE ✕ — Matt, 2026-08-18: *"the box it pops has no X to close the box. I know you can click
+   outside of the box to close it but its not intuative"*, then *"add x's to all relevant boxes … so
+   that it is not missed in future"*. The rule is `Build/till-design.md` **Part D4**; the web till's
+   twin is in its `index.css`, the MAUI twin is `CustomViews.DialogHeader`. Markup: `src/DialogX.tsx`,
+   byte-identical with the till's.
+
+   ⚠⚠ THE PORTAL HAD NEITHER THE STYLE NOR THE COMPONENT until 2026-08-20 — D4 was written for the
+   tills and the portal was simply never brought along, so *no* portal dialog showed a ✕ while both
+   tills did. Found by the twin-file guard: the portal's `Ask.tsx` had drifted from the till's by
+   exactly this one import. */
+.dialog-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  /* ⚠ 36px square. The portal is a desk tool rather than a touch till, but the two surfaces share the
+     component and a control that changes size between them is the "look and feel" gap Matt's
+     2026-08-19 ruling is about. */
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.dialog-x:hover:not(:disabled) { background: var(--bg); border-color: var(--line); color: var(--ink); }
+.dialog-x:disabled { opacity: 0.4; cursor: default; }
+
+/* ⚠ Keeps a long heading clear of the ✕ — without it the title runs under the button and both look
+   broken. First heading only, which is the one on the ✕'s line. */
+.dialog > h2:first-of-type,
+.dialog > h3:first-of-type { padding-right: 40px; }
 /* FE9.5: audit rows carry raw detail JSON — 680px turns every row into a wrapped mess. */
 .dialog.wide { width: min(1040px, 100%); }
 .dialog h3 { margin: 0 0 4px; }
 .dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+
+/* ⚠⚠ `.form-grid` WAS NEVER DEFINED IN THIS FILE, and five screens have been using it — the item
+   editor, the category manager, gift cards, the tier manager and till themes. Matt, 2026-08-20:
+   *"The edit item screen does not render correctly. The text areas do not fit."*
+
+   Without a rule the div was a plain BLOCK: the intended two columns collapsed to one, and — because
+   `.dialog`'s `gap: 8px` applies only to its DIRECT children and the grid is a single child — the
+   labels inside got NO spacing at all. So each label's text sat flush against the input above it,
+   which is what reads as overlapping.
+
+   ⚠ `minmax(0, 1fr)`, not `1fr`: a bare `1fr` is `minmax(auto, 1fr)`, and an input's intrinsic
+   min-width (~20 characters) then forces the column WIDER than the dialog — the fields overflow
+   instead of shrinking. That is the same fault the web till had, one layer along.
+
+   ⚠ Single column under 560px so the dialog stays usable on a narrow window, matching how the rest
+   of the portal degrades. */
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px 16px;
+  margin: 4px 0 8px;
+}
+
+@media (max-width: 560px) {
+  .form-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ⚠ `.block-label` IS THE SAME LABEL, OUTSIDE THE GRID. A field that needs the full dialog width and
+   has something of its own beneath it (the barcode field and its alias list) cannot live in a grid
+   cell, and without this it would fall back to an inline label with a default-sized input — the same
+   name and the same rules exist in the web till's `index.css`, so the two surfaces match. */
+.form-grid label,
+.block-label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+
+/* ⚠ `min-width: 0` and `width: 100%` together are what actually keep a field inside its column: the
+   first lets the grid item shrink below the input's intrinsic width, the second stops it sitting at
+   its default ~20-character size inside a wider column. */
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.block-label input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* A field that should span the full dialog rather than share a row. */
+.form-grid .span-2 { grid-column: 1 / -1; }
+
+/* ── an item's additional barcodes (multi-barcode, 2026-08-20) ────────────────
+   Sits directly under the "Barcode / id" field, because that is where somebody looking for an item's
+   codes looks — Matt asked for exactly that placement. Indented and rule-marked so the extra codes
+   read as belonging to the field above rather than as a new section. */
+.barcode-block { margin: -4px 0 4px 12px; padding-left: 12px; border-left: 2px solid var(--line); }
+.barcode-list { list-style: none; margin: 4px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.barcode-list li { display: flex; align-items: center; gap: 8px; }
+.barcode-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.barcode-list input { min-width: 0; }
+.barcode-add > summary { cursor: pointer; font-size: 13px; color: var(--muted); padding: 2px 0; }
+.barcode-add p { margin: 4px 0; }
+/* ⚠ A WARNING IS NOT AN ERROR. Leading/trailing whitespace still saves (the server trims), so it is
+   amber and the button stays live; a real clash is `.error` and disables the button. Two colours
+   because "you can carry on" and "you cannot" must not look the same. */
+.barcode-warn { color: #b45309; }
+:root[data-theme="dark"] .barcode-warn, .dark .barcode-warn { color: #fbbf24; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 16px; margin: 0; }

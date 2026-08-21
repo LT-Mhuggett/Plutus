@@ -759,6 +759,54 @@ export async function findItemByBarcode(id: string): Promise<CatalogueItem | nul
 
 export const createItem = async (i: ItemInput) => legacy<void>("POST", `/api/Item`, await itemBody(i));
 export const updateItem = async (i: ItemInput) => legacy<void>("PUT", `/api/Item/${encodeURIComponent(i.id)}`, await itemBody(i));
+
+// ── additional barcodes (multi-barcode, 2026-08-20) ─────────────────────────
+//
+// ⚠⚠ AN ALIAS RESOLVES TO AN ITEM; IT IS NEVER AN IDENTITY. `Item.IdOne` stays the item's identity —
+// it seeds the deterministic item GUID, it is on every historical sale line, and five foreign-key
+// families point at it. These rows are additive: a scan of one resolves to the item, and the till
+// then carries the item's OWN code onward. See `Build/archive/Multi-barcode plan.md`.
+//
+// ⚠ The barcode box in the item dialog stays IMMUTABLE on edit. That is not an oversight to fix: it
+// is the identity. Extra codes go here instead.
+
+export interface ItemBarcode {
+  code: string;
+  itemIdOne: string;
+}
+
+/** Every additional barcode in this shop. ⚠ The whole tenant in one call — the item dialog filters
+ *  it, rather than the API growing a per-item route for one consumer. */
+export const fetchItemBarcodes = () => get<ItemBarcode[]>(`/api/v1/items/barcodes`);
+
+/** Give an item another barcode. ⚠ Refusals come back as a SENTENCE in `detail` — show it verbatim;
+ *  the server owns what may be a barcode (reserved card shapes, bag ids, platform ids, clashes). */
+export const addItemBarcode = (itemIdOne: string, code: string) =>
+  post<void>(`/api/v1/items/${encodeURIComponent(itemIdOne)}/barcodes`, { code });
+
+/** Take a barcode off an item. ⚠ Idempotent server-side — removing one that has gone is not an error. */
+export const removeItemBarcode = (itemIdOne: string, code: string) =>
+  del<void>(`/api/v1/items/${encodeURIComponent(itemIdOne)}/barcodes/${encodeURIComponent(code)}`);
+
+/** Correct a mistyped barcode. ⚠ ONE call, not delete-then-add: done as two, a failure between them
+ *  would leave the item with NEITHER code. The server renames it inside one transaction. */
+export const renameItemBarcode = (itemIdOne: string, from: string, to: string) =>
+  put<void>(`/api/v1/items/${encodeURIComponent(itemIdOne)}/barcodes/${encodeURIComponent(from)}`, { code: to });
+
+/** One row of an item's change history. `by` is a resolved staff name, or the raw id when the
+ *  account has gone, or null for a change nobody was recorded against. */
+export interface ItemHistoryRow {
+  atUtc: string;
+  type: string;
+  detail: string;
+  by: string | null;
+}
+
+/** Everything that has happened to this item, newest first.
+ *  ⚠ History begins where the logging did (2026-08-20) — the endpoint bookends the list with the
+ *  item's own created/modified stamps and says plainly when detail was never recorded. */
+export const fetchItemHistory = (itemIdOne: string) =>
+  get<{ total: number; rows: ItemHistoryRow[] }>(`/api/v1/items/${encodeURIComponent(itemIdOne)}/history`);
 // NB: initial stock is set through the v1 Stock ledger (per-location, multi-store correct), not the
 // till's legacy /api/Stock write (which assumes store 1) — see the Inventory page's Stock ledger tab.
 

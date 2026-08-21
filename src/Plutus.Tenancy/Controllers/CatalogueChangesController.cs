@@ -37,7 +37,13 @@ namespace Plutus.Tenancy.Controllers
         // decimal: money is integer pence everywhere and the conversion happens once, here.
         string? Brand = null,
         string? Desc = null,
-        long CostPence = 0);
+        long CostPence = 0,
+        // ⚠⚠ Multi-barcode (MB2): the item's ADDITIONAL barcodes. Aliases, not identities — `IdOne`
+        // stays the only id anything downstream carries. NULL when there are none, so an item
+        // without aliases serialises exactly as it did before this field existed. The WHOLE set every
+        // time: the till replaces its rows with it, which is what makes removal work with no
+        // tombstones. See the contracts twin for the full reasoning.
+        string[]? Barcodes = null);
 
     public sealed record CatalogueChangesResult(
         string? Cursor,
@@ -161,6 +167,22 @@ namespace Plutus.Tenancy.Controllers
                 .Where(p => pageIds.Contains(p.ItemIdOne))
                 .ToDictionaryAsync(p => p.ItemIdOne, p => (byte)p.Policy);
 
+            // ⚠⚠ MULTI-BARCODE (MB2). The item's ADDITIONAL barcodes, for exactly this page.
+            //
+            // ⚠ Aliases DO NOT LIVE ON THE ITEM either, and unlike prices they have no cursor of
+            // their own — the feed pages by `Item.ModifiedAt`, so an alias write has to TOUCH the
+            // item or nothing here ever sees it. `ItemBarcodesController.TouchItemForSyncAsync` is
+            // that touch, and `An_alias_write_reaches_the_till_feed` is the test that keeps it true.
+            //
+            // ⚠ Sent as the WHOLE set per item so the till can replace its rows: that is what makes
+            // a REMOVED alias reach a till, with no tombstone table to maintain.
+            var aliases = (await _db.ItemBarcodes.AsNoTracking()
+                    .Where(b => pageIds.Contains(b.ItemIdOne))
+                    .Select(b => new { b.ItemIdOne, b.Code })
+                    .ToListAsync())
+                .GroupBy(b => b.ItemIdOne)
+                .ToDictionary(g => g.Key, g => g.Select(b => b.Code).OrderBy(c => c).ToArray());
+
             var items = rows.Select(r => new CatalogueItemDto(
                 // DERIVED, never assigned — the same derivation the web till uses, keyed on the
                 // legacy BUSINESS id. Both tills therefore agree on an item's id with no mapping
@@ -187,7 +209,10 @@ namespace Plutus.Tenancy.Controllers
                 // than in each of the clients that would otherwise each decide for themselves.
                 Brand: string.IsNullOrWhiteSpace(r.Brand) || r.Brand == "-" ? null : r.Brand,
                 Desc: string.IsNullOrWhiteSpace(r.Desc) ? null : r.Desc,
-                CostPence: Pence.FromDecimal(r.Cost)))
+                CostPence: Pence.FromDecimal(r.Cost),
+                // ⚠ NULL rather than an empty array when the item has no aliases, so an item that
+                // has none serialises exactly as it did before this field existed.
+                Barcodes: aliases.TryGetValue(r.IdOne, out var codes) ? codes : null))
                 .ToArray();
 
             var cursor = rows.Count == 0

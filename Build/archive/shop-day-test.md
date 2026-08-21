@@ -1,17 +1,32 @@
 # Shop-day test — the hand-run script
 
+> ## 📦 ARCHIVED 2026-08-20 — superseded by [`Build/Test Maui.md`](../Test%20Maui.md). **Do not run this script.**
+>
+> ⚠⚠ **IT IS PINNED TO MAUI BUILD 1.43.0 AND THE TILL IS ON 1.109.0** — sixty-six builds on. Its
+> version references, its "deploy backend 1.9.0 first" instruction and its expectations are all from
+> 2026-08-11. Following it would test a till that no longer exists and report differences as faults.
+>
+> ⚠ **AND ITS OWN SIGNPOST WAS ALREADY RIGHT, AND ALREADY OUT OF DATE.** This page said *"handing this
+> to somebody else? give them `Test Maui.md` instead — this page stays the fuller reference."* The
+> first half held. **The second half stopped being true and nobody noticed**: `Test Maui.md` grew to
+> roughly seventeen times this document's size and now carries §A the reported faults, §B a full shop
+> day, §C the two-person cases, §D what is deliberately not built, §E the untested-late work, §W the
+> web-till checks and §G54–§G67 per feature. There is nothing in here it does not cover better and
+> newer — including this document's two genuinely good ideas, the **mid-shift account disable** (§5z →
+> `Test Maui.md` §C) and **"what I most expect to be wrong"**, which is now written per feature rather
+> than once per document.
+>
+> **The lesson, and it is the index's own rule proving itself:** *"a plan's own status line is the least
+> reliable thing in it."* This one described its relationship to another document, that relationship
+> inverted, and the sentence stayed. **Two hand-test documents is one too many** — there is now one.
+
 **Build: `D:\tmp\plutus-till-1.43.0\Plutus.Frontend.AppClient.exe`** (unpackaged — no signing, no
-install; just run the .exe).
+install; just run the .exe). ⛔ **Historical — see the banner.**
 
 This is the USER-VERIFY script for everything that landed on **2026-08-10 and 11** — ten builds,
 **1.30.0 → 1.41.0**, and not one screen has been touched by a person yet. It is ordered as a real
 trading day, because that is the order the bugs appear in. **Do them in sequence** — several steps
 set up the next one.
-
-⚠ **HANDING THIS TO SOMEBODY ELSE? GIVE THEM [`Test Maui.md`](Test%20Maui.md) INSTEAD.** Same ground,
-written for a person who does not know the codebase: the recent fixes first with what each looked
-like when it was broken, then a full day, then the two-person safety cases, then a list of what is
-deliberately not built yet so nobody reports the plan as a bug. This page stays the fuller reference.
 
 ⚠ **Sign in as Owner or a Store Manager.** The built-in **Cashier role holds only `pos.sell`**, so a
 cashier cannot open a float, take a paid-out, or close the day — that is deliberate, not a fault.

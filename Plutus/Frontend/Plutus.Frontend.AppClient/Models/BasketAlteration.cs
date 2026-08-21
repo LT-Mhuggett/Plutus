@@ -46,6 +46,25 @@ namespace Plutus.Frontend.AppClient.Models
         /// <summary>Their name as the roster had it AT THE TIME — staff leave, and an audit trail
         /// that renders "(deleted user)" answers nothing.</summary>
         public string AuthorisedByName { get; set; }
+
+        /// <summary>
+        /// ⚠⚠ THE TILL PUT THIS ALTERATION HERE, NOT THE OPERATOR — and telling the two apart is
+        /// load-bearing.
+        ///
+        /// The auto-discount resolver rebuilds on every basket change. It must leave an OPERATOR's
+        /// discount alone (no stacking) while being free to replace its OWN earlier answer — a rule
+        /// may have expired, a member may have been detached, or a bigger rule may now apply.
+        ///
+        /// ⚠ The members' discount could be recognised by its sentinel id alone; a SCHEDULED rule
+        /// cannot, because its `Discount.Id` is a REAL catalogue id and an operator can pick that very
+        /// same discount by hand off the Alterations list. So the distinction has to be recorded here
+        /// rather than inferred from the id.
+        ///
+        /// ⚠ A plain settable bool for the Newtonsoft reason the audit fields above give: a basket
+        /// parked before 2026-08-20 deserialises with this FALSE, so its discounts read as the
+        /// operator's and are preserved rather than recomputed. That is the safe direction.
+        /// </summary>
+        public bool Automatic { get; set; }
         #endregion
 
         [JsonConstructor]

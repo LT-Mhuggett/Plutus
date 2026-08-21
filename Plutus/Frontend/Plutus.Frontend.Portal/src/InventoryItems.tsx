@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  bulkCount, bulkItems, createItem, fetchCatalogueItemsPaged, fetchCategories, fetchStockLevelsFor,
-  fetchTaxes, findItemByBarcode, gbp, updateItem,
+  bulkCount, bulkItems, createItem, fetchCatalogueItemsPaged, fetchCategories,
+  fetchStockLevelsFor, fetchTaxes, findItemByBarcode, gbp, updateItem,
   type BulkAction, type BulkCriteria, type CatalogueItem, type Category, type ItemInput, type Tax,
 } from "./api.ts";
+import { ItemBarcodeList, ItemHistory } from "./ItemBarcodes.tsx";
 import { canBulkEditInventory } from "./auth.ts";
+import DialogX from "./DialogX.tsx";
 import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
 import { ask } from "./Ask.tsx";
@@ -377,18 +379,31 @@ function ItemDialog({ item, cats, onClose, onDone, onOpenExisting }:
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <form className="dialog" onSubmit={submit}>
         <h3>{item ? "Edit item" : "Add item"}</h3>
+        {/* ⚠ D4 rule 1 — a visible ✕. `disabled` while saving, for the same reason Cancel is. */}
+        <DialogX onClose={onClose} disabled={busy} />
+        {/* ⚠⚠ THE BARCODE BLOCK IS OUT OF THE GRID AND FIRST — Matt, 2026-08-20: *"move the 'Other
+            barcodes for this item' under the current barcode section … If the product has more than
+            one barcode show each one under the current 'Barcode/ID (Max 20)' title."* Full width so
+            the list of codes and their controls have room; the rest of the fields stay in the grid
+            below. */}
+        {/* ⚠ `block-label`, NOT `block`. `label.block` is the portal's wrapper for a TEXTAREA (which
+            is already `width: 100%`); an `<input>` inside it sits INLINE after the label text at its
+            default width, which would make this one field look nothing like the grid fields directly
+            beneath it. `block-label` is the grid's own label rule, outside the grid. */}
+        <label className="block-label">Barcode / id (max 20)
+          <input
+            value={id}
+            onChange={(e) => { setId(e.target.value); idRef.current = e.target.value; setClash(null); }}
+            onBlur={() => void checkBarcodeFree()}
+            maxLength={20}
+            required
+            disabled={busy || !!item}
+            aria-invalid={!!clash}
+          />
+        </label>
+        {item && <ItemBarcodeList itemIdOne={item.idOne} busy={busy} />}
+
         <div className="form-grid">
-          <label>Barcode / id (max 20)
-            <input
-              value={id}
-              onChange={(e) => { setId(e.target.value); idRef.current = e.target.value; setClash(null); }}
-              onBlur={() => void checkBarcodeFree()}
-              maxLength={20}
-              required
-              disabled={busy || !!item}
-              aria-invalid={!!clash}
-            />
-          </label>
           <label>Name<input value={name} onChange={(e) => setName(e.target.value)} required disabled={busy} /></label>
           <label>Brand<input value={brand} onChange={(e) => setBrand(e.target.value)} disabled={busy} /></label>
           <label>Description<input value={desc} onChange={(e) => setDesc(e.target.value)} disabled={busy} /></label>
@@ -415,6 +430,10 @@ function ItemDialog({ item, cats, onClose, onDone, onOpenExisting }:
           number. Turning it back on resumes from the existing ledger level.
         </p>
         <p className="muted small">Ex-VAT price: £{exPrice.toFixed(2)} (derived from the selected tax band; the server rejects a band mismatch)</p>
+
+        {/* The item's change history — collapsed, at the bottom, so it is there when somebody asks
+            "who changed this price?" without being in the way of an ordinary edit. */}
+        {item && <ItemHistory itemIdOne={item.idOne} />}
 
         {clash && (
           <div className="clash-note" role="alert">
@@ -443,3 +462,4 @@ function ItemDialog({ item, cats, onClose, onDone, onOpenExisting }:
     </div>
   );
 }
+

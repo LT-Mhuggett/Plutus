@@ -2,6 +2,19 @@ import { useEffect, useReducer } from "react";
 import type { Discount, Item } from "../api.ts";
 import { toPence } from "../money.ts";
 import { exFromInc } from "./priceAdjust.ts";
+import { discountPence, type ScheduledDiscount } from "./scheduledDiscounts.ts";
+import { autoDiscountForLine, type MemberStanding } from "./autoDiscounts.ts";
+
+/**
+ * The id an operator's own typed discount carries (D8) — it has no catalogue row.
+ *
+ * ⚠⚠ NEGATIVE ON PURPOSE. Checkout only puts a discount on `LineMeta.discounts[]` when its id is
+ * POSITIVE, because that array projects into legacy `Transaction_Discount` rows keyed on a real
+ * `DiscountId`. One rule ("a real catalogue discount has a positive id") now covers both sentinels:
+ * the member's 0 and this. An invented positive id would FK-fail the projection of every sale that
+ * carried one.
+ */
+export const AD_HOC_DISCOUNT_ID = -1;
 
 export interface LineDiscount {
   discountId: number;
@@ -31,6 +44,22 @@ export interface LineDiscount {
    *  exactly that. Before 2026-08-17 the web till had no ceiling at all, so absent was true of every
    *  discount it had ever taken. */
   authorisedBy?: string;
+
+  /** ⚠⚠ THE TILL PUT THIS HERE, NOT THE OPERATOR — and telling the two apart is load-bearing.
+   *
+   *  The auto-discount resolver re-runs on every basket change. It must skip a line the OPERATOR has
+   *  discounted (no stacking) while being free to REPLACE its own earlier answer — otherwise scanning
+   *  a second item would find every line "already discounted" and the automatic discount would
+   *  silently vanish from the basket.
+   *
+   *  ⚠ The member discount could be recognised by its sentinel id alone; a scheduled rule cannot,
+   *  because its id is a REAL catalogue id and an operator can pick that very same discount by hand
+   *  off the till's list. So the distinction has to be recorded rather than inferred.
+   *
+   *  ⚠ Optional in the TYPE so a basket parked before 2026-08-20 still deserialises — an old parked
+   *  basket's discounts read as the operator's, which is the safe direction: they are preserved
+   *  rather than recomputed. */
+  auto?: boolean;
 }
 
 export interface BasketLine {
@@ -48,6 +77,27 @@ export interface BasketLine {
    *  loaded, its VAT is zero (the activation item sits on a zero-rate band), and it is excluded from
    *  every discount — knocking 10% off a £20 card would hand out £20 of goods for £18. */
   giftCardCode?: string;
+  /** The barcode actually SCANNED, when the item has more than one and it was not the item's own
+   *  (multi-barcode, 2026-08-20).
+   *
+   *  ⚠⚠ A SNAPSHOT, NEVER AN IDENTITY. `item.idOne` is canonical and is what pricing, line merging,
+   *  the deterministic item GUID and the sale line all key on. This exists so that when a supplier's
+   *  barcode migration goes wrong somebody can ask which code the tills actually read — the question
+   *  nothing else could answer.
+   *
+   *  ⚠ Absent on almost every line, and omitted from the checkout payload when it equals `idOne`, so
+   *  an ordinary sale's metadata is byte-identical to what it was before this existed. */
+  scannedBarcode?: string;
+  /** ⚠⚠ THE OPERATOR TOOK AN AUTOMATIC DISCOUNT OFF THIS LINE, AND IT MUST STAY OFF.
+   *
+   *  Without this the promise "you can always charge full price" lasts until the next scan: clearing
+   *  the discount leaves the line bare, the resolver re-runs on the very next basket change, finds an
+   *  eligible line and puts it straight back. The operator would watch it reappear and have no way to
+   *  stop it.
+   *
+   *  ⚠ Per LINE, not per basket, and it is cleared by removing the line — which is the operator's own
+   *  "actually, ring it again" gesture. */
+  autoWaived?: boolean;
 }
 
 export interface BasketState {
@@ -56,15 +106,17 @@ export interface BasketState {
 }
 
 type Action =
-  | { type: "add"; item: Item; quantity?: number }
+  | { type: "add"; item: Item; quantity?: number; scannedBarcode?: string }
   | { type: "addReturn"; item: Item; quantity: number; unitPricePence: number; unitExPricePence: number; originSaleId: string }
   | { type: "addGiftCard"; item: Item; code: string; amountPence: number; exAmountPence: number }
   | { type: "quantity"; key: number; delta: number }
   | { type: "adjust"; key: number; pricePence: number }
   | { type: "applyDiscount"; discount: Discount; keys: number[]; reason: string; authorisedBy?: string | null }
   | { type: "clearDiscount"; key: number }
-  | { type: "applyMemberDiscount"; rate: number; name: string }
-  | { type: "clearMemberDiscount" }
+  /** D8: a figure the operator typed, with no catalogue row behind it. */
+  | { type: "applyAdHocDiscount"; kind: number; amount: number; label: string; keys: number[]; reason: string; authorisedBy?: string | null }
+  /** Recompute every AUTOMATIC discount — the member's tier and any live scheduled rule. */
+  | { type: "autoDiscounts"; member: MemberStanding; rules: ScheduledDiscount[]; nowMs: number }
   | { type: "remove"; key: number }
   | { type: "move"; key: number; direction: -1 | 1 }
   | { type: "restore"; state: BasketState }
@@ -89,6 +141,19 @@ type Action =
  */
 export const isCardSurcharge = (l: BasketLine): boolean => l.item.idOne?.toUpperCase() === "CARD-SURCHARGE";
 
+/**
+ * ⚠ EXPORTED SO A TEST CAN DRIVE THE REAL REDUCER, not a restatement of it.
+ *
+ * C2 records the weakness this closes: `basketMerge.test.ts` tests a COPY of the merge predicate
+ * because the rule lives inside a `find(…)` in `addLine` and is not exported — "if the reducer's
+ * condition changes and the test does not, these vectors go on passing while the tills drift again".
+ * The auto-discount rules below (waiving, and not eating the resolver's own output) are exactly the
+ * kind that would pass a restated test while being wrong here, so the reducer itself is under test.
+ */
+export function reduceBasket(state: BasketState, action: Action): BasketState {
+  return reduce(state, action);
+}
+
 function reduce(state: BasketState, action: Action): BasketState {
   switch (action.type) {
     case "add": {
@@ -107,6 +172,13 @@ function reduce(state: BasketState, action: Action): BasketState {
         pricePence: toPence(action.item.price),
         exPricePence: toPence(action.item.exPrice),
         adjusted: false,
+        // ⚠ Multi-barcode: recorded only when an ADDITIONAL barcode was scanned. Stored on the NEW
+        // line only — a unit merged into an existing line above keeps whatever that line recorded,
+        // because the snapshot belongs to the scan that created the row.
+        scannedBarcode:
+          action.scannedBarcode && action.scannedBarcode !== action.item.idOne
+            ? action.scannedBarcode
+            : undefined,
       };
       return { lines: [...state.lines, line], nextKey: state.nextKey + 1 };
     }
@@ -197,30 +269,107 @@ function reduce(state: BasketState, action: Action): BasketState {
         ),
       };
     case "clearDiscount":
-      return { ...state, lines: state.lines.map((l) => (l.key === action.key ? { ...l, discount: undefined } : l)) };
-    // Members' auto-discount (Phase 8): a fraction applied to eligible lines only — non-return
-    // lines that carry no discount already (a manual/catalogue discount wins; no stacking).
-    // Marked with sentinel discountId 0 so checkout keeps it out of the legacy bridge metadata.
-    case "applyMemberDiscount":
       return {
         ...state,
         lines: state.lines.map((l) =>
-          !l.isReturn && !l.discount && !l.giftCardCode && !isCardSurcharge(l)
+          l.key === action.key
+            // ⚠ Clearing an AUTOMATIC discount waives it for this line. Without that the resolver puts
+            // it back on the next scan and the operator cannot charge full price at all. Clearing a
+            // manual one needs no flag — nothing re-applies those.
+            ? { ...l, discount: undefined, autoWaived: l.autoWaived || l.discount?.auto === true }
+            : l,
+        ),
+      };
+    /**
+     * D8: a £/% figure the operator typed, for the shop that has not set up a catalogue rule but
+     * still has a dented box on the counter.
+     *
+     * ⚠⚠ IT CARRIES `AD_HOC_DISCOUNT_ID` (−1), NOT AN INVENTED POSITIVE ONE. `LineMeta.discounts[]`
+     * is projected into legacy `Transaction_Discount` rows keyed on a REAL `DiscountId`, so a made-up
+     * id would FK-fail the projection of the whole sale — the trap the members' sentinel already
+     * exists to avoid. Checkout keeps anything without a positive id out of that array; the money
+     * still travels as `DiscountPence`, and the reason and authoriser still travel as an authority.
+     */
+    case "applyAdHocDiscount":
+      return {
+        ...state,
+        lines: state.lines.map((l) =>
+          action.keys.includes(l.key) && !l.isReturn && !l.giftCardCode
             ? {
                 ...l,
-                // ⚠ The tier IS the reason — nobody decided anything, so there is nothing to type
-                // and nothing to refuse. "All discounts" includes the automatic ones, and this is the
-                // one most likely to be queried later ("why is this basket 10% under?").
-                discount: { discountId: 0, name: action.name, type: 1, amount: action.rate, reason: action.name },
+                discount: {
+                  discountId: AD_HOC_DISCOUNT_ID,
+                  name: action.label,
+                  type: action.kind,
+                  amount: action.amount,
+                  reason: normaliseReason(action.reason),
+                  authorisedBy: action.authorisedBy ?? undefined,
+                },
               }
             : l,
         ),
       };
-    case "clearMemberDiscount":
+    /**
+     * Every AUTOMATIC discount, recomputed from scratch — the member's tier and any live scheduled
+     * rule, through the ONE shared resolver.
+     *
+     * ⚠⚠ IT REPLACES ITS OWN PREVIOUS ANSWER AND LEAVES THE OPERATOR'S ALONE. That is what `auto`
+     * on the line's discount is for: a line the operator discounted is skipped (no stacking), while a
+     * line this resolver discounted a moment ago is free to change — because a rule may have expired,
+     * a member may have been detached, or a bigger rule may now apply. Reading "has any discount" here
+     * instead would freeze the first answer and make the discount vanish on the next scan.
+     *
+     * ⚠ Recomputing from scratch rather than patching is deliberate: it means "member detached",
+     * "rule expired at 17:00" and "a better rule arrived" all take the same code path, so there is no
+     * separate clear-down to forget. The old `clearMemberDiscount` action is gone for that reason —
+     * detaching a customer now just re-runs this with no member.
+     */
+    case "autoDiscounts": {
+      const now = new Date(action.nowMs);
       return {
         ...state,
-        lines: state.lines.map((l) => (l.discount?.discountId === 0 ? { ...l, discount: undefined } : l)),
+        lines: state.lines.map((l) => {
+          // The operator's own discount wins outright and is never touched.
+          if (l.discount && !l.discount.auto) return l;
+          // ⚠ And a line whose automatic discount the operator took OFF stays off — see `autoWaived`.
+          if (l.autoWaived) return l.discount ? { ...l, discount: undefined } : l;
+
+          const got = autoDiscountForLine(
+            {
+              unitIncPence: l.pricePence,
+              quantity: l.quantity,
+              categoryId: l.item.catId,
+              itemIdOne: l.item.idOne,
+              isReturn: !!l.isReturn,
+              hasManualDiscount: false,
+              isGiftCard: !!l.giftCardCode,
+              isCardSurcharge: isCardSurcharge(l),
+            },
+            action.member,
+            action.rules,
+            now,
+          );
+
+          if (!got) return l.discount ? { ...l, discount: undefined } : l;
+
+          return {
+            ...l,
+            discount: {
+              discountId: got.discountId,
+              name: got.name,
+              type: got.type,
+              amount: got.amount,
+              // ⚠ The tier or the rule IS the reason — nobody decided anything, so there is nothing
+              // to type and nothing to refuse. It still has to be recorded: "all discounts need to
+              // be tracked" includes the automatic ones, and this is the one most likely to be
+              // queried later ("why is this basket 10% under?").
+              reason: got.reason,
+              auto: true,
+            },
+          };
+        }),
       };
+    }
     case "remove":
       return { ...state, lines: state.lines.filter((l) => l.key !== action.key) };
     case "move": {
@@ -324,11 +473,15 @@ export const normaliseReason = (raw: string | undefined | null): string | undefi
 };
 
 /** Pence knocked off a line by its discount (0 when none). Matches the MAUI
- *  engine: type 0 = fixed amount per unit, else fraction of the line value. */
+ *  engine: type 0 = fixed amount per unit, else fraction of the line value.
+ *
+ *  ⚠ THE ARITHMETIC MOVED TO `scheduledDiscounts.discountPence` AND THIS DELEGATES — a copy removed,
+ *  not added. The auto-discount resolver has to predict what a candidate rule is worth in order to
+ *  pick the largest, and predicting it with a second expression is how a "largest wins" comparison
+ *  chooses a different winner from the one the customer actually pays for. */
 export const lineDiscountPence = (l: BasketLine): number => {
   if (!l.discount || l.isReturn) return 0;
-  if (l.discount.type === 0) return Math.round(l.discount.amount * 100) * l.quantity;
-  return Math.round(l.pricePence * l.quantity * l.discount.amount);
+  return discountPence(l.discount.type, l.discount.amount, l.pricePence, l.quantity);
 };
 
 /**

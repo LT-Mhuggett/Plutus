@@ -721,6 +721,9 @@ namespace Plutus.Entities.Migrations.MySql
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Active")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("AllApplicable")
                         .HasColumnType("tinyint(1)");
 
@@ -742,6 +745,9 @@ namespace Plutus.Entities.Migrations.MySql
                     b.Property<string>("CreatedBy")
                         .IsRequired()
                         .HasColumnType("longtext");
+
+                    b.Property<byte?>("DaysOfWeekMask")
+                        .HasColumnType("tinyint unsigned");
 
                     b.Property<DateTime>("ModifiedAt")
                         .HasColumnType("datetime(6)");
@@ -766,6 +772,18 @@ namespace Plutus.Entities.Migrations.MySql
 
                     b.Property<int>("UsesPerTransaction")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("ValidFromUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ValidToUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeOnly?>("WindowEndLocal")
+                        .HasColumnType("time(6)");
+
+                    b.Property<TimeOnly?>("WindowStartLocal")
+                        .HasColumnType("time(6)");
 
                     b.HasKey("Id");
 
@@ -1182,6 +1200,42 @@ namespace Plutus.Entities.Migrations.MySql
                         .HasDatabaseName("IX_Items_Tenant_Modified_IdOne");
 
                     b.ToTable("Items");
+                });
+
+            modelBuilder.Entity("Plutus.Entities.Models.ItemBarcode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("BusinessId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ItemIdOne")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "ItemIdOne");
+
+                    b.ToTable("ItemBarcodes", (string)null);
                 });
 
             modelBuilder.Entity("Plutus.Entities.Models.ItemPricePolicy", b =>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ApiError, gbp } from "./api.ts";
 import { accessToken } from "./auth.ts";
 import DataTable from "./DataTable.tsx";
+import DiscountRulesSection from "./DiscountRulesSection.tsx";
 
 // WP5.4 portal pricing: global price editor (policy, HQ price incl. scheduling, store
 // override, force-reset) + the per-store variance view.
@@ -61,7 +62,13 @@ export default function PricesPage() {
       .catch((e) => setError(String(e instanceof Error ? e.message : e)));
 
   return (
-    <section className="panel">
+    <>
+      {/* ⚠ AT THE TOP — Matt, 2026-08-20: *"can discounts be moved to the top of the page and be
+          called 'Discount Settings'"*. It sat under the price list, which on a shop with a full
+          catalogue meant scrolling past every item to reach it. It stays COLLAPSED, so being first
+          costs nothing to somebody who came here for prices. */}
+      <DiscountRulesSection />
+      <section className="panel">
       <h2>Prices</h2>
       <div className="toolbar">
         <label>Quick open (barcode / id) <input value={lookup} onChange={(e) => setLookup(e.target.value)} placeholder="5011921068203" /></label>
@@ -112,7 +119,8 @@ export default function PricesPage() {
         <PriceDialog detail={detail} onClose={() => { setDetail(null); void refreshVariance(); void refreshList(); }}
           onChanged={() => void open(detail.itemIdOne)} />
       )}
-    </section>
+      </section>
+    </>
   );
 }
 

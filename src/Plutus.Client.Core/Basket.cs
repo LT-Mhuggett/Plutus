@@ -54,7 +54,12 @@ public sealed record BasketLine(
     long? OverriddenFromPence = null,
     bool IsReturn = false,
     Guid? OriginSaleId = null,
-    IReadOnlyList<DiscountAuthority>? DiscountAuthorities = null);
+    IReadOnlyList<DiscountAuthority>? DiscountAuthorities = null,
+    /// <summary>The barcode the operator actually scanned, when an item has more than one
+    /// (multi-barcode, 2026-08-20). ⚠ A SNAPSHOT — <see cref="IdOne"/> stays canonical and is what
+    /// everything downstream keys on. Null, or equal to <see cref="IdOne"/>, on almost every line;
+    /// the assembler omits it in both cases.</summary>
+    string? ScannedBarcode = null);
 
 /// <summary>What a basket is worth, as the header must state it.</summary>
 public sealed record BasketTotals(long GrossPence, long ExPence, long VatPence);
@@ -152,6 +157,17 @@ public static class SaleAssembler
                 // more than one place, and a new empty array on every line would be a diff on every
                 // line.
                 DiscountAuthority = DiscountAuthorityWire.ToWire(line.DiscountAuthorities),
+
+                // ⚠ Multi-barcode: recorded ONLY when the operator scanned something other than the
+                // item's own code, so an ordinary line's metadata is byte-identical to what it was
+                // before this field existed. ⚠ It is a snapshot for debugging a supplier's barcode
+                // migration, never an identity — `ItemIdOne` above is the canonical one and the only
+                // id any reader keys on.
+                BarcodeScanned =
+                    !string.IsNullOrWhiteSpace(line.ScannedBarcode) &&
+                    !string.Equals(line.ScannedBarcode, line.IdOne, StringComparison.Ordinal)
+                        ? line.ScannedBarcode
+                        : null,
             };
 
             ingestLines.Add(new IngestLine

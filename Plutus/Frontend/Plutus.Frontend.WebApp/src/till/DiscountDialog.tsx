@@ -12,14 +12,38 @@ interface Props {
   /** ⚠ `authorisedBy` is the SUPERVISOR's userId when the discount needed a step-up, else null.
    *  It lands in `LineMeta.discountAuthority[]` — see the caller. */
   onApply: (discount: Discount, keys: number[], reason: string, authorisedBy: string | null) => void;
+  /** D8: a figure the operator typed, with no catalogue row behind it. ⚠ `kind` is 0 for pounds-off
+   *  per unit and 1 for a fraction, matching `Discount.type`; `amount` is already in those units. */
+  onApplyAdHoc: (
+    kind: number, amount: number, label: string,
+    keys: number[], reason: string, authorisedBy: string | null,
+  ) => void;
   onClose: () => void;
 }
 
-export default function DiscountDialog({ lines, onApply, onClose }: Props) {
+/** ⚠ The sentinel the "type your own" row uses in the picker. It is NOT the id that reaches the
+ *  basket (`AD_HOC_DISCOUNT_ID` is), only a marker so one list can hold the catalogue plus one
+ *  synthetic row without a second piece of state to keep in step. */
+const AD_HOC = -1;
+
+export default function DiscountDialog({ lines, onApply, onApplyAdHoc, onClose }: Props) {
   const [discounts, setDiscounts] = useState<Discount[] | null>(null);
   const [selected, setSelected] = useState<Discount | null>(null);
   const [keys, setKeys] = useState<number[]>([]);
   const [error, setError] = useState("");
+
+  // ── D8: the typed amount ──────────────────────────────────────────────────
+  //
+  // ⚠⚠ THE MAUI TILL HAS ALWAYS HAD THIS AND THIS TILL NEVER DID, which under the 2026-08-19
+  // look-and-feel ruling is a gap an operator would feel the moment they swapped machines: on one
+  // till a dented box can be marked down, on the other it cannot unless somebody set up a catalogue
+  // discount for it first.
+  //
+  // ⚠ Held as TYPED text and converted once, at apply. A percent is typed as "10" because that is
+  // what a person says, and becomes the fraction 0.1 — the conversion `LineDiscounts.Percentage`
+  // throws above 1.0 to protect, because the legacy till multiplied a price by a raw "10".
+  const [adHocKind, setAdHocKind] = useState<number>(1);
+  const [adHocTyped, setAdHocTyped] = useState("");
 
   // ── W-P3: the ceiling, and the step-up ────────────────────────────────────
   //
@@ -43,7 +67,32 @@ export default function DiscountDialog({ lines, onApply, onClose }: Props) {
   }, []);
 
   const myGrants = operators?.find((o) => (o.userId ?? "").toLowerCase() === (me ?? "").toLowerCase())?.grants ?? [];
-  const plannedPence = selected ? plannedDiscountPence(lines, selected, keys) : 0;
+
+  /**
+   * The discount as it would actually be applied — the catalogue row, or the typed one with the
+   * figure the operator has entered so far.
+   *
+   * ⚠⚠ ONE SHAPE FOR BOTH PATHS, deliberately, so the ceiling, the step-up, the planned figure and
+   * the Apply button cannot treat a typed discount differently from a catalogue one. A typed £50 has
+   * to hit exactly the same limit a catalogue £50 does — a second code path is how one of them ends
+   * up ungated, and it would be the new one.
+   */
+  const adHocAmount = (() => {
+    const n = Number(adHocTyped.replace(/[£%\s,]/g, ""));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    // ⚠ A percent is typed as a NUMBER and stored as a FRACTION. Over 100% is refused here rather
+    // than left to `LineDiscounts.Percentage`, which throws — an exception on the selling path with
+    // a customer waiting is worse than a disabled button.
+    if (adHocKind === 1) return n <= 100 ? n / 100 : null;
+    return n;
+  })();
+
+  const effective: Discount | null =
+    selected && selected.id === AD_HOC
+      ? (adHocAmount === null ? null : { ...selected, type: adHocKind, amount: adHocAmount })
+      : selected;
+
+  const plannedPence = effective ? plannedDiscountPence(lines, effective, keys) : 0;
   const now = new Date();
 
   /** ⚠ Asked WITHOUT an amount — "may this operator discount at all?" is a different question from
@@ -128,15 +177,77 @@ export default function DiscountDialog({ lines, onApply, onClose }: Props) {
                 </button>
               </li>
             ))}
+            {/* D8 — parity with MAUI, which has always been able to type a figure. Last in the list
+                on purpose: a shop that has set up its discounts properly should reach for those, and
+                this is the answer for the dented box nobody planned for. */}
+            <li>
+              <button onClick={() => choose({
+                id: AD_HOC, name: "Type an amount", type: 1, amount: 0,
+                allApplicable: false, canUseWithOtherDiscounts: false, autoApply: false,
+              })}>
+                <span className="grow">Type an amount…</span>
+                <span className="muted small">£ or %</span>
+              </button>
+            </li>
           </ul>
         )}
 
         {selected && (
           <>
-            <p>
-              <strong>{selected.name}</strong> — {label(selected)}
-            </p>
-            <p className="muted small">Tick the lines it applies to:</p>
+            {selected.id === AD_HOC ? (
+              <div className="setting-row" style={{ gap: 6 }}>
+                <select value={adHocKind} onChange={(e) => setAdHocKind(Number(e.target.value))}>
+                  <option value={1}>% off</option>
+                  <option value={0}>£ off each</option>
+                </select>
+                <input
+                  className="pref-input"
+                  inputMode="decimal"
+                  autoFocus
+                  placeholder={adHocKind === 1 ? "10" : "1.50"}
+                  value={adHocTyped}
+                  onChange={(e) => setAdHocTyped(e.target.value)}
+                />
+                {/* ⚠ Refusals are shown as they are typed rather than on submit: a disabled Apply with
+                    no explanation is the dead-button fault this dialog already fixed once. */}
+                {adHocTyped.trim() !== "" && adHocAmount === null && (
+                  <span className="error small">
+                    {adHocKind === 1 ? "Enter a percentage between 0 and 100." : "Enter an amount in pounds, e.g. 1.50."}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <p>
+                <strong>{selected.name}</strong> — {label(selected)}
+              </p>
+            )}
+
+            {/* ⚠⚠ SELECT ALL — Matt, 2026-08-20: *"the till asks me to select items, with an option to
+                select all"*. It is the whole-basket case, and it goes through the SAME per-line keys
+                every other discount does: there is no basket-level discount anywhere in this platform
+                (`GrossPence` must equal Σ line gross), so "everything" has to mean "every eligible
+                line" or it could not be sent at all. */}
+            <div className="setting-row" style={{ justifyContent: "space-between" }}>
+              <span className="muted small">Tick the lines it applies to:</span>
+              <span>
+                <button
+                  type="button"
+                  className="linklike small"
+                  disabled={keys.length === eligible.length}
+                  onClick={() => setKeys(eligible.map((l) => l.key))}
+                >
+                  Select all
+                </button>{" "}
+                <button
+                  type="button"
+                  className="linklike small"
+                  disabled={keys.length === 0}
+                  onClick={() => setKeys([])}
+                >
+                  Clear
+                </button>
+              </span>
+            </div>
             <ul className="checklist">
               {eligible.map((l) => (
                 <li key={l.key}>
@@ -234,8 +345,25 @@ export default function DiscountDialog({ lines, onApply, onClose }: Props) {
               // to a human, which is the exact empty-column failure this field exists to prevent.
               // ⚠⚠ W-P3: `allowed` is the ceiling gate — within the operator's own limit, or signed
               // for by a supervisor. `mayDiscountAtAll` refuses an operator with no grant outright.
-              disabled={keys.length === 0 || !normaliseReason(reason) || !mayDiscountAtAll || !allowed}
-              onClick={() => onApply(selected, keys, reason, authorisedBy)}
+              // ⚠ `!effective` covers the typed path with nothing (or nonsense) typed yet.
+              disabled={!effective || keys.length === 0 || !normaliseReason(reason) || !mayDiscountAtAll || !allowed}
+              onClick={() => {
+                if (!effective) return;
+                // ⚠ A TYPED DISCOUNT TAKES A DIFFERENT DOOR because it has no catalogue row, and the
+                // basket must record that: an id that looks real would be projected into legacy
+                // `Transaction_Discount` and FK-fail the whole sale. Everything else about it — the
+                // ceiling, the step-up, the mandatory reason — is identical.
+                if (effective.id === AD_HOC) {
+                  onApplyAdHoc(
+                    effective.type, effective.amount,
+                    effective.type === 1
+                      ? `${+(effective.amount * 100).toFixed(2)}% off`
+                      : `£${effective.amount.toFixed(2)} off`,
+                    keys, reason, authorisedBy);
+                } else {
+                  onApply(effective, keys, reason, authorisedBy);
+                }
+              }}
             >
               Apply to {keys.length} line{keys.length === 1 ? "" : "s"}
             </button>

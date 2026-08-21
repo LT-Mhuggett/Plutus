@@ -60,8 +60,13 @@ item-identity seam all outlive the retrofit, and archiving them unlifted buries 
 
 ### 0.1 What is deployed, and what is only built
 
-| | Version | State — as of **2026-08-19 (evening)** |
+| | Version | State — as of **2026-08-20 (late)** |
 |---|---|---|
+| **Backend** | **1.20.0** | ✅ **DEPLOYED 2026-08-20 (late) & verified on the DB path** — swagger 200, and `POST /api/v1/tokens/device` with a junk (non-empty) GUID → **401 "Device not enrolled or revoked."**, which is the axis that proves the schema and the model agree. ⚠ **NO MIGRATION** — `ItemBarcodes` shipped with 1.19.0 and is unchanged; its six columns were re-verified live before the swap. Adds `PUT api/v1/items/{id}/barcodes/{code}` (atomic barcode correction), `GET api/v1/items/{id}/history`, and `{before, after}` audit writes on `ItemController.Put`. Rollback `~/PLUTUS/backend.pre-1.20.0`. ⚠⚠ **The endpoints were then EXERCISED LIVE**, not just probed: add → 201 · rename → 204 · a membership-card shape → 400 with its sentence · an interior space → 400 · a code another item owns → 409 naming it · a padded code → trimmed and accepted · history → 3 rows including the synthetic *"Created before change logging began"* bookend · **and an alias scan answered the CANONICAL `idOne`**, byte-identical to scanning the item's own barcode. Test aliases removed; `GET /api/v1/items/barcodes` is back to `[]`. |
+| **Portal** | **1.16.0** (`index-DeYBItIK.js`) | ✅ **DEPLOYED 2026-08-20 (late) & verified on all four axes** — right host (`admin.plutus.…`), served hash matches the build, **512,065 bytes** (not the ~1 KB SPA fallback), `1.16.0` and change-specific strings present, no unsubstituted defines, no `0.0.0`. Rollback `current.pre-1.16.0`. ⚠ The item editor gains the additional-barcode list (locked rows, atomic correction, live checks) and the change history. ⚠⚠ **AND ITS DIALOGS FINALLY GET A ✕** — the portal had **none, anywhere**, and D4 could not see it because its table listed only the two tills (§0.3e). |
+| **Web till** | **1.29.0** (`index-C6wnXS6d.js`) | ✅ **DEPLOYED 2026-08-20 (late) & verified on all four axes** — right host (`plutus.…`, **not** the portal's), served hash matches, **384,187 bytes**, `1.29.0` and change-specific strings present, no unsubstituted defines, no `0.0.0`. Rollback `current.pre-1.29.0`. ⚠ Deliberately the **same** barcode list and history as the portal's, under the 2026-08-19 look-and-feel ruling — an operator moving between the two must not find that only one of them can do it. |
+| **MAUI till** | **1.110.0** (built, at `D:\tmp\plutus-till-1.110.0\`) | ✅ **BUILT 2026-08-20 — SYNCFUSION IS OUT, and so is `DocumentFormat.OpenXml`.** **264 MB → 169 MB (−95 MB, −36%)** · 299 → 268 root files · 121 → 88 subfolders · **0** Syncfusion DLLs, **0** OpenXml. L4 CLOSED (see §10 L4) because its condition was met, not overridden. ⚠ The stale licence key is **deleted** from `App.xaml.cs`, so the trial-dialog hazard is structurally impossible rather than dormant. ⚠ `SatelliteResourceLanguages=en` removed all 33 satellite folders; the 86 native `.mui` ones stay and **cannot be moved** (see Shrink §6). ⚠ Verified: Release build 0 errors · MAUI suite **621** pass (was 625 — the 4 `ExcelHandlingTests` went with the class) · version stamped, no stale 1.109.0 string · **launched and ran 25 s**, log opening `Plutus MAUI till v1.110.0` with no licence or XAML failure. ⚠⚠ **HAND-RUN §G68 — a clean build and a 25-second launch are not a shift**, and the screens whose controls were swapped in the 1.33.0 work have no automated coverage. ⚠ 1.109.0 deleted, so the folder listing is unambiguous. |
+| ~~MAUI till 1.109.0~~ | — | ⛔ Superseded by 1.110.0 the same day and **deleted from the box**. It carried multi-barcode's MAUI half (local schema v7, the alias cache). ⚠ Its note is worth keeping: it had **no item editor at all** — `ExecuteOpenAddItem` is unreachable dead code and Inventory offers only "View all items", because a till-created item reaches no report, no other till and no VAT return. Item writes are the portal's (`till-design.md` C1 *"Portal decides, till obeys"*); inventory parity is **WP10** / §10 (L2). Recorded as a deliberate ⬜ in till-design **A0** and **Part B**. |
 | ~~Backend 1.17.1~~ | — | ⛔ Superseded by **1.17.2** (row below), 2026-08-18. Kept for the verification rule it records: verify on the DB path (`POST /api/v1/tokens/device`), **not** `/swagger` — which answered 200 throughout the 2026-08-09 outage |
 | ~~Web till 1.16.0~~ (`index-DrOux3wm.js`) | — | ⛔ Superseded by **1.17.0** the same evening; it is the rollback copy. Original note: ✅ DEPLOYED 2026-08-18 & verified on all four axes.** ⚠⚠ **THIS IS THE BUILD THAT CAN TAKE A PAYMENT AGAIN.** Checkout had crashed on **every** attempt since 1.10.0 with React error #310 — `CheckoutDialog` called `useMemo` six lines below a guard clause, so it rendered N hooks on mount and N+1 once the payment methods loaded. Found by Matt clicking Checkout; invisible to `tsc`, to `vite build` and to all 205 vitest cases, because **no test in this project mounts a component**. ⚠ `npm run build` now runs **eslint** with `react-hooks/rules-of-hooks` as an error, and the rule was **watched catching the real bug and failing the real build** before being trusted (§W10b). Rollback `current.pre-1.16.0` = 1.15.0 (`index-iU8ZRsnt.js`). ⚠ **1.16.0 is CSS only** — the parked-baskets ✕ was inheriting `width: 100%` from the scan-results list and rendering half the dialog wide. ⚠ **1.14.0 added the ✕ on all 8 web dialogs** (till-design **D4**); **1.15.0** moves the price-adjust arithmetic onto the shared `PriceAdjust` rule — same answers except sub-penny on manual overrides, where the shared one is correct. |
 | ~~Web till 1.12.0~~ (`index-fooggnrJ.js`) | — | ⛔ Superseded 2026-08-18 — **it could not take a payment** (see above). Original note: ✅ **DEPLOYED 2026-08-17 & verified on all four axes** — the till host names the hash, 362,039 bytes (not the ~1 KB SPA fallback), `1.12.0` and a string only this change introduced both present, no unsubstituted defines, portal confirmed still on `index-X2HmT_BH.js`. Rollback `current.pre-1.12.0` = 1.10.0 (`index-DBZqCOhi.js`). ⚠ **This is 1.11.0's content plus the store-info fix** — 1.11.0 never shipped as an artefact, so §5b's slices reached the shop inside this build. ⚠⚠ **Deployed ≠ verified by a person**: every §5b register row is still **🟡** and **§W1–§W9 have never been run** |
@@ -120,7 +125,7 @@ say so rather than quietly doing something else.**
 | 2026-08-11 | *"As part of the heartbeat, the re-read of permissions needs to happen. If a user is disabled, the user needs immediately logging out with an information message."* | The roster rides the 60 s beat; revocation signs the operator out. ⚠ Only from a roster the server ANSWERED with — see `OperatorRevocation` |
 | 2026-08-11 | *"No self update for MAUI."* | The update prompt is **advisory**. Nothing may refuse to sell over it. ⚠ The **agent** is the exception — see W5 |
 | 2026-08-11 | *"Does the heartbeat from the till check for updates? All tills should do this."* | `ExpectedMauiVersion` / `ExpectedWebVersion` on the beat |
-| 2026-08-10 | *"I am not going to renew Syncfusion, it seems like it can be replaced."* | No licensed control on any selling path. ⚠ L4 no longer buys its removal — see the L4 ruling below |
+| 2026-08-10 | *"I am not going to renew Syncfusion, it seems like it can be replaced."* | ✅ **FULLY HONOURED 2026-08-20 (till 1.110.0): Syncfusion is out of the app entirely** — 10 packages, the licence registration and the stale key all deleted. ⚠ **Do not add one back**; no key exists and the failure is a shop-floor modal, not a build error |
 | 2026-08-13 | *"You cannot have a discount greater than the basket."* | Binding default 22a. Checked **before** the permission ceiling — "more than the basket" is true regardless of who is signed in |
 | 2026-08-13 | *"All discounts need to be tracked."* | Every discount carries a reason; step-ups carry an authoriser (`DiscountAudit`) |
 | 2026-08-14 | *"Base it on roles."* | A discount level **IS** a role's `pos.discount` `MaxPence`. ⚠ A separate tier entity would state a cashier's money limit twice with nothing to notice them disagreeing |
@@ -129,7 +134,8 @@ say so rather than quietly doing something else.**
 | 2026-08-16 | *"Tables only."* | Reports match the web till's **table behaviour**; no chart. The portal is the home for charts |
 | 2026-08-17 | *"Make it %"* | The discount box takes a percent NUMBER — `10` means 10%. Made it a **money** bug, not a label one. Fixed |
 | 2026-08-17 | *"I would not install silently, I would inform with a 'Continue or cancel' option… But if they say no, it needs to remind them."* | Agent updates are **asked for** and a decline **returns**. See W5 |
-| 2026-08-17 | ⚠⚠ *"Do not drop anything. I have a more recent DB to import and will need to translate where required and retain all legacy sales."* | **L4 is not a deletion.** Legacy history is imported and translated, not discarded — see L4 |
+| 2026-08-17 | ⚠⚠ *"Do not drop anything. I have a more recent DB to import and will need to translate where required and retain all legacy sales."* | ~~**L4 is not a deletion.**~~ ✅ **CONDITION MET, L4 CLOSED 2026-08-20** — the 19_08 import ran and `salesv2` holds 21,914 sales back to 2019-01-23, so the screens stopped being the only reader of that history. **A conditional ruling, honoured then discharged — not overridden.** See L4 |
+| 2026-08-20 | *"if the packaging of it removes all you see, what about removing syncfusion now? Worth it?"* | ✅ **Yes, and done — till 1.110.0.** The case was the **licence hazard**, not the megabytes: no key is coming, and an unlicensed control fails as a modal on a shop floor rather than as a build error. 264 MB → 169 MB fell out of it. ⚠ The question also settled the packaging point: the flat root is an **unsigned-MSIX workaround**, so signing the package is the real answer to it — Shrink §6 |
 | 2026-08-18 | ⚠⚠ *"Store credit needs to be for a KNOWN customer. Adding credit needs to have a reason and be viewable in the customers history."* | **§5c item 2b, answered.** ⚠ **There is no anonymous store credit at all** — the "no known customer" case is not a supervisor-authorised path, it is **refused**. That is simpler than the plan assumed and closes the question it was blocked on. ⚠ Credit is a **liability the shop owes a named person**; issuing it to nobody creates money the shop cannot reconcile against anybody, and a bearer instrument is what a **gift card** is for (WP13, which already exists). ⚠ **A REASON IS MANDATORY on the way in**, and it is not a local log: it must reach the customer's history where a manager can read it later. So the reason travels on the credit movement, the same shape as `DiscountAudit` — reason mandatory, actor recorded, stored on the record rather than beside it. ⚠ *"viewable in the customers history"* means a **screen requirement as well as a storage one**: a reason nobody can read afterwards is not an audit trail. |
 | 2026-08-18 | ⚠⚠ *"Portal shows which reports a till can show. Separate permissions need to be created for viewing them."* | **§5c item 5b, answered — and it is BOTH halves, not one.** ⚠ **(a) The portal curates the SET**: a till shows the reports the portal has published to it, not a catalogue hard-coded into each client. That makes `ReportCatalogue` a *superset the portal chooses from* rather than the answer, on every till. ⚠ **(b) Each report gets its OWN permission**, so "which reports exist here" and "who may read them" are separate decisions — today every report shares `portal.reports.view` / `pos.reports.view`, which is why widening that gate for a Supervisor widened it for **every** report at once (and why the same gate defect has now been fixed four times). ⚠⚠ **This is a new work package, not a §5c slice**: new entries in `PermissionCatalogue`, a per-tenant/per-till published set with storage and an endpoint, a portal screen, and both tills consuming it. ⚠ **It also settles a question nobody asked**: with per-report permissions, a till that is *published* a report it may not *read* must show nothing rather than a refusal — the publish decides the menu, the permission decides the door. ⚠⚠ **(b) SHIPPED 2026-08-19** — codes, shared rule + C2 twin, both tills filtering, and the nine endpoints re-gated so a narrow grant actually opens its report (backend 1.17.9). **(a) is still open.** Hand-run **§G51**. |
 | 2026-08-18 | ⚠⚠ *"A customer needs to have a unique ID, because people can change emails over time. Audit please."* | **§5c item 6's edit, answered — edit is ALLOWED, and audited.** ⚠ The unique id already exists and always has: `Customer.Id` is a UUIDv7 and `MemberNo` is the human-facing one. **The ruling is that neither the email nor any other editable field is ever the identity** — so changing an email cannot "redirect somebody's account", because nothing resolves a customer by email. That removes the objection the till's missing edit path was built around. ⚠ **"Audit please" is the condition, not an aside**: an edit records who changed what, from what, to what, and when — the `DiscountAudit` shape again, and the same reason (a change to somebody's record that nobody can trace is indistinguishable from a mistake). ⚠ It follows that **email must not be treated as unique** anywhere: two family members sharing an address is ordinary, and a uniqueness constraint on email would refuse a legitimate second member. |
@@ -141,7 +147,41 @@ say so rather than quietly doing something else.**
 | 🟠 | **`LoginViewModel.EnsureStoreAsync` throws on every sign-in** — `InvalidOperationException: Unable to track an entity of type 'StoreModel' because its primary key property 'Id' is null` | `LoginViewModel.cs` | Caught and harmless; the screen it fed is read-only off `StoreInfoCache`. ⚠ It also CREATES the legacy `Database.db` on every sign-in, which is what made the enrolment gate a one-way door. **Goes with step 25**, not 21 — see [L7](#l7--loginviewmodelensurestoreasync) |
 | ⚠ | **The UI fixes of 2026-08-10 are held by REVIEW, not tests** | dialogs, navigation, checkout | Nothing in that family can be exercised without a UI host. Weaker than it should be for two overlay bugs in two days — which is why step 11b moved up the order, and why §8's USER-VERIFY list exists |
 | ⚠ | **The store-gate deadline convention is unpinned** | `TillStoreAccess.UseAsync` callers | The next caller written without a deadline restores the 2026-08-10 fault in full. Held by convention and a code comment |
-| 🔴 | ⚠⚠ **17 input-alert call sites do not handle the operator BACKING OUT, and each one can crash the till** | see the table below | `LaunchInputAlertAsync` returns **null** when the operator leaves without confirming — tapping outside, Escape, or the Cancel button. `data.TryGetValue(…)` on null is a `NullReferenceException`, and most of these sit in **`async void`** methods, so it goes to the dispatcher **unhandled and the app dies**. ⚠ **This is not theoretical — it is the same shape as the 2026-08-18 refund crash**, and it is reachable today by the gesture Matt already uses (*"I know you can click outside of the box to close it"*). **Only `ExecuteAdjustItem` was fixed** on 2026-08-18 (the dialog he reported); the rest were left because several are on money paths and *"what does cancelling mean here"* is a per-flow decision, not a blanket `return`. ⚠ Do NOT "fix" this by making the helper return an empty dictionary: **six call sites detect cancellation by testing for null**, and `SupervisorPrompt` is one of them — an empty dictionary there would fall through into reading a password that was never typed |
+| ✅ | ⚠⚠ **~~17 input-alert call sites crash the till on back-out~~ — CLOSED 2026-08-21. Every REACHABLE site is guarded** | [§0.3b](#03b--the-input-alert-back-out-audit-2026-08-18) | ⚠⚠ **This row was STALE FOR TWO DAYS and it sat at the top of the do-first list both of them.** §0.3b's own 2026-08-19 re-audit already said "17 was wrong — it is five, of which one is reachable", and nobody carried the correction up to this table or to §7. **Re-enumerated by grep 2026-08-21: 23 call sites, and every one an operator can open now returns on `Count == 0` or a checked `TryGetValue`.** Closed the residue the same morning: five **dead `answers is null` checks** (`SupervisorPrompt`, `LoginViewModel` ×2, `SettingsViewModel` ×2) now test `Count == 0` — the helper ends `?? new Dictionary<…>()`, so null never arrives and those five only ever appeared to work because a whitespace validator ran after them; and `ViewAllViewModel.ExecuteUpdateItemStock` — where `Any(…)` over an empty dictionary is FALSE, so the cancel path fell through to `int.Parse(null)` **after** `db.Add(stock)` had already written a row. ⬜ **What is left is 4 unguarded sites in `CopperTransferPlatform`, all UNREACHABLE** (`ICopperTransfer` is registered and nothing resolves it) — deliberately left, as `SliderAlert` was: **delete the tool or wire it up**, do not restructure four legacy object initialisers for a path no operator can open |
+
+### 0.3e ⚠⚠ The PORTAL's dialogs had no ✕ at all — and the contract could not see it (2026-08-20)
+
+**Nobody reported this and nobody was looking for it.** It was found by a twin-file guard added for the
+multi-barcode work: `Ask.tsx` exists twice — the portal and the web till are separate npm apps that
+cannot share a package — and the two copies are meant to be byte-identical. They were not. The till's
+imported `DialogX`; the portal's did not.
+
+**So every confirm / choose / prompt dialog in the portal had no close ✕**, which `till-design.md` **D4**
+has made mandatory since 2026-08-18. The portal had no `DialogX.tsx` and no `.dialog-x` style either —
+fifteen files contain dialogs and **not one** of them offered a ✕. Matt's instruction was *"add x's to
+all relevant boxes … so that it is not missed in future"*.
+
+⚠⚠ **THE CAUSE IS THE SHAPE OF THE CONTRACT, NOT THE CSS.** D4's implementation table listed **two**
+surfaces, MAUI and the web till, under a heading that says *"every box an operator can open"* — so it
+read as complete while a third surface, which the same people use every day, sat outside it. **A
+contract that enumerates its own surfaces silently excludes the ones nobody added.** D4 now has a portal
+row and an honesty entry saying so.
+
+| | What | State |
+|---|---|---|
+| ✅ | `DialogX.tsx` + `.dialog-x` ported to the portal, byte-identical to the till's | Done — portal 1.16.0 |
+| ✅ | `Ask.tsx` twin restored — **one file, so it covers every confirm/choose/prompt in the portal** | Done — portal 1.16.0 |
+| ✅ | The item editor | Done — portal 1.16.0 |
+| ⬜ | **13 portal files that build their own dialog** — `CategoryManager`, `CustomerDialog`, `CustomersPage`, `GiftCardsPage`, `LoyaltyPage`, `MemberCard`, `PricesPage`, `ReportPublicationSection`, `SaleDialog`, `StockPage`, `TierManagerDialog`, `UsersPage`, `WebstorePage` | ⚠ **Not a trap** — each closes by Cancel and by clicking the backdrop, so nothing is stranded. But that is *exactly* what the two tills' gap was. ≈ **half a day**, mechanical: import the helper, one line per dialog, then re-run D4's check command |
+
+✅ **And the twins are now mechanically pinned** — `FrontendTwinTests` in the architecture suite compares
+the bytes of all five (`DataTable.tsx`, `Ask.tsx`, `DialogX.tsx`, `Barcode39.tsx`, `barcodeProblem.ts`)
+with line endings normalised, and **a missing twin fails too**, because "the portal never had a copy" is
+the fault it found. ⚠ **Proved by breaking a twin deliberately and watching it go red** (1 of 5), then
+restoring it. ⚠ It lives in .NET rather than vitest because the web till has no `@types/node`.
+
+⚠ **The general lesson, recorded in C2:** four of those five twins had nothing but a *"keep these in
+sync"* comment for months. **Where a twin can be compared mechanically, compare it mechanically.**
 
 ### 0.3c ⚠ WP-T1 — the theming remainder (2026-08-19 audit, after Matt's white-pill diagnosis)
 
@@ -328,8 +368,18 @@ have a suite that reports coverage it does not have.
 
 ## Where it stands
 
-**Counted from Part B, not estimated — recounted 2026-08-19: 85 capability rows.**
-**50 ✅ both tills · MAUI ✅58 🟡17 ⬜3 · web ✅67 🟡9 ⬜1.**
+**Counted from Part B, not estimated — recounted 2026-08-20: 83 rows in B1–B5.**
+**MAUI ✅60 🟡19 ⬜4 · A0's parity table: MAUI ✅44 🟡36 ⬜4.**
+
+⚠ **Two of MAUI's four ⬜ arrived on 2026-08-20, not from slippage** — the new *manage barcodes* and
+*item change history* rows, which are ⬜ on MAUI because it has no item editor at all (WP10 / L2, a
+deliberate design position). A third, *remote lock*, is ⬜ on **both** tills. **So one row separates
+MAUI from the web till on anything a shop does today.**
+
+⚠⚠ **RE-DERIVE THESE NUMBERS FROM `till-design.md`; DO NOT MAINTAIN THEM HERE.** This line was
+recounted on 2026-08-19 and §6/§7 were not — so for three days §0 said *3 ⬜* while §6 said *15* and §7
+put **≈35–40 days** on the board. Matt read the pessimistic half and asked whether the retrofit was
+finished. **A count in prose rots; the register it summarises does not.**
 
 ⚠ **The shape of what is left has CHANGED, and the headline number with it.** On 2026-08-16 the block
 here read "77 rows, 42 ✅ both, 8 MAUI ⬜, 14 MAUI 🟡" and put ≈35–40 days on the board, two thirds of
@@ -347,17 +397,31 @@ for eight days, reaching a customer-facing dialog — every suite green througho
 even been *triaged* and written off as cosmetic. Seven status markers have now been found wrong in
 under two weeks; an eighth is not being added by calling untested screens done.
 
-| | |
-|---|---|
-| **Till build to run** | **`D:\tmp\plutus-till-1.97.0\Plutus.Frontend.AppClient.exe`** — unpackaged, no signing, just run the .exe. ⚠ **The only build on the box**; every earlier one is deleted so there is no ambiguity. ⚠ Treat the FOLDER LISTING as the truth — the version written in prose has been wrong twice in one day. |
-| **Versions** | till-maui **1.97.0** (built, on the box) · backend **1.17.8** *live* / **1.17.9** committed **NOT deployed** · platform **1.47.0** · portal **1.10.0** (deployed) · till-web **1.19.0** (deployed) · agent **1.4.0** |
-| **Deploy state** | ⚠ **One thing is waiting: backend 1.17.9**, the per-report endpoint re-gate (5b(b)). Nothing else is blocked on a deploy, and nothing already deployed needs 1.17.9 to keep working — it only WIDENS the report gates, so the tills run correctly against 1.17.8 today. ⚠ Verified live: `GET /api/v1/ping` reports `1.17.8`. |
-| **Suite** | Unit **1385** · Integration **177** · Architecture **24** · AppClient **605** (+3 skipped) · web till **240** (14 files) — **2,431 green, 2026-08-19**. ⚠ Architecture gained `ReportGateTests` (the report door matches the menu) and `SourceEncodingTests` (no re-encoded UTF-8 in source), both mutation-checked. |
-| **Repo** | 7 commits ahead of `upstream/Matt's-Horror`, unpushed. ⚠ `origin` still refuses a push over a 151 MB blob in old history — unchanged, and history surgery on a shared repo is not a side quest. |
+> ⚠⚠ **A SECOND STATE TABLE USED TO SIT HERE AND IT HAD GONE STALE — deleted 2026-08-20.** It named
+> till **1.97.0**, backend **1.17.8**, portal **1.10.0** and web till **1.19.0**; the real numbers that
+> day were **1.110.0 · 1.20.0 · 1.16.0 · 1.29.0**. Thirteen MAUI builds and three backend versions had
+> shipped past it.
+>
+> **The cause was duplication, not neglect: §0.1 immediately below is the deploy table, and this was a
+> second copy of the same facts.** One of two copies always rots, and the reader cannot tell which. So
+> this block now points instead of repeating:
+>
+> | For | Go to |
+> |---|---|
+> | **What is deployed / built right now, and which build to run** | **§0.1**, and nowhere else |
+> | Capability status per till | [`till-design.md`](../till-design.md) **A0** and **Part B** |
+> | Suite counts | [`HANDOVER.md`](../../HANDOVER.md) — they change every session |
+>
+> ⚠ **Same rule as A0 vs Part B**: a summary and its source will disagree eventually, so name which one
+> wins. Here the source wins, always.
 
-**≈14–19 working days of BUILD remain** — checkout seam + dialog contract (1–2d, and Matt has ruled the
-one-screen checkout is *not* a functional gap), 5b(a) portal report curation (2–3d), §5c item 9's inline
-controls (1d), plus the ⬜/🟡 tail. ⚠ **The hand-run is not in that number and cannot be done by me.**
+**≈10–15 working days of BUILD remain** — see **§7**, re-costed 2026-08-20 against the code.
+⚠⚠ **AND §6/§7 CARRIED THE OLD ≈35–40 UNTIL THAT DAY, WHICH IS WHY THIS SECTION'S CORRECTION DID NOT
+STICK.** §0 was recounted on 2026-08-19 (8 ⬜ → 3, both big steps landed) and **§6 and §7 were left
+saying "15 MAUI ⬜ rows" and "≈35–40 days"** — so the document disagreed with itself, the deeper section
+was the pessimistic one, and Matt read it on 2026-08-20 and asked *"I thought we had finished it."*
+**Correcting a headline is not correcting a document.** ⚠ **The hand-run is not in that number and
+cannot be done by me.**
 
 ---
 
@@ -2131,24 +2195,72 @@ cash-rules; the surcharge row landed with W-P7 and carries the mutation lesson).
 deployed** (live is 1.10.0), and **no §W section has been run by a person**. Nothing in this plan is
 waiting on more code.
 
-## 6. The 15 MAUI ⬜ rows, grouped
+## 6. ~~The 15 MAUI ⬜ rows, grouped~~ → **RE-COUNTED 2026-08-20: there are FOUR, and one of them is ⬜ on both tills**
 
-Not fifteen problems — **five clusters**, each already owned by a step above:
+> ## ⚠⚠ THIS SECTION WAS WRONG BY A FACTOR OF FOUR, AND §7 BY ROUGHLY THREE
+>
+> Matt, 2026-08-20: *"Can you check the MAUI refit document please? I thought we had finished it."*
+> **He was right to ask.** Re-counted against `till-design.md`, which is the authoritative register, and
+> then against the code:
+>
+> | | ✅ | 🟡 | ⬜ |
+> |---|---:|---:|---:|
+> | **A0 parity table**, MAUI column | 44 | 36 | **4** |
+> | **Part B** (B1–B5), MAUI column | 60 | 19 | **4** |
+>
+> **All four A0 ⬜ rows are ONE cluster — the item editor**: give an item another barcode · see who
+> changed an item · add a new item on one screen · put a withdrawn item back. In Part B the four are the
+> two barcode/history rows, **connection status**, and **remote lock of a lost till — which is ⬜ on the
+> WEB till too**, so it is a platform gap rather than a MAUI one.
+>
+> ⚠⚠ **AND THIS SECTION'S OWN WARNING PREDICTED THIS EXACTLY**: *"a stale ⬜ makes the gap look BIGGER
+> and gets it re-planned, re-estimated and possibly rebuilt… grep for a ⬜ before believing it."* Four of
+> the five clusters below had closed and nobody re-counted. **The document that says to grep before
+> believing a marker was the one carrying the stale markers.**
+>
+> | The old five clusters | Actually |
+> |---|---|
+> | Loyalty / gift cards / customers (6 rows) → step 27 | ✅ **closed** — step 27's body carries five `✅ CLOSED` entries; MAUI has `LoyaltyViewModel`, member numbers (WP-T2), tiers, and gift cards through checkout, tenders and printing |
+> | Platform notices — announcements, help tickets, app-update, pick-from-floor (4 rows) | ✅ **closed** — no ⬜ left for any of them |
+> | Theming + portal receipt template (2 rows) | ✅ **closed** — step 22 done (till 1.73.0) |
+> | Users (1 row) → step 24 | 🟡 **DoD met**, ~1d left (the roster move) |
+> | Un-enrol + manager approval (1 row) | ✅ **DONE 2026-08-16** (till 1.70.0) |
+> | VAT-band consistency guard (1 row) → WP10 | ⬜ — rides with the item-editor cluster |
 
-- **Loyalty / gift cards / customers** (6 rows) → **step 27**
-- **Platform notices** — announcements, help tickets, app-update prompt, pick-from-floor (4 rows) →
-  no step yet, **~3–4d**, cheapest carried on 22/24
-- **Theming + portal-controlled receipt template** (2 rows) → **steps 22 and 26**
-- **Users** (1 row) → **step 24**
-- **Un-enrol request + manager approval** (1 row) → **step 21, ~1d**
-- **VAT-band consistency guard** (1 row) → **WP10**
+## 7. How long, honestly — **≈10–15 days, not 35–40** (re-costed 2026-08-20)
 
-✅ **Refund-only baskets left this list on 2026-08-16** — built, tested and hand-run; the row had
-been ⬜ against a Notes cell that described the *server* half. **Grep before believing a marker.**
-
-## 7. How long, honestly
-
-**≈35–40 working days.** Two thirds is **step 27 (12–15d)** and **step 26 (8–10d)**.
+> ⚠⚠ **THE OLD NUMBER WAS ≈35–40 DAYS AND IT WAS BADLY STALE.** Its own arithmetic said *"two thirds is
+> step 27 (12–15d) and step 26 (8–10d)"* — and **both have substantially landed**. Removing just those
+> two takes 22–25 days off the board, which is where most of the error was.
+>
+> **What is actually left, every line verified against the code on 2026-08-20:**
+>
+> | | Work | Est. | Verified how |
+> |---|---|---|---|
+> | ✅ | **~~§0.3b — 17 input-alert call sites that can CRASH the till on back-out~~ — CLOSED 2026-08-21** | ~~1–2d~~ **0** | ⚠⚠ **This row was WRONG, and it was the top of the do-first list for two days running.** §0.3b's own 2026-08-19 re-audit had already replaced 17 with "five, of which one is reachable" — and this table, which §6 says should be *re-derived from the register, never maintained by hand*, was maintained by hand. **Re-enumerated by grep 2026-08-21: 23 call sites; every reachable one guarded.** The real residue — five dead `answers is null` checks and `ViewAllViewModel.ExecuteUpdateItemStock`'s `Any(…)`-over-empty fall-through — was closed the same morning (build 0 errors, MAUI suite **621**). ⬜ 4 unreachable `CopperTransferPlatform` sites left alone on purpose |
+> | ⚠ | **Step 11b — reshape the basket** | **4d** | ⚠⚠ **The other thing that actually matters.** `ExecuteCheckoutTransaction` is still a ~200-line `async void` and **the last money-adjacent cluster in this app with no test coverage at all**. Also unblocks L6 |
+> | ⬜ | **WP14 — payment-gateway awareness on the checkout XAML** | 1–2d | **0 references** to `PaymentGateway` in any MAUI view or viewmodel. Shared half done (13 tests, mutation-checked) |
+> | 🔄 | **~~WP16 — connectivity states on the login screen~~ — MAUI'S HALF IS DONE. THE GAP IS THE **WEB TILL'S** LOGIN SCREEN** | ~~1–2d~~ **≈½d** | ⚠⚠ **"0 references on `LoginView`/`LoginViewModel`" WAS WRONG, and it was wrong because the grep was for `ConnectivityProbe` — MAUI reaches it through `Services.Connectivity.TillConnectionCheck`.** Verified 2026-08-21: `LoginViewModel` has `ConnectionSummary` / `ConnectionDetail` / `ConnectionColour` / `IsCheckingConnection` and `RefreshConnectionAsync`, and `LoginView.xaml` binds all four plus a tap-to-refresh gesture and the clock-skew sentence (lines 72–97). **16b is done too** — `OperatorLogin` calls `OfflineCredentials.Assess`, and MAUI's login constructs it with `DbOperatorStore`. ⚠ **What is genuinely open is the LAST clause of the DoD, in the other direction:** `LoginPage.tsx` is 111 lines and shows **no connection indicator at all** — email, password, error, button. A shop whose backend is down gets a failed sign-in with no way to tell that from a wrong password. Under the **2026-08-19 look-and-feel ruling** an operator moving between tills mid-shift meets two different login screens, so this is a Part B **Notes** gap, not a ✅/✅ row. ⚠ The probe answer already exists in the browser (`SettingsPage.tsx` renders `apiStatus` as reachable/unreachable) — **it has never been put on the login screen** |
+> | ⬜ | **Step 28 — online-first login** | 2–3d | Hardening; unchanged |
+> | 🟡 | **Step 24 — the roster move** | ~1d | DoD already met |
+> | ⬜ | **Step 21 — delete `LoginViewModel.EnsureStoreAsync`** | — | ⚠ **Still genuinely blocked**, re-checked: `AddEditViewModel.cs:337` and `ViewAllViewModel.cs:1379` still dereference `Store.Id`. ⚠ Step 25 is done, so the *stated* blocker has cleared and only these two sites remain — and `ViewAllViewModel` has already moved two of its three reads onto `MetaKeys.StoreId` |
+> | ⬜ | **WP10 / L2 — an item editor on the till** | — | ⚠⚠ **Matt's call, and arguably NOT a gap at all.** All four A0 ⬜ rows are this. MAUI has no item editor deliberately: a till-created item reaches no report, no other till and no VAT return, and `ExecuteOpenAddItem` is unreachable dead code. C1 says *"Portal decides, till obeys"* — **decide whether this is ever wanted before costing it** |
+> | ⬜ | **Remote lock of a lost or stolen till** | — | ⬜ on **both** tills — platform work, not MAUI catch-up |
+> | ⏸ | **L1–L10 legacy removal** | — | Matt actions last. **L4 closed 2026-08-20** with the Syncfusion removal |
+>
+> ⚠ **So: not finished, but nothing like a two-month job.** Roughly **10–15 days** of build, of which the
+> two items worth doing first are a **crash fault** and an **untested checkout** — neither of which is a
+> missing feature. Everything a shop actually does is built.
+>
+> ⚠⚠ **THE REAL REMAINING WORK IS THE HAND-RUN, AND IT ALWAYS WAS.** **36 A0 rows are 🟡** — built,
+> tested, and never once exercised by a person. Only a person at a screen turns a 🟡 into a ✅, and the
+> first hand-run of this retrofit found **fourteen faults, six invisible to every automated test here**.
+> A 🟡 is not a smaller ⬜; it is an unknown.
+>
+> ⚠ **The lesson for this document, and it is the third time in three days a status marker has misled:**
+> a count in prose goes stale silently, while the register it summarises stays current. **§6 and §7
+> should be re-derived from `till-design.md`, never maintained by hand** — the same reason A0 carries
+> "⚠ Part B wins on any disagreement".
 
 ⚠ **That total does NOT include the expanded loyalty programme** ([`Loyalty Update across all tills.md`](Loyalty%20Update%20across%20all%20tills.md),
 2026-08-13). Step 27's 12–15d is the **parity slice** — MAUI level with today's web till, plus gift
@@ -2390,15 +2502,52 @@ A fifth apparent caller, `SettingsViewModel.ExecuteChangeBarcodeType`, is inside
 of this code is ever reawakened, and its alert is unreachable today. **The removal is still L3,
 still ordered after L2 and L4, and still Matt's call.** See §0.3b for the void notice.
 
-### L4 — Till-side reporting
+### L4 — Till-side reporting — ✅ **CLOSED 2026-08-20 (till 1.110.0)**
 
-**Code:** `ViewModels/MainTill/Statistics/SalesReportsViewModel.cs`, `StockOuttakeViewModel.cs`,
-`StatisticsViewModel.cs` and their views.
+**Code:** ~~`SalesReportsViewModel.cs`, `StockOuttakeViewModel.cs`~~ **deleted**;
+`StatisticsViewModel.cs` and `StatisticsView` **stay** — that is the *"what has this till taken today"*
+screen (step 26) and it reads the platform, not SQLite.
 
-⚠️ **HIDDEN 2026-08-16 (till 1.68.0) — MARKED FOR DELETION, NOT DELETED.** Matt: *"Can you hide this
-and mark it for deletion but NOT delete it."* The tab registration in `AppShell.xaml.cs` is commented
-out with the reasoning beside it; **every file remains in the build.** Replaced by the **Reports**
-tab (step 26), which reads the platform.
+> ## ✅ L4 IS DONE — and it closed because its own CONDITION was met, not because the ruling was overridden
+>
+> Matt, 2026-08-20: *"if the packaging of it removes all you see, what about removing syncfusion now?
+> Worth it?"* — checked, and the blocker had quietly expired.
+>
+> **The 2026-08-17 ruling was conditional**: *"Do not drop anything. **I have a more recent DB to
+> import** and will need to translate where required and **retain all legacy sales**."* Both halves are
+> now satisfied:
+>
+> - the more recent DB **was imported** — the 19_08 full replace, 2026-08-20 (see the NatApp document §8);
+> - the legacy sales **are retained** — `salesv2` holds **21,914 sales from 2019-01-23** to today.
+>
+> So the screens stopped being *"the only reader of a migrated till's pre-cutover file"*, which was the
+> entire reason to keep them. The portal reads the same history from the platform, and does it better:
+> these two read **only this device's local file**, so they showed **zero** for everything sold since
+> cutover step 11.
+>
+> ⚠ **They were already unreachable** — `OpenSalesReportsCommand` / `OpenStockOuttakeReportComamnd`
+> existed but **nothing bound them**; the `buttons` list has held only *Reprint* since 2026-08-10. Both
+> orphaned commands are gone too, and the on-screen note no longer says the reports are *"hidden"*,
+> which would now be a lie about something that does not exist.
+>
+> ⚠ **One more import is still coming** — the cutover replace, taken after the physical till's last
+> sale. **It does not need these screens**: it is a server-side ETL from a backup file, run on the Mac.
+> These were for *viewing* on the till, never for migrating.
+>
+> ### What went with it
+>
+> Deleting L4 is what unblocked the **whole Syncfusion tier C** — see
+> [`Shrink MAUI Build.md`](../archive/Shrink%20MAUI%20Build.md). **10 Syncfusion packages, `DocumentFormat.OpenXml`,
+> `ExcelHandling.cs`, the licence registration and `ConfigureSyncfusionCore`** are all out, and the
+> stale licence key is deleted from `App.xaml.cs`. **264 MB → 169 MB (−36%).**
+>
+> ⚠⚠ **THE LICENCE HAZARD IS NOW STRUCTURALLY IMPOSSIBLE, which was the real prize.** No Syncfusion key
+> was ever coming (Matt, 2026-08-10), keys are version-specific, and an unlicensed control does not fail
+> a build — it puts a modal with no way back in front of a shop-floor screen. That trap is gone rather
+> than dormant.
+>
+> ⚠ Hand-run **§G68**. A clean build proves little here: XAML and resource failures surface on
+> navigation. The app was launched and ran clean for 25 s, which is a smoke test, not a shift.
 
 > ### 🛑 ANSWERED 2026-08-17 — **NOTHING IS DROPPED. L4 IS NOT A DELETION.**
 >
@@ -2480,14 +2629,15 @@ also deletes `ExcelHandling.cs`, `SyncfusionLicenseProvider.RegisterLicense` in 
 `ConfigureSyncfusionCore` in `MauiProgram.cs`, and every Syncfusion package reference. ⚠ **In that
 order, and not before** — removing the licence registration while a licensed control still exists in
 the assembly turns a dormant screen into a **trial-dialog** screen, which is worse than leaving it.
-Detail: [`syncfusion-footprint.md`](../syncfusion-footprint.md).
+Detail: [`Shrink MAUI Build.md`](../archive/Shrink%20MAUI%20Build.md) **§4** (merged 2026-08-20 from the old
+`syncfusion-footprint.md`, now archived).
 
 ⚠ **What it costs to keep, measured 2026-08-18:** Syncfusion is **76 MB of the till's 264 MB publish
 output (29%)**, all of it reachable from no screen an operator can open, and the full removal would
 make the artefact **a third smaller**. That is the price of L4's ruling, and it is a fair price —
 recorded so the decision stays informed, **not** as an argument to reopen it. The sequencing, the
 tiers that do NOT need L4 touched, and the 15 MB of `DocumentFormat.OpenXml` the till never calls are
-in [`Shrink MAUI Build.md`](Shrink%20MAUI%20Build.md). ⚠ That page is **packaging only** — this
+in [`Shrink MAUI Build.md`](../archive/Shrink%20MAUI%20Build.md). ⚠ That page is **packaging only** — this
 document remains the authority on whether these screens live.
 
 ### L5 — The legacy database layer
@@ -3385,6 +3535,8 @@ discoverable.
 | 8 | **"Choose bag item" in Store Information** | ✅ **DONE 2026-08-18 (till 1.94.0).** It was **misfiled, not mysterious** — the web till keeps the same setting in **Settings** (`prefs.ts bagBarcode`, Settings → Till), and it belongs there: which carrier bag *this machine* sells is a per-DEVICE preference, while Store Information is read-only and about the SHOP. Moved to **Settings → Till** as *"Quick-sell bag item"*, still gated `pos.settings.manage`, still validated against the **v2 catalogue** (the same list a scan resolves against — validating against a different one is how a setting is accepted here and fails at the counter). ⚠ The original command is **deleted** from `StoreOptionsViewModel`, not left behind: two copies of one rule is the drift C2 exists to prevent. ⚠ It also gained the finding-K fix on the way — the current barcode now prefills as **real editable text** rather than a grey hint. ⚠⚠ **AND SUPERSEDED THE NEXT DAY (2026-08-19), which does not make it wrong.** The setting was misfiled *and* the setting itself was: Matt asked for carrier bags to be created in the **portal** and pushed to every till, so "Quick-sell bag item" is gone from MAUI entirely along with the web till's `prefs.bagBarcode` twin. Consolidating both tills' bag setting into one place each is what made deleting it from both a small change rather than a hunt | **done, then superseded** |
 | 9 | **Settings must match the web till** | ✅ **DONE 2026-08-18 (till 1.94.0).** Matt: *"most of the MAUI Plutus tab would move into settings"*. ⚠ **The section NAMES are now the web till's** — `SettingsPage.tsx` has Till, Checkout, Printer, Hardware, Database, Till device, Environment; MAUI had Printer, Checkout and Help, so the two screens shared almost no vocabulary. **Till** comes first, as it does there. ✅ **THE "PLUTUS" TAB IS GONE**, and the web till has no such tab either — its equivalent is the **Till device** section. ⚠⚠ **The SCREEN is not deleted, only un-tabbed**: `OpenTillDeviceCommand` pushes the same `ConnectionView` modally, so the enrolment flow and the five diagnostics survive intact. Flattening them into a button list would have lost the thing that makes them useful — a failure pointing at ONE layer rather than at "the network". ⚠ **The old argument for the tab did not survive contact**: it said this is *"the screen someone opens when the till is NOT working, and it has to be findable"* — but the tab bar is only built AFTER sign-in, so a till too broken to sign in never showed it. Enrolment before sign-in has its own route. ⚠ **A live fault fixed on the way**: the section headings were hard-coded `Colors.LightGray` — the same near-invisible grey that made Store Information unreadable in 1.74.0. They take `ThemeInkMuted` now, so muted is a role rather than a colour somebody typed. ⚠ **What is NOT done**: MAUI's Settings is still a **button list**, while the web till's sections hold inline controls (toggles, live values, a receipt preview). The vocabulary matches; the interaction does not. That is a further ~1 d and it is honest to say so rather than tick the row clean ⚠⚠ **AND THE INLINE-CONTROLS HALF IS NOW DONE TOO — 2026-08-19 (till 1.99.0), so item 9 is CLOSED.** The two checkout options are **switches** with the sentence explaining each, built inside their own section by the same loop; "Quick-sell bag item" and "Receipt printer" carry a muted **live value** under the button that changes them, worded as the consequence rather than the field state ("No printer chosen — receipts print as PDF"). ⚠⚠ **AND IT FOUND AN UNGATED SETTING**: both checkout options were plain `DisplayAlert` yes/no prompts with **no permission check at all**, so any cashier could turn the receipt prompt off or tell the till it had no cash drawer — while the web till has always disabled them without `pos.settings.manage`. The switches are now **disabled, not refused**, with the reason under them: a control that cannot move tells a cashier where they stand before they touch it, where a dialog that says no afterwards teaches them the screen is unpredictable. ⚠ The three gated BUTTONS still refuse on press, because a button gives nothing away by being pressable. ⚠ The two superseded commands, their fields and their `Execute…` methods are **deleted, not left with a note** — an unreferenced `Command` on a viewmodel is indistinguishable from one whose binding has a typo, which is how `StoreOptionsViewModel` kept `AddEmployeeCommmand` looking live for months. **Hand-run §G55; §G55b is the behaviour change to check.** | **✅ CLOSED 2026-08-19 — names in 1.94.0, interaction in 1.99.0** |
 | 10 | ⚠⚠ **Colour customisation reaches the WEB till and barely touches MAUI** | ✅ **DONE 2026-08-18 (till 1.91.0).** ⚠⚠ **I read the LIVE theme before writing anything, and it explained the symptom exactly**: `Kapow Test` is `baseMode: "dark"` with `{"accent":"#337061","line":"#2c3a4d"}`, assigned at **Scope 0 (tenant-wide)** — so it always did reach MAUI, and "assigned to the wrong till" was never the answer. ✅ **First**, `Styles.xaml` (1.88.0) gave the app implicit styles for `ContentPage`, `Label`, `Entry`, `Editor` and `Button`, so a scheme reaches every screen rather than the two files that read a slot before. ⚠⚠ **Then two real gaps that only a live theme reveals.** ① **THE STOCK PALETTE HAD NO DARK HALF** — `Colors.xaml` defines one set of seven values and they are the light ones. A scheme asking for **dark** while setting only an accent therefore got `UserAppTheme = Dark` **and `ThemeSurface = #ffffff`**: white pages, dark chrome, a scheme that looks like it did nothing. ⚠ A partial scheme is the NORMAL case — the portal lets you set one slot. `Theming` now carries a dark stock table and falls back to it when the base mode is dark; the scheme always wins, ink and surface flip together, and the **accent keeps its hue in both modes** because it is the brand. ⚠ `Unspecified` keeps the light stock: the device's mode is not knowable there, and guessing would invent a decision nobody made. ② **NOTHING READ `ThemeLine`** — half of what this shop actually chose was landing in a dictionary no control looked at. **A slot the portal offers and no till renders is a setting that lies to whoever sets it.** `TillTable` now draws its heading rule from it, which also makes headings read as headings rather than as a first row. ⚠ Guarded by `XamlResourceTests`: a referenced-but-undefined resource, or a theme slot reached by `StaticResource` (frozen at parse time), fails the build. ⚠ **What is deliberately NOT themed: dialogs' own hard-coded white is gone, but receipts remain immune** (till-design C1) — printing from a dark scheme once put near-white ink on paper | **done** |
+| 12 | ⚠⚠ **SCHEDULED DISCOUNTS — "Wednesday Warhammer", and Select all** *(new work, 2026-08-20)* | ✅ **BUILT 2026-08-20 (till 1.108.0 + web 1.27.0 + portal 1.14.0 + backend 1.18.0).** The plan is [`Discount plan.md`](../archive/Discount%20plan.md); this row is the MAUI half of it. ⚠⚠ **THE FINDING THAT JUSTIFIES THE ROW: a category-targeted rule would have matched NOTHING on this till, silently.** MAUI's basket carries a legacy `ItemModel` whose `CatId` is an **int** into the NatApp `Categories` table — empty and permanently so on a portal till — while the v2 catalogue's category is a Guid. So the rule would have been "working" on both tills and answering "no category" for every item in the shop on one of them. That is the exact shape of the Gold-member money difference (step 27), and it was found by asking where the id actually comes from rather than assuming the model had room for it. `BasketItem.CategoryId` now carries it, set at **both** add doors from `ItemLookup`. ⚠⚠ **`MemberDiscountBasket` IS DELETED, NOT LEFT BESIDE THE NEW ONE** — `AutoDiscountBasket` supersedes it (one automatic discount became a SET: two rules on two categories, with the member's tier out-bidding one and not the other, is two alterations). Two divergent paths for one job is the drift C2 exists to prevent, and every vector from its 16 tests is ported into `AutoDiscountBasketTests` (22) because each one records a trap. ⚠ **The rebuild identifies its own work by a FLAG, not by discount id**: a rule's id is a real catalogue id an operator can pick by hand off the Alterations list, so matching on id would overwrite the operator's own choice. ⚠ Clearing an automatic discount **waives it for that line** — detected as a removal seen while the rebuild flag is DOWN, since ours all happen inside it. Without it the promise "you can always charge full price" lasts one scan. ⚠ 🟡 until a person runs **§G64**. | **done** |
+| 11 | ⚠⚠ **A long basket pushed the Checkout buttons off BOTH tills** *(new finding, 2026-08-20)* | ✅ **DONE 2026-08-20 (till 1.107.1 + web 1.26.1).** Matt: *"if you add many items, the buttons 'Checkout etc' go off the bottom of the screen. The buttons always need to stay and the items need to become 'Scrollable'."* ⚠ **One fault, two mechanisms.** MAUI: the selling screen was a vertical `StackLayout`, which measures children UNBOUNDED — the basket ListView grew with its content and carried the totals + button grid below the fold. Now a `Grid RowDefinitions="Auto,Auto,*,Auto"` in `TillView.xaml`: the list sits in the star row, the ONLY thing on the screen allowed to give up height, so it scrolls inside itself and the buttons cannot move. Web till: `.shell` and `body` are `min-height: 100vh` — nothing bounded the document, so `.basket-grid`'s own `flex:1 + overflow-y:auto` (the intended design, already in the CSS) never engaged and the page just grew. Now `.shell.till-locked` (`height: 100dvh`) applied **on the Till tab only** — reports and inventory are meant to scroll as a page and keep doing so — with deliberate graceful degradation: no `overflow:hidden`, so a window too short for even the fixed parts falls back to body scroll rather than clipping Checkout out of reach. ⚠⚠ **Neither fix is machine-verifiable** (WinUI layout; browser flex) — suites after the change: MAUI **616 green**, architecture incl. `XamlResourceTests` green, and neither could have caught the fault either. **§G62 is the check**, written for both tills, and §G62b pins the Till-tab-only scope | **done, ~½d** |
 
 ### ⚠ The order I would work in, and why
 

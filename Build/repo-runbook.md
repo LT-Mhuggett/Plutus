@@ -201,6 +201,34 @@ same grep against the deployed bundle before declaring victory.
 flattened copy has no such path, so it falls back to `"0.0.0"` — the footer version is cosmetic
 there and is not evidence of a bad build.
 
+### ⚠⚠ "Is what is DEPLOYED what is in the TREE?" — the bundle hash cannot answer that
+
+`vite.config.ts` defines `__BUILD_TIME__: JSON.stringify(new Date().toISOString())`, so **every build
+of identical source produces a different bundle and therefore a different content hash.** Rebuilding
+and comparing `index-<hash>.js` names will always differ, which reads as *"the deployed bundle is
+stale"* when it is nothing of the kind. (Encountered 2026-08-20 — two seconds of believing a clean
+deploy had drifted.)
+
+The hash IS the right check for *"did the file I just built reach `current/`"* — same build, same hash.
+It is the wrong check for *"does `current/` match today's source"*. For that, normalise the timestamp
+and compare the bytes:
+
+```bash
+norm() { sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z/BUILDTIME/g' "$1"; }
+norm /srv/apps/PLUTUS/web/current/assets/index-*.js > /tmp/a
+norm ~/PLUTUS/Plutus.Frontend.WebApp/dist/assets/index-*.js > /tmp/b
+cmp /tmp/a /tmp/b && echo "deployed matches current source"
+```
+
+⚠ **The CSS has no timestamp**, so for stylesheets the hash IS a valid source-equality check — a
+matching `index-<hash>.css` means the deployed CSS is exactly what the tree builds.
+
+⚠ **And write these loops out longhand: the remote shell is zsh, which does NOT word-split an unquoted
+variable.** `for p in "web App" ...; set -- $p` silently produces one argument containing a space, so a
+path becomes `~/PLUTUS/ /dist` and every check reports 0 / DIFFERS / "no matches found". That failure
+looks exactly like a failed verification rather than a broken script, and it happened **twice** on
+2026-08-20 — once while checking bundle contents and once while checking the CSS.
+
 ## MAUI till build (Windows)
 
 > ⚠⚠ **BUILD ONE ONLY WHEN MATT ASKS.** Matt, 2026-08-16: *"Can you only deploy new MAUI tills when I

@@ -13,7 +13,7 @@ cards dropped, everything else kept) — **§8, which also carries the no-questi
 `sales-v2` delta — never touches what exists). A fresh backup that should BECOME the truth — stale
 catalogue and all — = the REPLACE (§8). The cutover run, when the till finally stops, is a REPLACE
 taken after its last sale.
-**Companion docs:** `Build/Migration-2026-07-22-plan.md` (Workstream G), `Build/kapow-db-gap-analysis.md`, `HANDOVER.md` (Phase 3/6 notes), `tools/Plutus.TenantRestore/RUNBOOK.md` (the operational pattern this plan follows).
+**Companion docs:** `Build/Migration-2026-07-22-plan.md` (Workstream G), `Build/archive/kapow-db-gap-analysis.md`, `HANDOVER.md` (Phase 3/6 notes), `tools/Plutus.TenantRestore/RUNBOOK.md` (the operational pattern this plan follows).
 
 ## 0. Terminology (confusingly, "Plutus" names two different things)
 
@@ -38,7 +38,7 @@ The seed data came from `Kapow Comics ltd - Database - 23_07_2026 15_57_23.db` �
 | Idempotent / re-runnable? | No — deterministic GUIDs (`DetGuid("business","kapow")` etc.) mean a second run collides on PK, and there's no LegacyRef-style skip | **No** — `tillId`/`deviceId` are `Guid.NewGuid()` **every invocation** (`Program.cs:94`), and there's no check for sales already recorded. Re-running duplicates. |
 | Tenant-aware? | Hardcoded `businessId = DetGuid("business","kapow")` | Hardcoded `Plutus.Entities.Tenancy.KnownTenants.Kapow` |
 
-Both were built, reasonably, as **one-shot** tools for a single known customer. Neither is the "parameterised... onboarding path for any future client" that `kapow-db-gap-analysis.md §5` already names as the end state. That gap is exactly what this plan closes.
+Both were built, reasonably, as **one-shot** tools for a single known customer. Neither is the "parameterised... onboarding path for any future client" that `Build/archive/kapow-db-gap-analysis.md` §5 already names as the end state. That gap is exactly what this plan closes.
 
 ### 1.3 Live database, queried directly (`plutus` schema, MySQL 9.6, 2026-08-05)
 
@@ -66,7 +66,7 @@ Per `HANDOVER.md`: *"⚠ The ETL is ONE-SHOT... The PRODUCTION cutover (retiring
 Two related but distinct use cases, both served by the same tool:
 
 1. **Bridge runs (now → cutover day):** periodically (or on demand) take a fresh NatApp backup and bring the new platform's sales/stock up to date, **without duplicating** the 21,646 rows already migrated.
-2. **Onboarding runs (future customers):** the same tool, pointed at a different tenant and a different NatApp/Kapow-schema backup, becomes the standard "customer arrives with an old till" import path — this was always the intended end state (`kapow-db-gap-analysis.md §5`, last line).
+2. **Onboarding runs (future customers):** the same tool, pointed at a different tenant and a different NatApp/Kapow-schema backup, becomes the standard "customer arrives with an old till" import path — this was always the intended end state (`Build/archive/kapow-db-gap-analysis.md` §5, last line).
 
 Both require the tool to stop being "run once, from empty, with random IDs" and become a proper incremental ETL.
 

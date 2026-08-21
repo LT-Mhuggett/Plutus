@@ -17,6 +17,8 @@ import {
 import { gbp } from "./money.ts";
 import DataTable from "./DataTable.tsx";
 import { takeNewItemBarcode } from "./newItemHandoff.ts";
+import ItemBarcodeList, { ItemHistory } from "./ItemBarcodes.tsx";
+import { canManageBarcodes, canViewItemHistory } from "./pipeline.ts";
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -253,22 +255,35 @@ function ItemDialog({
 
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <form className="dialog" onSubmit={submit}>
+      {/* ⚠ `wide` (38rem) — Matt, 2026-08-20: *"the text areas do not fit"*. The default `.dialog` is
+          26rem, which put a two-column form-grid in ~190px columns; the `minmax(0, 1fr)` fix in
+          index.css stops them OVERFLOWING, and this gives them room to be readable rather than
+          merely contained. It also makes space for the barcode list below. */}
+      <form className="dialog wide" onSubmit={submit}>
         <h2>{item ? "Edit item" : "Add item"}</h2>
         <DialogX onClose={onClose} disabled={busy} />
+        {/* ⚠ THE BARCODE BOX IS OUT OF THE GRID ON PURPOSE (Matt, 2026-08-20 — same change as the
+            portal's). Its additional-barcode list has to sit directly under it to read as "…and these
+            also scan to this item", and a full-width child inside a two-column grid cell either
+            squeezes into half the dialog or breaks the columns. */}
+        {/* ⚠ `block-label`, not `block`: it carries the grid's own label+input styling, so lifting the
+            field out of the grid does not change how it LOOKS. */}
+        <label className="block-label">
+          Barcode / id (max 20)
+          <input
+            value={id}
+            onChange={(e) => { setId(e.target.value); idRef.current = e.target.value; setClash(null); }}
+            onBlur={() => void checkBarcodeFree()}
+            maxLength={20}
+            required
+            disabled={busy || !!item}
+            aria-invalid={!!clash}
+          />
+        </label>
+        {/* ⚠ EDITS ONLY. A barcode row points at an item by `IdOne`, so there is nothing to point at
+            until the item exists — and the id above is still editable while it doesn't. */}
+        {item && canManageBarcodes() && <ItemBarcodeList itemIdOne={item.idOne} busy={busy} />}
         <div className="form-grid">
-          <label>
-            Barcode / id (max 20)
-            <input
-              value={id}
-              onChange={(e) => { setId(e.target.value); idRef.current = e.target.value; setClash(null); }}
-              onBlur={() => void checkBarcodeFree()}
-              maxLength={20}
-              required
-              disabled={busy || !!item}
-              aria-invalid={!!clash}
-            />
-          </label>
           <label>
             Name
             <input value={name} onChange={(e) => setName(e.target.value)} required disabled={busy} />
@@ -344,6 +359,10 @@ function ItemDialog({
             </button>
           </div>
         )}
+
+        {/* ⚠ Matt, 2026-08-20: *"At the bottom of an item listing when editing"* — the bottom, below
+            the save buttons' concern, because it is a record to consult rather than a field to fill. */}
+        {item && canViewItemHistory() && <ItemHistory itemIdOne={item.idOne} />}
 
         {error && <p className="error small">{error}</p>}
         <div className="dialog-actions">

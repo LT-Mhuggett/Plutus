@@ -1368,7 +1368,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                         var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, "UpdateStock".Translate(), "Cancel".Translate());
 
-                        if (data.Any(d => string.IsNullOrEmpty(d.Value)))
+                        // ⚠ `Count == 0` FIRST — same fix as `AddEditViewModel.ExecuteCreateCategory`. Backing out
+                        // yields an EMPTY dictionary, and `Any(…)` over nothing is FALSE, so without this the
+                        // cancel path fell straight through to `int.Parse(null)` below — AFTER `db.Add(stock)`
+                        // had already put a zero-quantity row in the legacy file.
+                        // ⚠ Unreachable today (`UpdateItemStockCommandArg` is bound to nothing — §0.3b), but this
+                        // is one condition, not a restructure, and its twin already carries it.
+                        if (data.Count == 0 || data.Any(d => string.IsNullOrEmpty(d.Value)))
                             return;
 
                         using (var db = new Helpers.Database.Database(databaseProvider, empId))

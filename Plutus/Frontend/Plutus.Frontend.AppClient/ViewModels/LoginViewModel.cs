@@ -228,7 +228,10 @@ namespace Plutus.Frontend.AppClient.ViewModels
             var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                 fields, "Add", true, "Add somebody", "Cancel");
 
-            if (answers is null) return;
+            // ⚠ `Count == 0`, NOT `is null` — the helper returns an EMPTY dictionary on back-out
+            // (`?? new Dictionary<…>()` in `InputAlertHelper.ShowAsync`), never null. The old check
+            // was dead; the validators below are what actually caught the cancel.
+            if (answers.Count == 0) return;
 
             answers.TryGetValue(1, out string first);
             answers.TryGetValue(2, out string last);
@@ -270,7 +273,8 @@ namespace Plutus.Frontend.AppClient.ViewModels
             var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                 fields, "Set password", true, who.DisplayName, "Cancel");
 
-            if (answers is null) return;
+            // ⚠ `Count == 0`, NOT `is null` — the helper returns an EMPTY dictionary on back-out.
+            if (answers.Count == 0) return;
 
             answers.TryGetValue(1, out string password);
             answers.TryGetValue(2, out string again);

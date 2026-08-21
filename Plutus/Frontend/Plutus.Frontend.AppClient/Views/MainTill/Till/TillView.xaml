@@ -149,7 +149,14 @@
     </ContentPage.Resources>
     <ContentPage.Content>
         <Grid>
-            <StackLayout>
+            <!-- ⚠⚠ A GRID WITH A STAR ROW, NOT A StackLayout (Matt, 2026-08-20: "if you add many
+                 items, the buttons 'Checkout etc' go off the bottom of the screen"). A vertical
+                 StackLayout measures children UNBOUNDED, so the basket ListView grew to its content
+                 and pushed the totals + checkout grid off-screen — the operator could not pay a long
+                 basket out without scrolling blind. Row 2 (*) bounds the list so it scrolls INSIDE
+                 itself; rows 0/1/3 (Auto) keep the noticeboard, scan row and buttons always visible.
+                 The web till got the same rule the same day (.shell.till-locked in index.css). -->
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
                 <!-- ⚠⚠ THE NOTICEBOARD (WP5b) — pick-from-floor notes and platform announcements.
                      The web till has had this since Phase 6; MAUI had the shared rules
                      (`Client.Core.NoticesClient`, 23 tests) and no caller and no banner.
@@ -163,7 +170,7 @@
                      strip costs the pixels for good and trains people not to look at that region.
 
                      ⚠ Announcements first, then pick notes — see `NoticeboardViewModel.Redraw`. -->
-                <StackLayout IsVisible="{Binding Notices.HasAnything}" Margin="0,0,0,6" Spacing="4">
+                <StackLayout Grid.Row="0" IsVisible="{Binding Notices.HasAnything}" Margin="0,0,0,6" Spacing="4">
                     <CollectionView ItemsSource="{Binding Notices.Rows}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate>
@@ -197,7 +204,7 @@
                            Text="⚠ Plutus can't be reached — these notices may be out of date."/>
                 </StackLayout>
 
-                <StackLayout Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                <StackLayout Grid.Row="1" Orientation="Horizontal" HorizontalOptions="FillAndExpand">
                     <!-- ⚠ THE QUANTITY BOX, NO LONGER SYNCFUSION. Matt, 2026-08-10: *"I am not
                          going to renew Syncfusion, it seems like it can be replaced."* This was an
                          `SfNumericEntry` and it was the ONLY licensed control on the selling path —
@@ -239,7 +246,19 @@
                     <Button Text="↩ Return an item" Command="{Binding ReturnSelectedCommand}"
                             HorizontalOptions="FillAndExpand"/>
                 </StackLayout>
-                <ListView x:Name="TillList" VerticalOptions="FillAndExpand" HasUnevenRows="True"
+                <!-- ⚠ Grid.Row="2" is the star row — the ONLY thing on this screen allowed to give
+                     up height. The list scrolls; the buttons below never move.
+
+                     ⚠⚠ `VerticalScrollBarVisibility="Always"` IS FOR PARITY, NOT DECORATION. WinUI
+                     auto-hides scrollbars by convention: the list scrolled correctly without this, but
+                     the bar only appeared once you were already scrolling — so an operator looking at a
+                     full basket had nothing telling them there was more below. The web till draws its
+                     bar whenever the basket overflows (and reserves the gutter so prices never shift),
+                     and Matt asked for "a scroll bar" on BOTH tills. Under the 2026-08-19 look-and-feel
+                     ruling an operator swapping tills mid-shift must not have to learn that one of them
+                     hides the thing that says "there is more". -->
+                <ListView x:Name="TillList" Grid.Row="2" HasUnevenRows="True"
+                          VerticalScrollBarVisibility="Always"
                           ItemsSource="{Binding Basket}" ItemTemplate="{StaticResource BasketDataTemplateSelector}"
                           SelectedItem="{Binding SelectedBasketRecord}" ItemTapped="TillList_ItemTapped">
                     <ListView.Header>
@@ -257,7 +276,7 @@
                         </Grid>
                     </ListView.Header>
                 </ListView>
-                <Grid VerticalOptions="End">
+                <Grid Grid.Row="3">
                     <Grid.RowDefinitions>
                         <!-- ⚠ Row 0 is the CUSTOMER BAR (step 27). Rows below shift by one; every
                              Grid.Row in this grid was renumbered with it. MAUI bindings fail
@@ -366,7 +385,7 @@
                     <Button Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4"
                             Text="{i18n:Translate CancelTransaction}" Command="{Binding CancelTransactionCommand}"/>
                 </Grid>
-            </StackLayout>
+            </Grid>
             <!-- ⚠ THE ALTERATIONS PICKER IS GONE FROM THE XAML — it is now a `DisplayActionSheet`,
                  raised from `TillViewModel.AlterTransactionSelectorCommand`.
 

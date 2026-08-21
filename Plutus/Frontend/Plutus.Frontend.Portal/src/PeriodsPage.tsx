@@ -40,8 +40,9 @@ export default function PeriodsPage() {
   }
 
   return (
-    <section className="panel">
-      <h2>Financial periods</h2>
+    // Collapsed <details> like every other Company section — the Locations idiom (2026-08-20).
+    <details className="card store-card">
+      <summary><strong>Financial periods</strong></summary>
       {error && <p className="error">{error}</p>}
 
       <DataTable<Period>
@@ -90,6 +91,6 @@ export default function PeriodsPage() {
         <label>End <input required type="date" value={form.endDay} onChange={(e) => setForm({ ...form, endDay: e.target.value })} /></label>
         <button className="primary small" disabled={busy}>Create period</button>
       </form>
-    </section>
+    </details>
   );
 }

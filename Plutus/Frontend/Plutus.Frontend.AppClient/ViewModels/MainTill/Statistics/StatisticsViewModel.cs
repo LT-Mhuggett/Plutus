@@ -77,15 +77,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
             rightStackColumn.Children.Add(_today);
             LoadToday();
 
-            // ⚠ The legacy reports are still REACHABLE and still warned about, deliberately. A till
-            // migrated from NatApp holds real pre-cutover history in that file and this is the only
-            // way to see it — so the honest position is both facts at once, not a deletion.
+            // ⚠⚠ THE TWO LEGACY REPORT SCREENS ARE DELETED (2026-08-20), not hidden — so this note no
+            // longer says "hidden", which would now be a lie about something that does not exist.
+            //
+            // ⚠ WHAT MAKES THE DELETION SAFE, since the whole point of keeping them was pre-cutover
+            // history: that history is now IN THE PLATFORM. The NatApp full replace (2026-08-20) landed
+            // 21,914 sales going back to 2019-01-23, so the portal answers what these screens used to,
+            // from better data — they read only this device's local pre-Plutus file and therefore showed
+            // ZERO for everything sold since cutover. See `MAUI-retrofit.md` §10 L4.
             leftStackColumn.Children.Add(new Label
             {
-                Text = "The old Sales and Stock reports are hidden: they read this till's pre-Plutus "
-                     + "database (so they show nothing sold since it joined Plutus), and the charting "
-                     + "licence needs renewing for the current version. Fuller reporting is in the "
-                     + "Plutus portal.",
+                Text = "Full reporting — including everything sold before this till joined Plutus — is "
+                     + "in the Plutus portal. The two old on-till reports have been removed: they read "
+                     + "only this device's pre-Plutus database, so they could not see anything sold "
+                     + "since it joined.",
                 FontSize = new Label().FontSize - 1,
                 TextColor = Colors.Gray,
                 Margin = new Microsoft.Maui.Thickness(0, 12, 0, 0),
@@ -189,19 +194,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
         }
 
         #region Commands
-        Command _openSalesReportsCommand;
-        public Command OpenSalesReportsCommand
-        {
-            get => _openSalesReportsCommand ?? (_openSalesReportsCommand = new Command(ExecuteOpenSalesReports));
-        }
-
-        Command _openStockOuttakeReportCommand;
-
-        public Command OpenStockOuttakeReportComamnd
-        {
-            get => _openStockOuttakeReportCommand ?? (_openStockOuttakeReportCommand = new Command(ExecuteOpenStockOuttakeReport));
-        }
-
+        // ⚠ `OpenSalesReportsCommand` and `OpenStockOuttakeReportComamnd` are GONE (2026-08-20, L4
+        // closed). They pushed `SalesReportsView` / `StockOuttakeView`, both now deleted. Nothing ever
+        // bound them — the `buttons` list above has only ever carried Reprint since the screens were
+        // hidden on 2026-08-10 — so they were dead code pushing dead screens.
         Command _reprintReceiptCommand;
         public Command ReprintReceiptCommand
         {
@@ -236,49 +232,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Statistics
             }
         }
 
-        // ⚠ NO LOADING OVERLAY AROUND A NAVIGATION — same fault, same fix as
-        // `InventoryViewModel.ExecuteOpenViewAllItems`, whose header explains it: a modal push and a
-        // navigation push issued against one window in the same instant produce a corrupted layout,
-        // and nothing here ever lowered the overlay it raised.
-        private async void ExecuteOpenSalesReports()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-
-            try
-            {
-                await App.Current.MainPage.Navigation.PushAsync(new SalesReportsView());
-            }
-            catch (Exception ex)
-            {
-                Services.Analytics.CrashLog.Write("StatisticsViewModel.OpenSalesReports", ex);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
-        private async void ExecuteOpenStockOuttakeReport()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-
-            try
-            {
-                await App.Current.MainPage.Navigation.PushAsync(new StockOuttakeView());
-            }
-            catch (Exception ex)
-            {
-                Services.Analytics.CrashLog.Write("StatisticsViewModel.OpenStockOuttakeReport", ex);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
         #endregion
     }
 }

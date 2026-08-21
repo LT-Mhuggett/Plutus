@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Controls.Hosting;
 using Microsoft.Maui.Hosting;
 using Mopups.Hosting;
-using Syncfusion.Maui.Core.Hosting;
 using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
@@ -51,7 +50,8 @@ public static class MauiProgram
 #endif
 
         var builder = MauiApp.CreateBuilder();
-        builder.ConfigureSyncfusionCore();
+        // ⚠ `ConfigureSyncfusionCore()` was here until 2026-08-20. Syncfusion is out of the app
+        // completely — see the note in `App.xaml.cs` for the order this had to come out in, and why.
         builder
             .UseMauiApp<App>()
             .ConfigureMopups()

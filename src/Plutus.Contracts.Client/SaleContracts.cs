@@ -92,6 +92,25 @@ public sealed class LineMeta
     [JsonPropertyName("return")] public ReturnRef? Return { get; set; }
 
     /// <summary>
+    /// WHICH BARCODE WAS ACTUALLY SCANNED, when an item has more than one and it was not the item's
+    /// own (multi-barcode, 2026-08-20).
+    ///
+    /// ⚠⚠ A SNAPSHOT, NEVER AN IDENTITY. <see cref="ItemIdOne"/> stays canonical and is what every
+    /// reader keys on — stock, VAT band, item reports, the legacy bridge. This field is here for the
+    /// day a supplier's barcode migration goes wrong and somebody has to ask *which code did the
+    /// tills actually read?* — the question `Build/archive/plutus-catalogue-sync-design.md` §7 calls
+    /// "gold for debugging" and that nothing could otherwise answer.
+    ///
+    /// ⚠ OMITTED when the scanned code WAS the item's own, which is almost every line — so an
+    /// ordinary sale's metadata stays byte-identical to what it was before this field existed. The
+    /// same discipline as <see cref="DiscountAuthority"/> below.
+    ///
+    /// ⚠ The server needs no change to keep it: `SalesIngestService` stores `DiscountsJson` verbatim
+    /// and only ever plucks named fields out of it, so an unknown field survives the round trip.
+    /// </summary>
+    [JsonPropertyName("barcodeScanned")] public string? BarcodeScanned { get; set; }
+
+    /// <summary>
     /// WHO authorised each discount on this line, and WHY — binding default 22(c).
     ///
     /// ⚠⚠ IT IS NOT ON <see cref="LineDiscount"/>, AND THAT IS THE WHOLE DESIGN DECISION.

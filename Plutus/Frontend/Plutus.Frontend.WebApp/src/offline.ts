@@ -7,12 +7,14 @@
 
 import type { Item, PayMethod, Discount } from "./api.ts";
 import type { IngestSaleRequest } from "./pipeline.ts";
+import type { ScheduledDiscount } from "./till/scheduledDiscounts.ts";
 
 const DB_NAME = "plutus-till";
 // ⚠ v3 (W-P5, 2026-08-17): adds the `cashOutbox` store so cash events survive an outage. ⚠ The bump
 // is required BECAUSE a new object store can only be created inside `onupgradeneeded` — the
 // `contains` guards below make the upgrade idempotent and leave every existing store untouched.
-const DB_VERSION = 3;
+// ⚠ v4 (multi-barcode, 2026-08-20): adds `aliases`, an item's ADDITIONAL barcodes.
+const DB_VERSION = 4;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -27,6 +29,15 @@ function openDb(): Promise<IDBDatabase> {
       // does, and the money moves whether or not the platform hears — so a float that failed to post
       // is a day whose banking cannot be reconciled at all.
       if (!db.objectStoreNames.contains("cashOutbox")) db.createObjectStore("cashOutbox", { keyPath: "eventId" });
+      // ⚠⚠ MULTI-BARCODE (2026-08-20): an item may be scanned under more than one code. Keyed on the
+      // CODE, so one code cannot point at two items — the same guarantee the MAUI till's local table
+      // and the server's unique index give, and for the same reason: an ambiguous scan is
+      // unresolvable at a counter.
+      //
+      // ⚠ A separate STORE rather than an index on `items`: the alias set is small, it is replaced
+      // wholesale on every sync, and an index would have needed the alias list to live ON each item
+      // row — which would make removal a per-item edit instead of a set replacement.
+      if (!db.objectStoreNames.contains("aliases")) db.createObjectStore("aliases", { keyPath: "code" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -61,6 +72,52 @@ export async function cacheItems(items: Item[]): Promise<void> {
 export const cachedItemById = (id: string): Promise<Item | undefined> =>
   tx("items", "readonly", (s) => s.get(id) as IDBRequest<Item | undefined>);
 
+// ── additional barcodes (multi-barcode, 2026-08-20) ─────────────────────────
+
+/** One row of `GET /api/v1/items/barcodes` — an alias and the item it resolves to. */
+export interface ItemAlias {
+  code: string;
+  itemIdOne: string;
+}
+
+/**
+ * Replace the cached alias set with the server's.
+ *
+ * ⚠⚠ CLEARED FIRST, DELIBERATELY. The endpoint returns the WHOLE tenant's aliases, so a
+ * put-only update could never remove one — a barcode taken off an item in the portal would go on
+ * scanning on this till for ever, with nothing to say so. Replacement is what makes removal work,
+ * exactly as the MAUI till replaces an item's rows on every sync.
+ *
+ * ⚠ One transaction: a cleared store with no rows put back is a till that resolves no aliases at
+ * all, which is a visible regression rather than a silent one — but there is no reason to risk it.
+ */
+export async function cacheAliases(rows: ItemAlias[]): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const t = db.transaction("aliases", "readwrite");
+    const s = t.objectStore("aliases");
+    s.clear();
+    for (const r of rows) if (r?.code && r.itemIdOne) s.put({ code: r.code, itemIdOne: r.itemIdOne });
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+
+/**
+ * The item an ADDITIONAL barcode belongs to, from the cache.
+ *
+ * ⚠⚠ RETURNS THE CANONICAL ITEM. The alias string stops here (multi-barcode plan D2): if it
+ * travelled onto a basket line, `StockProjectionConsumer` would create a phantom `StockLevel` and
+ * `VatBandStamp` would leave the sale line's VAT band null — both silently.
+ *
+ * ⚠ Exact match, no case folding: an IndexedDB key lookup is case-sensitive, and so is the item
+ * lookup beside it. An alias must not match where the item's own barcode would not.
+ */
+export async function cachedItemByAlias(code: string): Promise<Item | undefined> {
+  const alias = await tx("aliases", "readonly", (s) => s.get(code) as IDBRequest<ItemAlias | undefined>);
+  return alias ? cachedItemById(alias.itemIdOne) : undefined;
+}
+
 /** Mirror of the server's ItemParameters.Tokenise (keep in sync). Word mode: quoted
  *  segments are literal-phrase tokens (unclosed quote runs to end), the rest splits on
  *  whitespace. Phrase mode: whole input (quotes stripped) is one token. */
@@ -86,18 +143,26 @@ export async function cachedItemSearch(term: string, limit = 8, matchAllWords = 
   const all = await tx("items", "readonly", (s) => s.getAll() as IDBRequest<Item[]>);
   const tokens = searchTokens(term, matchAllWords);
   return all
+    // ⚠ THREE FIELDS, and additional barcodes are deliberately NOT among them (multi-barcode plan
+    // D9). An alias resolves on the EXACT-scan path, which runs before search on both tills; adding
+    // it to substring search would mean moving four implementations in lockstep — `ItemSearch`,
+    // `ItemParameters`, `TillStore.SearchAsync` and this — which is its own slice, not a free extra.
     .filter((i) => tokens.every((q) => i.name.toLowerCase().includes(q) || i.idOne.toLowerCase().includes(q) || i.brand.toLowerCase().includes(q)))
     .slice(0, limit);
 }
 
 export const cachedItemCount = (): Promise<number> => tx("items", "readonly", (s) => s.count());
 
-// ── reference data (pay methods, discounts) ─────────────────────────────────
+// ── reference data (pay methods, discounts, discount rules) ─────────────────
 
-export const cacheMeta = (key: "payMethods" | "discounts", value: PayMethod[] | Discount[]) =>
+/** The reference-data keys. ⚠ A CLOSED UNION so a typo is a compile error rather than a cache that
+ *  silently never hits — which on the offline path would read as "this shop has no discounts". */
+export type MetaKey = "payMethods" | "discounts" | "discountRules";
+
+export const cacheMeta = (key: MetaKey, value: PayMethod[] | Discount[] | ScheduledDiscount[]) =>
   tx("meta", "readwrite", (s) => s.put(value, key)).then(() => undefined);
 
-export const cachedMeta = <T>(key: "payMethods" | "discounts"): Promise<T | undefined> =>
+export const cachedMeta = <T>(key: MetaKey): Promise<T | undefined> =>
   tx("meta", "readonly", (s) => s.get(key) as IDBRequest<T | undefined>);
 
 // ── durable till state (§5b) ────────────────────────────────────────────────

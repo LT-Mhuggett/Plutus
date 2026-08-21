@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Plutus.Contracts;
 using Plutus.DBService.Controllers.Bases;
+using Plutus.Entities;
 using Plutus.Entities.Models;
 using Plutus.Entities.FormBodies;
 using Plutus.Repository.QueryParameters;
+using Plutus.SharedKernel;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Plutus.DBService.Controllers
@@ -16,9 +20,22 @@ namespace Plutus.DBService.Controllers
     {
         protected override ICompositeRepositoryBase<Item, string, Guid> Repository => RepositoryWrapper.ItemRepository;
 
-        public ItemController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor) : base(repositoryWrapper, httpContextAccessor)
+        /// <summary>
+        /// ⚠ Injected for the ALIAS lookup only (multi-barcode plan, MB2). The legacy repository
+        /// wrapper knows nothing about `ItemBarcodes`, and this controller is the till's exact-scan
+        /// door, so the read has to happen here.
+        /// </summary>
+        private readonly MySqlDbContext _db;
+        private readonly ITenantContext _tenant;
+
+        public ItemController(IRepositoryWrapper repositoryWrapper, IHttpContextAccessor httpContextAccessor, MySqlDbContext db, ITenantContext tenant) : base(repositoryWrapper, httpContextAccessor)
         {
+            _db = db;
+            _tenant = tenant;
         }
+
+        private Guid Actor =>
+            Guid.TryParse(User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var g) ? g : Guid.Empty;
 
         /// <summary>
         /// VAT guardrail (VAT-Investigation plan §5.4, 2026-07-23): an item's inc/ex prices
@@ -46,13 +63,56 @@ namespace Plutus.DBService.Controllers
         /// now behaves like an unknown one (404), which the till already handles.
         /// `includeBinned=true` lets the portal's Bin view load a binned item for restore/inspection.
         /// </summary>
+        /// <remarks>
+        /// ⚠⚠ MULTI-BARCODE (MB2): THIS IS THE TILL'S EXACT-SCAN DOOR, so it is where an alias
+        /// resolves. On a miss, `id1` is looked up in `ItemBarcodes` and the ALIASED ITEM is
+        /// returned — through the identical binned rules, so a binned item's alias 404s exactly as
+        /// its own barcode does (plan D10).
+        ///
+        /// ⚠⚠ THE CALLER RECEIVES THE CANONICAL ITEM, whose `IdOne` is its own — never the scanned
+        /// alias (plan D2). Every till then carries that canonical id onto the basket line, and the
+        /// two silent faults an alias leak would cause (a phantom `StockLevel` from
+        /// `StockProjectionConsumer`, a null VAT band from `VatBandStamp`) cannot arise.
+        ///
+        /// ⚠ Resolution is EXACT-after-trim, matching how `IdOne` itself matches here. No case
+        /// folding (plan D6) — an alias must not match where the item's own barcode would not.
+        /// </remarks>
         public override async Task<ActionResult<Item>> FindById([FromRoute] string id1, [FromHeader] Guid businessId)
         {
-            var result = await base.FindById(id1, businessId);
             var includeBinned = string.Equals(Request.Query["includeBinned"], "true", StringComparison.OrdinalIgnoreCase);
-            if (!includeBinned && result.Result is OkObjectResult ok && ok.Value is Item item && item.BinnedAtUtc != null)
+
+            var result = await base.FindById(id1, businessId);
+            if (result.Result is OkObjectResult ok && ok.Value is Item item)
+                return !includeBinned && item.BinnedAtUtc != null ? NotFound() : result;
+
+            // Not an item's own barcode — is it one of its ADDITIONAL ones?
+            var canonical = await CanonicalIdOneForAliasAsync(id1);
+            if (canonical == null) return result;
+
+            var aliased = await base.FindById(canonical, businessId);
+            if (!includeBinned && aliased.Result is OkObjectResult aliasOk
+                && aliasOk.Value is Item aliasItem && aliasItem.BinnedAtUtc != null)
                 return NotFound();
-            return result;
+
+            return aliased;
+        }
+
+        /// <summary>
+        /// The item an additional barcode belongs to, or null when the string is not an alias.
+        ///
+        /// ⚠ Scoped by the ambient tenant automatically — `ItemBarcode` is in
+        /// `MySqlDbContext.TenantOwned`, so the query filter is applied without this method having
+        /// to remember it.
+        /// </summary>
+        private async Task<string> CanonicalIdOneForAliasAsync(string code)
+        {
+            var trimmed = Plutus.SharedKernel.ItemBarcodeRules.Normalise(code);
+            if (trimmed == null) return null;
+
+            return await _db.ItemBarcodes.AsNoTracking()
+                .Where(b => b.Code == trimmed)
+                .Select(b => b.ItemIdOne)
+                .FirstOrDefaultAsync();
         }
 
         public override async Task<ActionResult<Item>> Post([FromHeader] Guid businessId, [FromBody] ItemBody body, [FromQuery] bool isSync = false)
@@ -61,8 +121,33 @@ namespace Plutus.DBService.Controllers
             {
                 var problem = await BandInconsistency(body.BusinessId == Guid.Empty ? businessId : body.BusinessId, body.TaxId, body.Price, body.ExPrice);
                 if (problem != null) return BadRequest(problem);
+
+                // ⚠⚠ MULTI-BARCODE (MB2), THE REVERSE GUARD (plan D8). Without it, an unresolved
+                // scan could mint a NEW item on a barcode that is already an alias — and then two
+                // rows answer one scan, which is unresolvable at a counter. It is reachable from
+                // both tills' "add this item" offers, which is exactly where a shop meets it.
+                //
+                // ⚠ It also gives the portal its check for free: `checkBarcodeFree` calls
+                // GET /api/Item/{code}, which is now alias-aware.
+                var alias = await CanonicalIdOneForAliasAsync(body.Id);
+                if (alias != null)
+                {
+                    var owner = await _db.Items.AsNoTracking()
+                        .Where(i => i.IdOne == alias).Select(i => i.Name).FirstOrDefaultAsync();
+
+                    return Conflict($"That barcode already points at '{owner ?? alias}'. " +
+                                    "Remove it from that item's barcodes first.");
+                }
             }
-            return await base.Post(businessId, body, isSync);
+
+            var result = await base.Post(businessId, body, isSync);
+
+            // ⚠ The first row of the item's history — so the list opens with "Created", by whom and
+            // when, rather than starting mid-story at the first edit.
+            if (!isSync && body != null && result.Result is CreatedAtActionResult)
+                await WriteAuditAsync("item.create", body.Id, new { name = body.Name, price = body.Price });
+
+            return result;
         }
 
         public override async Task<ActionResult<Item>> Put([FromRoute] string id1, [FromHeader] Guid businessId, [FromBody] Item entity, [FromQuery] bool isSync = false)
@@ -72,7 +157,66 @@ namespace Plutus.DBService.Controllers
                 var problem = await BandInconsistency(businessId, entity.TaxId, entity.Price, entity.ExPrice);
                 if (problem != null) return BadRequest(problem);
             }
-            return await base.Put(id1, businessId, entity, isSync);
+
+            // ⚠⚠ READ THE BEFORE STATE FIRST — Matt, 2026-08-20: *"can there be a history kept of every
+            // change to this item … logging time, what was changed and who by?"* A payload alone is the
+            // DESTINATION with no way to know what moved, which is the exact shortcoming the customer
+            // history records about its own older rows. So the audit carries `{before, after}`.
+            //
+            // ⚠ `AsNoTracking` matters: the base `Put` fetches and mutates the tracked entity, and a
+            // tracked copy read here would BE that entity — before and after would then be identical.
+            var before = isSync || entity == null
+                ? null
+                : await _db.Items.AsNoTracking()
+                    .Where(i => i.IdOne == id1 && i.IdTwo == businessId)
+                    .Select(i => Snapshot(i))
+                    .FirstOrDefaultAsync();
+
+            var result = await base.Put(id1, businessId, entity, isSync);
+
+            // ⚠ Only when the write actually succeeded. An audit row for a rejected edit would put a
+            // change in the history that never happened.
+            if (before != null && result.Result is not BadRequestObjectResult && result.Result is not NotFoundResult)
+                await WriteAuditAsync("item.update", id1, new { before, after = Snapshot(entity) });
+
+            return result;
+        }
+
+        /// <summary>The fields a person edits, as the history reports them. ⚠ Money as the legacy
+        /// decimal it is stored in — this is a record of what was typed, not an arithmetic path.</summary>
+        private static object Snapshot(Item i) => new
+        {
+            name = i.Name,
+            brand = i.Brand,
+            desc = i.Desc,
+            cost = i.Cost,
+            price = i.Price,
+            exPrice = i.ExPrice,
+            taxId = i.TaxId,
+            catId = i.CatId,
+            stockUntracked = i.StockUntracked,
+            binnedAtUtc = i.BinnedAtUtc,
+        };
+
+        /// <summary>
+        /// One history row for this item.
+        ///
+        /// ⚠ Its own SaveChanges, because the base controller has already committed by the time we get
+        /// here — there is no shared transaction left to join. A failed audit write must therefore not
+        /// fail the edit: the change is already saved, and throwing here would tell the operator their
+        /// successful save had failed. Swallowed deliberately, and the row is simply missing.
+        /// </summary>
+        private async Task WriteAuditAsync(string action, string itemIdOne, object detail)
+        {
+            try
+            {
+                _db.Audit(_tenant.TenantId, Actor, action, nameof(Item), itemIdOne, detail);
+                await _db.SaveChangesAsync();
+            }
+            catch
+            {
+                // History is a record OF the change, never a gate ON it.
+            }
         }
     }
 }

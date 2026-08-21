@@ -142,6 +142,53 @@ public class SaleAssemblerTests
         Assert.Equal(1249, meta.ExUnitPence);
     }
 
+    // ── multi-barcode: which code was actually scanned (MB5) ──────────────────
+
+    /// <summary>
+    /// ⚠⚠ THE CANONICAL CODE IS `itemIdOne`; THE SCANNED ONE IS A SNAPSHOT BESIDE IT. Every reader
+    /// keys on `itemIdOne` — stock, the VAT band stamp, item reports, the legacy bridge — so an alias
+    /// reaching it would create a phantom `StockLevel` and drop the line's VAT band, both silently.
+    /// This proves the two travel separately and correctly.
+    /// </summary>
+    [Fact]
+    public void A_line_scanned_under_an_ADDITIONAL_barcode_records_both_codes()
+    {
+        var line = Line("BAT-001", 1499, 1249) with { ScannedBarcode = "OLD-SUPPLIER-CODE" };
+        var meta = LineMeta.FromJson(Assert.Single(Assemble(line).Lines).DiscountsJson);
+
+        Assert.Equal("BAT-001", meta!.ItemIdOne);              // canonical — what everything keys on
+        Assert.Equal("OLD-SUPPLIER-CODE", meta.BarcodeScanned); // the snapshot
+    }
+
+    /// <summary>
+    /// ⚠ OMITTED when the scanned code WAS the item's own, which is almost every line — so an
+    /// ordinary sale's metadata stays byte-identical to what it was before this field existed. The
+    /// same discipline `DiscountAuthority` follows, and for the same reason: a sale is compared
+    /// against its own stored meta in more than one place.
+    /// </summary>
+    [Fact]
+    public void The_scanned_barcode_is_omitted_when_it_is_the_items_own()
+    {
+        foreach (var scanned in new[] { (string?)null, "", "   ", "BAT-001" })
+        {
+            var line = Line("BAT-001", 1499, 1249) with { ScannedBarcode = scanned };
+            var meta = LineMeta.FromJson(Assert.Single(Assemble(line).Lines).DiscountsJson);
+
+            Assert.Null(meta!.BarcodeScanned);
+        }
+    }
+
+    /// <summary>⚠ And the JSON itself carries no key at all in that case — `LineMeta` serialises with
+    /// `WhenWritingNull`, which is what keeps an old payload byte-identical rather than merely
+    /// null-valued.</summary>
+    [Fact]
+    public void An_ordinary_lines_json_gains_no_barcode_key()
+    {
+        var json = Assert.Single(Assemble(Line("BAT-001", 1499, 1249)).Lines).DiscountsJson;
+
+        Assert.DoesNotContain("barcodeScanned", json);
+    }
+
     /// <summary>
     /// ⚠ An unresolved VAT band is OMITTED, never guessed. Zero-rated and exempt are both 0% and
     /// different in law; the server falls back to snapping the rate and the portal flags the tax

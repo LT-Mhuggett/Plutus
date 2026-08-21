@@ -38,6 +38,26 @@ theming · **§G61** the portal's Loyalty page.
 ⚠ **§G58 is the one to run first of these** — it changes how the till takes money. §G61 is a two-minute
 portal check.
 
+### 🆕 Written 2026-08-20 — ⚠ NEEDS THE NEXT BUILD/DEPLOY, not testable on 1.107.0 / web 1.26.0 / portal 1.13.0
+
+**§G62** a long basket never hides the Checkout buttons (both tills) · **§G63** the portal's Company
+page collapses like Locations. Committed as till 1.107.1 · web 1.26.1 · portal 1.13.1; neither fix is
+machine-verifiable, so these sections are the only check.
+
+**§G64** scheduled discounts — "Wednesday Warhammer" — on BOTH tills · **§G65** the portal's Discounts
+screen. Committed as backend **1.18.0** (⚠ carries a MIGRATION) · portal 1.14.0 · web 1.27.0 · till
+1.108.0.
+
+**§G66** ⚠⚠ **MULTI-BARCODE — one item scans under several codes.** Committed as backend **1.19.0**
+(⚠ carries a MIGRATION, `AddItemBarcodes`) · portal 1.15.0 · web till 1.28.0 · till 1.109.0 ·
+platform 1.49.0. ⚠ **§G66a first** (nothing to scan until a barcode exists), and **§G66e is the money
+check** — a phantom stock row against the alias is the one outcome that matters most. ⚠ MAUI does a
+full catalogue re-sync on its first 1.109.0 launch, by design (local schema v7).
+
+⚠⚠ **§G64 IS A MONEY TEST AND §G64f IS THE ONE MOST WORTH YOUR TIME** — a member and a rule applying to
+the same line must take the LARGER, once, identically on both tills. ⚠ **Do §G65 first**: there is
+nothing to test at a till until a rule exists.
+
 ### ⚠ Superseded — do not run
 
 **§G49b · §G49d · §G56i** — all three tested a per-device carrier-bag barcode that no longer exists.
@@ -63,9 +83,12 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.107.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-19 (late)**, `1.107.0+07a26ef6` = HEAD. ⚠ **The only build on the box** — 1.102.0 and earlier deleted, so the FOLDER LISTING is the truth. ⚠ **What to run, in what order: see START HERE at the top.** ⚠ A permission change needs a **sign-out/in** (12h token cache). |
-| **Deployed** | backend **1.17.11** · portal **1.13.0** · web till **1.26.0** — all three live and verified on the artefact (bundle hash + a string only today's change introduced + byte size, not a 200). ✅ **§G57–§G61 are all testable now.** |
-| **Verified in-binary** | The till's own artefact carries `Complete sale`, `Pay with a gift card`, `Carrier bags`, `Card fee`, `looks like member number`, `ThemeGood`/`ThemeUnknown`, and `TenderSettlement`'s refusal wording in `Plutus.Client.Core.dll`. ⚠ Checked at **both UTF-16 alignments** — pitfall 20: a literal starting at an odd byte offset is invisible if you decode from byte 0, and my first pass reported four false MISSINGs because of exactly that. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.110.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-20**, artefact reads **`1.110.0`** — the version was verified in the assembly and its startup log opens `Plutus MAUI till v1.110.0`. ⚠⚠ **SYNCFUSION IS GONE FROM THIS BUILD** (10 packages, `DocumentFormat.OpenXml`, the two legacy report screens, the licence registration and the stale key). **264 MB → 169 MB.** A Syncfusion licence or trial dialog is now *impossible*; if you see one, **stop and say so** — hand-run **§G68**. ⚠⚠ **ITS FIRST LAUNCH DOES A FULL CATALOGUE RE-SYNC** — local schema v7 clears the catalogue cursor by design, because adding a wire field changes no item's `ModifiedAt` and an existing till would otherwise only ever receive barcodes for items somebody edited afterwards. **Give it a minute before §G66d** and say if it takes noticeably longer. ⚠ It carries 1.108.1's scrollbar fix too (§G62a). ⚠ **The only build on the box** — 1.109.0 and earlier deleted, so the FOLDER LISTING is the truth. ⚠⚠ **Its version suffix names a commit that does NOT contain this work** — everything since `9741816a` is still uncommitted, so the hash is the one thing about this artefact you cannot trust. What it DOES contain was verified string by string. ⚠ **What to run, in what order: see START HERE at the top.** ⚠ A permission change needs a **sign-out/in** (12h token cache). |
+| **Deployed** | ✅ **ALL LIVE 2026-08-20** — backend **1.19.0** · portal **1.15.0** · web till **1.28.0**, each verified on the artefact (right host, real byte size, and a string only that change introduced — not a 200). ✅ **§G62–§G66 are all testable now.** ⚠⚠ **But two ordering rules first:** **§G65b** before §G64 (every discount rule has `AutoApply = 0`, so nothing discounts until one is ticked *Apply it automatically* — correct behaviour, not a fault), and **§G66a** before §G66c–h (nothing to scan until a barcode exists). |
+| **Backend 1.19.0 deploy record** | ✅ Verified on four axes: swagger 200 · junk device id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path; a 500 would mean schema and model disagree) · `GET /api/v1/items/barcodes` → **401, not 404** · and the MIGRATION checked as a TABLE, not a history row: `ItemBarcodes` exists with its six columns and **`IX_ItemBarcodes_TenantId_Code` is UNIQUE**. ⚠ **20,474 items before and after** — an additive migration touched nothing. Rollback `~/PLUTUS/backend.pre-1.19.0`; pre-deploy dump `plutus-20260820.sql.gz` verified at **76.5 MB uncompressed, 103 tables** (and confirmed to contain NO `ItemBarcodes` table, so the before/after is real). |
+| **Web till deploy record** | ✅ **1.27.0 live**, verified on the four axes the runbook demands rather than a 200: the right host (`plutus.…`, not `admin.plutus.…`) names `index-BKSYpWKu.js` · the bundle is **377,813 bytes**, not the ~981-byte SPA fallback that answers 200 for anything · the deployed **CSS contains `till-locked`**, a string only this change introduced · the previous bundle now returns **981 bytes**, so it really was replaced. No unsubstituted `__APP_VERSION__`/`__BUILD_TIME__` in the built OR the deployed bundle (the 2026-08-09 blank-portal fault). Rollback: `/srv/apps/PLUTUS/web/current.pre-1.27.0`. |
+| **Verified in-binary** | The till's own artefact carries `Complete sale`, `Pay with a gift card`, `Carrier bags`, `Card fee`, `looks like member number`, `ThemeGood`/`ThemeUnknown`, and `TenderSettlement`'s refusal wording in `Plutus.Client.Core.dll`. ✅ **1.108.0 adds:** `TillViewModel.RefreshAutoDiscounts`, `TillCadence.DiscountRules` and `LoadDiscountRulesAsync` in the app dll · `ScheduledDiscount` in `Plutus.SharedKernel.dll` · `DiscountRuleCache` in `Plutus.Client.Core.dll` · `discountRules` in `Plutus.Client.Storage.dll` — **and `MemberDiscountBasket` is confirmed ABSENT**, which is the negative check that the superseded class really went. ⚠ Checked at **both UTF-16 alignments** — pitfall 20: a literal starting at an odd byte offset is invisible if you decode from byte 0, and one pass reported four false MISSINGs because of exactly that. |
+| **Backend deploy record** | ✅ **1.18.0 live, verified on all three axes**: swagger 200 · `POST /api/v1/tokens/device` with a junk id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path — a 500 would mean schema and model disagree) · `GET /api/v1/discounts/rules` → **401, not 404**, so the new controller is routed. ⚠ Migration `20260820092535_AddDiscountSchedule` applied; all six columns exist with `Active` defaulting to **1**, and **all 6 pre-existing discounts came out `Active = 1`** — which is **§G65a already answered**. Rollback: `~/PLUTUS/backend.pre-1.18.0`; pre-deploy dump `~/PLUTUS/backups/nightly/plutus-20260820.sql.gz` (75.5 MB uncompressed, 103 tables). |
 | **Agent** | ⚠ **Agent 1.4.0 is REQUIRED for §G29**, and it fixes "start automatically" not working after a reboot. Get it from the **web till → Settings → Hardware → Download the agent (v1.4.0)**, or from `tools\Plutus.TillAgent\publish-out\PlutusTillAgent-1.4.0.exe`. ⚠⚠ **Copy it to `%LOCALAPPDATA%\Plutus\Agent\` and run it from THERE — not from Downloads.** Auto-start records the path it was launched from; a Downloads copy gets cleaned up or renamed `… (1).exe`, and then the till boots and starts nothing. That is the fault this build fixes, and running it once from a permanent folder repairs a stale registration. |
 | **Portal** | `https://admin.plutus.huggett.dscloud.me` |
 | **Web till** (for comparing) | `https://plutus.huggett.dscloud.me` |
@@ -4226,3 +4249,771 @@ rather than hide behind an absent separator.
 ⚠ On a 1900px screen that was 58%, so a third of the monitor sat empty next to tables that were
 scrolling. ⚠ It is still bounded on purpose: a row stretched across an ultrawide loses the eye between
 the name and the figure on the far right. ⚠ Narrow the browser window — the 16px gutter must survive.
+
+---
+
+## G62. A long basket never hides the buttons — **till 1.108.0 + web till 1.27.0**
+
+> Matt, 2026-08-20: *"if you add many items, the buttons 'Checkout etc' go off the bottom of the
+> screen. The buttons always need to stay and the items need to become 'Scrollable'."*
+>
+> …and again, the same day, after testing 1.26.0 — which did not have the fix: *"I always need the till
+> buttons to stay on the screen at the bottom. I need the items in the till to have a scroll bar if
+> they go 'Off the bottom'. I thought I had asked for this already."*
+>
+> ⚠⚠ **HE HAD, AND THE FIX WAS REAL BUT UNDEPLOYED.** The lesson is not about CSS: a fix that is built
+> and not shipped is indistinguishable from a fix that was never made, and the person testing has no
+> way to tell. **Check the footer version before reporting anything on the web till** — his screenshot
+> read `web till v1.26.0` and the fix was in 1.26.1.
+>
+> ⚠ **A SECOND FAULT WAS FOUND ON THE WAY, and it would have survived the first fix.**
+> `.basket-grid` carried `min-height: 14rem` — a 224px floor a flex item cannot shrink below — so on a
+> SHORT window the basket refused to give up height and pushed the buttons off anyway. `min-height` also
+> beats `height`, so `.shell`'s `min-height: 100vh` would have defeated the viewport lock on any device
+> with a retracting URL bar. Both are fixed; **§G62d is the case that covers them.**
+>
+> ✅ **The web-till half is now measured in a real browser** at six viewport sizes —
+> `tools/layout-check/` — and the harness was proved by watching it FAIL 5 of 6 against the 1.26.0 CSS.
+> That does **not** cover MAUI (WinUI layout is measurable by nothing in this repo), so §G62a is still
+> the only check that exists for the MAUI half.
+
+⚠ One fault on both tills, two different mechanisms: MAUI's selling screen was a vertical
+`StackLayout` (children measure UNBOUNDED, so the list grew and pushed the buttons below the fold);
+the web till's `.shell` was `min-height`-only, so the document grew and `.basket-grid`'s own
+`overflow-y` never engaged. ⚠ **The web-till half IS now machine-verified** at six viewport sizes
+(`tools/layout-check/`); **the MAUI half is not and cannot be** — WinUI layout is measurable by nothing
+in this repo, because a MAUI `Page` cannot be constructed in the test project without a live
+dispatcher. So §G62a below is the ONLY check that exists for MAUI.
+
+### G62a. MAUI — the list scrolls, the money does not move
+
+Ring **25 or more DIFFERENT items** — ⚠ lines, not quantity: 25 × one barcode merges into ONE row
+and proves nothing. Search-and-add is the fastest way.
+
+**✅ Expected:** the basket list grows a scrollbar and scrolls under your finger; the totals row,
+**Alter / Save / Retrieve / Cancel / Checkout** and the scan row stay exactly where they were, on
+screen the whole time.
+
+⚠⚠ **AND THE SCROLLBAR MUST BE VISIBLE WITHOUT TOUCHING ANYTHING** (new in 1.108.1). WinUI auto-hides
+scrollbars by convention, so up to 1.108.0 the list scrolled correctly but the bar only appeared once
+you were *already* scrolling — an operator looking at a full basket had nothing telling them there was
+more below it. `VerticalScrollBarVisibility="Always"` now matches the web till, which draws its bar
+whenever the basket overflows and reserves the gutter so prices never shift sideways. **If the bar is
+invisible until you scroll, that attribute did not take — report it.**
+
+### G62b. Web till — the same, and ONLY on the Till tab
+
+On the **Till** tab, add 25+ lines the same way.
+
+**✅ Expected:** the page itself does **not** scroll — the basket table scrolls inside its own box,
+and the totals strip + the five action buttons stay pinned above the footer.
+
+⚠ Then switch to **Reporting** and **Inventory Management**: those pages must scroll as a page,
+exactly as before — the viewport lock is deliberately Till-tab-only (`.shell.till-locked`), because
+a report is meant to scroll and a basket is not.
+
+### G62c. Scrolled up, Checkout still works
+
+Scroll the long basket back to the top, tap **Checkout**, take cash, and finish the sale.
+
+**✅ Expected:** the dialog opens and settles exactly as §G58 — this change touched how the screen
+is LAID OUT and must not have touched how money is asked for.
+
+### G62d. ⚠ A SHORT window — the case the first fix missed
+
+⚠ **Check the footer says `web till v1.27.0` before you start.** If it reads 1.26.x you are testing the
+old build and the answer means nothing — hard-refresh (Ctrl+F5).
+
+With 25+ lines in the basket, **drag the browser window short** — roughly half your screen height — or
+dock the dev tools to the bottom so the page area shrinks.
+
+**✅ Expected: the buttons stay on screen throughout**, and the basket keeps shrinking and scrolling
+instead. The totals strip and all five buttons stay visible at any window height that can physically
+fit them.
+
+⚠ This is where `min-height: 14rem` used to bite: the basket refused to shrink past 224px and pushed
+the buttons off the bottom — so the fault came back on a short window while a maximised 1080p window
+looked perfect. Now measured at 620px and 500px viewport heights by `tools/layout-check/`.
+
+⚠ **If the window gets SO short that even the fixed rows cannot fit, the page is allowed to scroll.**
+That is deliberate — `overflow: hidden` was not used. Degrading to "scroll the page" is recoverable;
+clipping the button that takes money is not.
+
+---
+
+## G63. The Company page collapses like Locations — **portal 1.13.1**
+
+> Matt, 2026-08-20: *"In the portal, company, can you collapse all sections like we have in
+> 'Locations and Tills'."*
+
+Portal → **Company**.
+
+**✅ Expected: five closed rows, each with the Locations page's ▸ chevron** — **Company · Card
+payments · Carrier bags · Security & sign-in · Financial periods** — and nothing else on the page.
+Opening one shows exactly the content it always had (the MFA explainer, the surcharge law warning,
+the bags table, the periods table); closing it again puts the chevron back to ▸.
+
+⚠ Check one section's function end-to-end, not just its chrome: open **Carrier bags** and confirm
+the bag list still loads and *Add bag* still works — the sections went from `<section>` to
+`<details>` and a broken load inside a closed box would otherwise hide until the day it is needed.
+
+---
+
+## G65. The portal's Discounts screen — **portal 1.14.0 + backend 1.18.0**
+
+> Matt, 2026-08-20: *"I have Wednesday Warhammer discount that should flag items in the warhammer
+> catergory on a Wednesday as 'Should have 10%'."*
+
+⚠⚠ **THE BACKEND DEPLOY IS NOT OPTIONAL AND IT CARRIES A MIGRATION.** `AddDiscountSchedule` adds six
+columns to `Discounts`. Runbook § *"Before any migration deploy"*: take the dump FIRST and check it is
+~60 MB, not 20 bytes. ⚠ Then verify the COLUMNS, not the history table:
+`SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='plutus' AND TABLE_NAME='Discounts';`
+— you want `Active`, `DaysOfWeekMask`, `WindowStartLocal`, `WindowEndLocal`, `ValidFromUtc`, `ValidToUtc`.
+
+### G65a. ⚠⚠ Existing discounts are still LIVE after the migration
+
+Portal → **Prices** → **Discounts** (collapsed; click to open).
+
+**✅ Expected: every discount the shop already had is listed and reads `Live`.**
+
+⚠ This is the check that matters most about the migration and it takes five seconds. EF generated the
+`Active` column with a default of **false**, which would have switched off every existing discount
+silently; the migration was hand-edited to `true`. If anything here says `Paused` that you did not
+pause, **stop and say so** — it means the hand edit did not take.
+
+### G65b. ⚠⚠ THE RULE ALREADY EXISTS — EDIT IT, DO NOT CREATE A SECOND ONE
+
+**Checked against the live database 2026-08-20, and this changes the test.** The shop already has six
+discounts, all Active, and **four of them already carry a category join row**:
+
+| Id | Name | Type | Amount | AutoApply | Categories |
+|---|---|---|---|---|---|
+| 1 | Student | % | 0.10 | ⬜ | — |
+| 3 | Standing order | £ | 0.10 | ⬜ | — |
+| 4 | Games Workshop 10 | % | 0.10 | ⬜ | 1 |
+| **5** | **Warhammer Wednesday Discount** | **%** | **0.15** | ⬜ | **1** |
+| 6 | Warhammer Pre-order Discount | % | 0.25 | ⬜ | 1 |
+| 7 | Warhammer Online Discount | % | 0.22 | ⬜ | 1 |
+
+⚠⚠ **Row 5 IS the rule Matt described.** It exists, it is live, and it already targets a category — it
+has simply never been able to say *when*, and nothing has ever applied it by itself. That is exactly
+what was dormant in this schema and what the new columns switch on. ⚠ Note it is **15%**, not the 10%
+in the original example; the row is the shop's, so treat 15% as the truth unless Matt says otherwise.
+
+**So:** open **Warhammer Wednesday Discount** with **Edit** → tick **Apply it automatically** → untick
+every day except **Wed** → confirm the category shown is the Warhammer one → **Save changes**.
+
+**✅ Expected:** the row now reads **15%**, the category name, **`Wed`**, **Automatic**, **Live**.
+
+⚠ Reopen it with **Edit** and confirm every field came back as you set it — a form that saves and
+re-reads differently is the "set and never saved" fault the opening-hours work was about. ⚠ Then check
+the **Applies to** column names a real category rather than the fallback *"a category"*: that fallback
+means the join row points at a category the picker could not resolve, which is worth reporting.
+
+⚠ **Only create a new rule if you want to test creation** (the *Add a discount* path) — the four rows
+above are enough to test everything else, and adding near-duplicates to a live catalogue makes the
+till's manual discount list harder to read.
+
+### G65c. The writer refuses what a till could not read
+
+Try each of these and expect a **sentence, not a number**:
+
+| Do | ✅ Expected |
+|---|---|
+| Untick every category, leave *everything in the basket* unticked, Save | *"Choose what this applies to…"* — ⚠⚠ **the money one.** A rule targeting nothing must never save, because the dangerous reading of it at a till is "everything" |
+| Set the time window **From 22:00 To 02:00** | *"…A window that runs over midnight is not supported — use two rules"* |
+| Enter a percentage of `150` | Refused — a percentage is a fraction, and above 1 would be more than the item costs |
+| Clear the name, Save | Refused — it is what the customer reads on the receipt |
+
+### G65d. Pausing keeps the record
+
+**Pause** the rule, confirm, then check the row reads **Paused**.
+
+**✅ Expected: the row is still there.** ⚠ It is deactivated, never deleted — every sale that took this
+discount points at its id, so deleting it would orphan the record of what you charged. Make it Live
+again with **Edit** before moving on to §G64.
+
+---
+
+## G64. Scheduled discounts at the counter — **web till 1.27.0 + till 1.108.0**
+
+> ⚠⚠ **RUN §G65 FIRST.** There is nothing to see here until "Wednesday Warhammer" exists, is **Live**,
+> is **Automatic**, and is set to a day that is **today** — if today is not Wednesday, edit the rule to
+> tick today, and say so in your notes.
+>
+> ⚠ You need a Warhammer-category item and a non-Warhammer item to ring up. Any two items in two
+> different categories will do; the notes below say "Warhammer" and "Paint" for those two.
+
+### G64a. It applies by itself, on the web till
+
+Web till → ring up the **Warhammer** item.
+
+**✅ Expected:** the line shows **`Wednesday Warhammer −£x.xx`** under the item name, and the total is
+10% lower. Nobody pressed anything.
+
+Ring up the **Paint** item. **✅ Expected:** no discount on that line.
+
+### G64b. ⚠⚠ It SURVIVES the next scan
+
+With the discount showing on the Warhammer line, **scan two or three more items**.
+
+**✅ Expected: the discount is still on the Warhammer line, unchanged.**
+
+⚠⚠ This is the fault most likely to be here. The resolver re-runs on every basket change, and it skips
+lines that are "already discounted" — so if it cannot tell its own work from an operator's, the
+discount **disappears the moment a second item is scanned**. It is pinned by a test on both tills, but
+this is the check that proves it in the real basket.
+
+### G64c. ⚠⚠ The operator can charge full price, and it STAYS charged
+
+Click **remove** on the discount note.
+
+**✅ Expected:** the line goes to full price. **Now scan another item.** ✅ **Expected: it STAYS at full
+price** — the discount does not come back.
+
+⚠⚠ Without the waiver this is where it fails: the rebuild puts the discount straight back and the
+operator watches it reappear with no way to stop it. ⚠ Ringing the item again on a NEW line should get
+the discount again — the waiver is per line, and "ring it again" is the operator's own way to undo it.
+
+### G64d. On a Thursday it does nothing
+
+Either come back tomorrow, or edit the rule in the portal to a day that is NOT today, **reload the till
+tab**, and ring the Warhammer item.
+
+**✅ Expected: no discount.** ⚠ The till decides what day it is — the server does not tell it — so this
+is the check that the schedule is actually being evaluated rather than a stored answer being replayed.
+
+### G64e. It works with the network down
+
+Reload the till (so it caches the rules), then **pull the network** and ring the Warhammer item.
+
+**✅ Expected: the discount still applies.** ⚠ That is the whole reason the schedule travels raw. ⚠ Also
+try it on a till that has NEVER seen the rules with the line down: no discount, no error, and the sale
+still completes at full price — a promotions feed must never stop a shop trading.
+
+### G64f. ⚠⚠ A MEMBER AND A RULE ON THE SAME LINE — THE MONEY CHECK
+
+In the portal set **Wednesday Warhammer to 20%**. Reload the till. Attach a **Gold (10%)** member —
+scan their card or use **Loyalty customer lookup** — and ring the **Warhammer** item.
+
+**✅ Expected: ONE discount of 20%** on that line (`Wednesday Warhammer`), **not** 10%, and **not** 30%.
+
+Now set the rule to **5%** and repeat. **✅ Expected: ONE discount of 10%**, labelled with the tier
+(`Gold 10%`) — the member wins because it is worth more.
+
+⚠⚠ **Then do exactly the same on the MAUI till and compare the totals to the penny.** This is the case
+the whole shared resolver exists for: two tills that each decide for themselves differ by real money on
+a basket, and nothing downstream can flag it. ⚠ Ring a **Paint** item in the same basket — it should
+carry the **member's** 10% while the Warhammer line carries the rule's 20%. Two different discounts,
+one basket.
+
+### G64g. Everything above, on the MAUI till
+
+Repeat **§G64a–§G64f** on the MAUI till. ✅ Expected: the same figures, the same wording on the line,
+and the same receipt.
+
+⚠⚠ **§G64a IS THE ONE MOST LIKELY TO FAIL ON MAUI, AND FOR A KNOWN REASON.** Category targeting needs
+the v2 catalogue's category on the basket line, and MAUI's legacy item model has no room for it — the
+id is carried separately (`BasketItem.CategoryId`), set when the item is added. If the Warhammer line
+gets **no discount on MAUI while the web till discounts it correctly**, that is this seam, and it is
+worth reporting in those words. ⚠ An **item-barcode** rule would still work in that case, which is a
+useful way to tell the two apart: create a rule targeting the item's barcode instead and see if it
+fires.
+
+### G64h. The receipt and the sale record
+
+Complete a discounted sale on each till and **print the receipt**.
+
+**✅ Expected:** a sub-line under the item reading the rule's name and `-£x.xx`, on both tills, in the
+same words.
+
+⚠ Then find the sale in **Reporting** (or the portal) and check the discount and its **reason** are on
+the line — the reason is auto-filled with the rule's name, because nobody typed one and the rule IS the
+reason. ⚠ **No authoriser** should be recorded: the shop authorised it in the portal, and naming the
+operator would manufacture a self-approval that never happened.
+
+### G64h2. The wording and the ORDER — Matt, 2026-08-20
+
+Three changes to check, all cosmetic-looking and one of them not:
+
+| Where | ✅ Expected |
+|---|---|
+| **Both tills**, bottom-left button | reads **Apply Discounts**, not *Alter Transaction* |
+| **MAUI**, after pressing it | both boxes — the "which discount?" sheet and the "which lines?" list — are titled **Apply discount**, matching the web till. Not *Alterations* |
+| **Portal → Prices** | **Discount Settings** is the FIRST thing on the page, collapsed |
+
+⚠⚠ **AND THE ONE THAT IS NOT COSMETIC — the line order.** Matt: *"When you apply a discount, it opens
+the box, the order of the list needs to match the order of the till. The till is ordered newest at the
+top, the discount opens newest at the bottom."*
+
+**Web till, with Settings → Till → "newest first" ON:** ring five items you can tell apart, then open
+**Apply Discounts** and pick any discount.
+
+**✅ Expected: the tick list is in the SAME order as the basket behind it** — the item you scanned last
+is at the top of both. Before this it was an exact MIRROR: the dialog read the raw insertion order while
+the till screen honoured the preference, so an operator ticking "the top one" discounted the item they
+scanned *first*.
+
+⚠ **Turn the preference OFF and check again** — both lists should then read oldest-first, still
+matching. ⚠ Ordering cannot change WHICH lines get discounted (every line is identified by a key, not a
+position), so this is about whether a person can trust what they are ticking. On a money dialog that is
+the whole point. ⚠ MAUI needed no change here: it has no newest-first preference, so its basket and its
+picker were always in the same order — worth confirming rather than assuming.
+
+### G64i. Select all, and typing an amount
+
+⚠ This is the other half of Matt's ask and it is quick.
+
+On **each** till: ring three items, open the discount dialog, pick a discount.
+
+**✅ Expected: a `Select all` control above the line list.** Tap it — every line ticks. Tap **Clear** —
+none. Tick two by hand, type a reason, apply. ✅ The two lines carry it and the third does not.
+
+Then choose **"Type an amount…"** on the **web till** (this is new there; MAUI has always had it):
+pick **% off**, type `10`, select all, give a reason, apply.
+
+**✅ Expected:** 10% off every eligible line. ⚠ Try `150` — the button must stay disabled with a sentence
+explaining why, not silently take 150% off. ⚠ And try an amount over your own discount ceiling: the
+supervisor step-up must appear exactly as it does for a catalogue discount — a typed discount is not a
+side door around the limit.
+
+---
+
+## G66. Multi-barcode — one item, several barcodes — **backend 1.19.0 + portal 1.15.0 + web till 1.28.0 + till 1.109.0**
+
+> Matt, 2026-08-20: *"I know the till currently uses the barcode as a unique entry at the moment, but
+> I need to move to having multiple barcodes."*
+>
+> ⚠⚠ **THIS REVERSES A RECORDED RULING.** A local alias table was deleted on 2026-08-09 because
+> nothing had ever written to it — and its removal note named exactly what real support needed first:
+> *"a server entity, a feed field and a portal UI."* All three now exist. The difference between this
+> and the deleted stub is simply that the table is **fed**.
+>
+> ⚠⚠ **THE BACKEND DEPLOY CARRIES A MIGRATION** (`AddItemBarcodes`, one new table). Runbook §"Before
+> any migration deploy": take the dump FIRST and check it is ~60 MB uncompressed, not 20 bytes. Then
+> verify the TABLE, not the history row:
+> `SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='plutus' AND TABLE_NAME='ItemBarcodes';`
+>
+> ⚠⚠ **MAUI NEEDS ITS FIRST RUN TO RE-SYNC THE CATALOGUE.** Local schema v7 clears the catalogue
+> cursor on upgrade, deliberately: adding a wire field changes no item's `ModifiedAt`, so without the
+> reset an existing till would only ever receive aliases for items somebody edited afterwards. The
+> first launch of 1.109.0 therefore does one full catalogue pull. **Give it a minute before §G66d, and
+> say if it takes noticeably longer than that.**
+
+### G66a. The portal — give an item a second barcode
+
+Portal → **Inventory → Items** → pick any item → **Edit**. Below the price fields there is now
+**Other barcodes for this item**.
+
+Type a code that is not in use (e.g. `TEST-ALIAS-1`) → **Add barcode**.
+
+**✅ Expected:** it appears in the list immediately. ⚠ The **Barcode / id** box at the top is still
+greyed out on an edit — that is the item's identity and is deliberately immutable; extra codes go in
+this list. If that box has become editable, something has gone wrong; say so.
+
+### G66b. The portal refuses what a till could never scan
+
+Try each of these in the same box. **✅ Expected: a SENTENCE, not a number, and nothing added:**
+
+| Type this | ✅ Expected sentence |
+|---|---|
+| A member card code — `C000482P` | *"That is the shape of a membership card. Cards are matched before items are, so it could never scan as this item."* |
+| `BAG-10` | *"That is a carrier-bag id. Bags are set up on the Company page, not as barcodes."* |
+| `GIFT-CARD` | *"That id belongs to the platform and cannot be used as a barcode."* |
+| A code with a space in it | *"A barcode cannot contain spaces."* |
+| 21+ characters | *"That is longer than a barcode can be — 20 characters at most."* |
+| **Another real item's own barcode** | *"That is already the barcode of '<that item's name>'."* |
+| The same alias again, on the SAME item | Nothing happens, no error — it is already there |
+
+⚠ Then add the same alias to a **different** item: ✅ *"That barcode already points at '<name>'. Remove
+it from that item first."* Two items answering one scan is unresolvable at a counter, which is why.
+
+### G66c. The web till — the alias scans, online and offline
+
+Hard-refresh the web till (Ctrl+F5) and check the footer reads **v1.28.0**.
+
+Type or scan `TEST-ALIAS-1` into the scan box.
+
+**✅ Expected: the item is added — the SAME item, at the SAME price**, exactly as its own barcode
+would. ⚠ The basket line shows the item's normal name; nothing about the line should look different.
+
+⚠⚠ **NOW OFFLINE.** Reload once so the catalogue and the alias set are cached, then pull the network
+and scan `TEST-ALIAS-1` again. **✅ Expected: it still resolves.** ⚠ This is the case with no
+automated test anywhere — `offline.ts` has never had a harness because node has no IndexedDB — so
+this check is the only thing covering the browser's alias store.
+
+⚠ Also scan a code that is in NO list at all. ✅ Expected: the normal *"Nothing found … ＋ Add this
+item"* offer, unchanged.
+
+### G66d. The MAUI till — the same alias, the same item
+
+⚠ Run `D:\tmp\plutus-till-1.110.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+(the v7 catalogue re-sync above).
+
+Scan `TEST-ALIAS-1`.
+
+**✅ Expected: the same item, the same price, the same line as the web till** — and no retraining
+needed between the two, per the 2026-08-19 look-and-feel ruling.
+
+⚠ Also add it from **Inventory → Add to till** using the item's own code, to confirm the ordinary
+path is untouched.
+
+### G66e. ⚠⚠ THE MONEY CHECK — sell it and look at what was recorded
+
+Ring up the item **via the alias**, take cash, complete the sale. Do it on **both** tills.
+
+Then in **Reporting → Sales** (or the portal), open that sale and check:
+
+1. **✅ The line names the item and its CANONICAL barcode** — not the alias.
+2. **✅ Stock moved for the canonical item.** Portal → Inventory → the item's stock went down by one.
+3. ⚠⚠ **AND NO SECOND STOCK ROW APPEARED for the alias code.** This is the fault the whole design
+   guards against: an unrecognised id makes the stock projection create a **phantom stock level**
+   with no error at all. If you see a stock row against `TEST-ALIAS-1`, stop and report it — that is
+   the one outcome that matters most.
+4. **✅ The VAT on the line is right** (not zero, not blank). An alias leaking onto the line would
+   make the band stamp give up silently.
+
+### G66f. Remove the alias — it stops scanning
+
+Portal → the item → **Edit** → **Remove** beside `TEST-ALIAS-1`.
+
+Web till: hard-refresh, then scan it. **✅ Expected: it no longer resolves** — you get the *"Nothing
+found … ＋ Add this item"* offer instead.
+MAUI: the next sync tick (or a restart), then the same.
+
+⚠⚠ **DO NOT ACCEPT THE "ADD THIS ITEM" OFFER YET** — that is §G66g.
+
+### G66g. ⚠⚠ The duplicate-item trap, and the refusal that closes it
+
+Add `TEST-ALIAS-1` back to the item in the portal. Now, on the web till, go to
+**Inventory Management → ＋ Add item** and try to create a NEW item whose barcode is `TEST-ALIAS-1`.
+
+**✅ Expected: it is REFUSED** — *"That barcode already points at '<item name>'. Remove it from that
+item's barcodes first."*
+
+⚠⚠ **THIS IS THE BACK DOOR THE GUARD EXISTS FOR.** Before it, an unrecognised scan could mint a
+second item on a code that already belonged to one — and then two rows answer one scan, which cannot
+be resolved at a till and needs somebody to find and merge them afterwards. Both tills reach the
+"add this item" offer, which is exactly where a shop meets it.
+
+### G66h. Nothing else changed
+
+A quick regression sweep, because this touched the scan path:
+
+- ✅ Scan a **member card** → still attaches the member (routing runs before item lookup).
+- ✅ Scan a **gift card** → still handled as a card.
+- ✅ Tap a **Bag** button → still adds the bag.
+- ✅ **Search by name** → unchanged. ⚠ Searching for an ALIAS string is **not** expected to find the
+  item: aliases resolve on the exact-scan path only, deliberately (four search implementations would
+  have to move in lockstep). Note it if that feels wrong in practice — it is a decision, not an
+  oversight.
+- ✅ A **binned** item's alias does not scan. Bin the test item, scan `TEST-ALIAS-1` → nothing found.
+  Restore it afterwards.
+
+## G67. Editing an item's barcodes, and its change history — **backend 1.20.0 + portal 1.16.0 + web till 1.29.0**
+
+> Matt, 2026-08-20, testing the deployed 1.19.0: *"When I am trying to edit an item in the portal or on
+> the webtill, I cannot edit or add a new barcode?"*
+>
+> He was right, and the reason is worth stating: **1.19.0 shipped the whole multi-barcode spine and no
+> way for a person to use it.** The endpoints existed; neither surface had a control. §G66 could only be
+> run against the database. This section is the UI half.
+>
+> ⚠ **NO MIGRATION.** `ItemBarcodes` went in with 1.19.0 and is unchanged. 1.20.0 adds two endpoints
+> (`PUT …/barcodes/{code}` and `GET …/items/{id}/history`) and audit writes on item edits.
+>
+> ⚠⚠ **DO THIS ON BOTH SURFACES AND COMPARE THEM.** Matt, 2026-08-19: *"I need the functionality and
+> look and feel to be the same … So if a user swaps between the two, it doesnt matter and they would
+> understand how to use it."* The two lists are meant to be the same list. **If one looks or behaves
+> differently from the other, that is the finding** — say which, and how.
+>
+> ⚠⚠ **MAUI IS NOT IN THIS SECTION AND THAT IS DELIBERATE.** It has no item editor at all — only "View
+> all items" — because a till-created item reaches no report, no other till and no VAT return. Item
+> writes are the portal's (`till-design.md` C1 "Portal decides, till obeys"); inventory parity is WP10.
+> **Nothing to check on the MAUI till here.** If you expected an editor there, that is a WP10
+> conversation, not a bug.
+>
+> ⚠ Both barcode lists need **`portal.stock.adjust`**; the history needs **`portal.reports.view`**. On
+> an account holding neither, the sections are simply absent — which is itself worth one check (G67h).
+
+### G67a. The edit dialog fits — the fault Matt photographed
+
+Portal → **Inventory → Items** → any item → **Edit**.
+
+**✅ Expected:** the dialog is **two tidy columns** of fields, every label sitting above its own box,
+nothing overlapping and no text box wider than the dialog. **Barcode / id (max 20)** is on its own,
+**full width, above the two columns**.
+
+⚠ **This is the exact thing that was broken.** `.form-grid` — used by five portal screens — **was never
+defined in the stylesheet at all**, so the intended two columns collapsed into one and the labels got no
+spacing, which read as text overlapping its own field. If it still looks crowded, or if a label touches
+the box above it, **say so and screenshot it** — do not assume it is meant to look like that.
+
+Now narrow the browser window right down. **✅ Expected:** it becomes **one** column and stays usable.
+
+### G67b. The extra barcodes sit under the barcode field, collapsed
+
+Still in the same dialog, look **directly beneath Barcode / id**.
+
+**✅ Expected:** an indented block with a left rule. If the item has extra codes they are **listed**,
+one per row, each showing `🔒 Edit` and `Remove`. If it has none: *"This item scans on its own barcode
+only."* Below that, a **collapsed** summary reading **Add another barcode**.
+
+⚠ Matt asked for exactly this placement and this collapsing: *"move the 'Other barcodes for this item'
+under the current barcode section. And have the text and add new barcode collapsed."* The block should
+read as belonging to the field above it, not as a new section.
+
+**Then do the same on the WEB TILL** — Inventory Management → any item → Edit. ✅ Same block, same
+place, same wording.
+
+### G67c. The live check, as you type
+
+Open **Add another barcode** and type into it — do not save yet.
+
+| Type this | ✅ Expected |
+|---|---|
+| A code no item uses | nothing said; **Add barcode** is live |
+| A code this item already has | red *"This item already has that barcode."* and **Add barcode goes dead** |
+| A code another item has as an extra | red *"Another item already has that barcode."*, button dead |
+| **This item's own** Barcode / id | red *"That is already this item's own barcode."*, button dead |
+| Another item's own barcode | red naming that item — *"That is already the barcode of "…"."* — button dead |
+| ` 12345` (a **leading space**) | ⚠⚠ **AMBER**, *"That has a space at the start or end — it will be saved without it."* — and **Add barcode STAYS LIVE** |
+
+⚠⚠ **THE AMBER ONE IS THE POINT, AND IT MUST NOT BE RED.** Matt asked for whitespace to be
+*"highlighting and warning"* — the server trims, so the code saves correctly and the operator is told.
+A clash means *you cannot*; whitespace means *you can carry on*. **If those two look the same colour,
+or if the space blocks the save, that is a defect** — say so.
+
+Now save the spaced one. **✅ Expected:** it appears in the list **without** the space.
+
+### G67d. Barcodes are LOCKED until you unlock them
+
+Find a row in the list. **✅ Expected:** the code is **text, not a text box**, with `🔒 Edit` beside it.
+
+⚠ Matt: *"Barcodes should be 'Locked' to avoid accidently changing the barcode."* The reason is real —
+a barcode is the string a scanner matches on, so a stray keystroke in an always-live box is an item that
+**silently stops scanning**, with nothing to say so.
+
+Click **🔒 Edit**. ✅ It becomes a box with the code in it, focused, with **Save** and **Cancel**.
+
+- Press **Escape** → ✅ reverts, unchanged.
+- Unlock again, clear it → ✅ **Save is dead** (an empty barcode is not a barcode).
+- Type a code another item owns → ✅ red, **Save dead**.
+- Type the code it already was → ✅ **no complaint** (it must not clash with itself).
+- Change one character and **Save** → ✅ the row shows the new code.
+
+⚠⚠ **AND CHECK IT WAS ONE OPERATION, NOT TWO.** The old code must be gone and the new one present. It
+is a single `PUT` on purpose: a delete-then-add can fail between the two calls and leave the item with
+**neither** code. If you ever see a row vanish without its replacement appearing, **that is serious** —
+say so and name the code.
+
+### G67e. What the server refuses, and how it says so
+
+Same box, same table as §G66b — the point here is that **the sentence reaches the screen verbatim**.
+
+| Type this | ✅ Expected |
+|---|---|
+| `C000482P` (a member card shape) | *"That is the shape of a membership card. Cards are matched before items are, so it could never scan as this item."* |
+| `AB CD` (a space **inside**) | *"A barcode cannot contain spaces."* |
+| 21+ characters | a sentence about the 20-character limit |
+
+⚠⚠ **A NUMBER INSTEAD OF A SENTENCE IS THE DEFECT.** If you see `API 400 {"detail":…}`, or a bare
+`400`, the client is showing the wrapper instead of the message. These refusals are written to be read
+by whoever is setting the barcode up. ⚠ And these rules deliberately live **only** on the server — the
+screen never second-guesses them, so that a rule added later cannot be refused by a stale copy in a
+till.
+
+### G67f. The change history
+
+Scroll to the **bottom** of the edit dialog. ✅ A collapsed **Change history**. Open it.
+
+**✅ Expected:** newest first, four columns — **When · What · Detail · By**. You should see the barcode
+work you just did (*"Barcode added"*, *"Barcode corrected — OLD → NEW"*), each with **your name**.
+
+Now change the item's **price**, Save, reopen, and look again. ✅ A row naming the field, its old value
+and its new one, with your name and the time.
+
+⚠⚠ **THE OLDEST ROW IS EXPECTED TO BE VAGUE, AND IT SAYS SO:** *"Created before change logging began —
+no detail was recorded."* with **no name**. That is honest rather than broken — nothing was recorded
+before today, and inventing detail would be worse. ⚠ **A blank `By` shows as `—`**, not as an empty
+cell, so it cannot be mistaken for a load failure.
+
+⚠ Times are **local**. If every row looks an hour out, say so — the server sends UTC and the screen
+converts, so a consistent offset is a real bug.
+
+**Then the same on the WEB TILL.** ✅ Same rows, same order, same wording.
+
+### G67g. ⚠⚠ The check that matters most — a corrected barcode actually scans
+
+Everything above is a screen. This is the till.
+
+1. Give an item the alias `G67-SCAN-1`. Correct it to `G67-SCAN-2`.
+2. On the **web till**, scan/type `G67-SCAN-2`. ✅ **The item rings up** — at its own price, under its
+   own name.
+3. Scan `G67-SCAN-1` (the code you corrected away from). ✅ **Nothing found.** ⚠ If the OLD code still
+   scans, the rename left a row behind — **say so immediately**, because two codes now point at one item
+   and only one of them is meant to.
+4. Sell it. ✅ The receipt shows the item's **own** barcode, not the alias.
+
+⚠⚠ **The alias must never travel past resolution.** Both faults a leak causes are silent — a phantom
+stock row, and a line with no VAT band. **§G66e is the fuller money check**; do it if anything here
+looks odd.
+
+### G67h. Somebody without the permission
+
+Sign in as an account with **neither** `portal.stock.adjust` **nor** `portal.reports.view` (a plain
+cashier).
+
+**✅ Expected:** the barcode list and the Change history are **simply not there** — no greyed-out
+controls, no buttons that refuse. ⚠ The server gates regardless; hiding them is so nobody is offered a
+control that will turn them away.
+
+### G67i. The dialog ✕ — and the thing this work uncovered
+
+⚠⚠ **Every portal dialog was missing its close ✕ until today, and nobody had noticed.** `till-design.md`
+D4 has required one since 2026-08-18 (*"add x's to all relevant boxes … so that it is not missed in
+future"*) — but D4's table listed only the two tills, so the portal sat outside a contract that read as
+complete. It did not even have the component.
+
+Check, in the **portal**:
+
+- ✅ The **item editor** has a ✕ top-right. It **closes** and does **not** save.
+- ✅ Any **confirm / choose / prompt** box — e.g. a bulk inventory action — has a ✕. Escape closes it,
+  and clicking outside it closes it.
+
+⚠ **13 other portal dialogs still have none** — the list is in D4's honesty section. They all close by
+Cancel and by clicking outside, so nothing is trapped. **This is a known gap, not a new finding**; note
+it if it gets in your way and it can be closed in one pass.
+
+### G67j. Nothing else changed
+
+- ✅ **Add a new item** (portal and web till). The barcode list and history are **absent** until it
+  exists — there is no item for a barcode row to point at yet. Save, reopen: ✅ both appear.
+- ✅ The duplicate-barcode warning on **Add item** still names the clashing item and offers to open it.
+- ✅ **Bulk edit**, the **Bin**, **Restore**, **Categories** — untouched.
+- ✅ A till **scan** of an ordinary barcode — untouched.
+
+## G68. Syncfusion is gone — **till 1.110.0**, `D:\tmp\plutus-till-1.110.0\Plutus.Frontend.AppClient.exe`
+
+> Matt, 2026-08-20: *"if the packaging of it removes all you see, what about removing syncfusion now?
+> Worth it?"* — yes, and it is done. **264 MB → 169 MB (−36%).**
+>
+> ⚠⚠ **THIS IS THE MOST IMPORTANT HAND-RUN ON THIS PAGE, AND THE REASON IS THE FAILURE MODE.** Removing
+> types that XAML referenced **compiles clean and breaks on navigation**. The Release build gave 0
+> errors, the 621-test suite passed, and the app launched and ran for 25 seconds — *none of that
+> exercises a screen*. This repo has **no automated coverage of any MAUI screen at all**, because that
+> needs a running UI host. **Your eyes are the only test that has ever covered these.**
+>
+> ⚠ What came out: **10 Syncfusion packages** · `DocumentFormat.OpenXml` · the two legacy report screens
+> (`SalesReportsView`, `StockOuttakeView`) · `Helpers/FileIO/ExcelHandling.cs` · the licence registration
+> and `ConfigureSyncfusionCore`. **The stale licence key is deleted.**
+>
+> ⚠ **Why it was allowed now:** L4 kept those screens because they were the only reader of this till's
+> pre-Plutus history. They are not any more — the 19_08 import put **21,914 sales going back to
+> 2019-01-23** into the platform, so the portal has all of it. See `MAUI-retrofit.md` §10 L4.
+>
+> ⚠ **Delete any older build folder you still have.** 1.109.0 was removed from the box on purpose so
+> there is no ambiguity about which exe you are running. Check the Plutus tab reads **1.110.0** before
+> you report anything from this section.
+
+### G68a. It starts, and it says 1.110.0
+
+Run the exe. **✅ Expected:** it opens to the login screen as usual.
+
+Sign in, then **Plutus tab** → confirm the version reads **1.110.0**.
+
+⚠⚠ **THE ONE THING THAT WOULD BE A DISASTER, AND WHAT IT LOOKS LIKE:** a **Syncfusion trial or licence
+dialog** — a modal saying anything about a licence, an evaluation copy, or a trial period. That must
+now be *impossible*: there is no Syncfusion code left in the app. **If you see one, stop and say so
+immediately** — it would mean something was left behind, and historically that dialog appeared on a
+screen with no way back out.
+
+### G68b. Statistics — the screen that changed most
+
+**Statistics tab.**
+
+**✅ Expected:**
+- **"Reprint a receipt"** button — still there, still works.
+- **"This till, from Plutus"** with today's figures — takings, sale count, VAT, average basket, and an
+  **"as at HH:MM"** time.
+- A grey note explaining that full reporting is in the portal, and that the two old on-till reports have
+  been **removed**.
+
+⚠ **The wording changed deliberately.** It used to say the old reports were *"hidden"*; they are now
+deleted, so "hidden" would be a lie about something that no longer exists. **If you can still find a
+way to open a Sales Report or Stock Outtake screen from anywhere in the app, say so** — nothing should
+lead to one.
+
+⚠ Leave the tab and come back. ✅ The figures reload, and the "as at" time updates within a minute.
+
+### G68c. ⚠⚠ Everything that used to be a Syncfusion control
+
+These four are the ones that were swapped to plain MAUI back in 1.33.0. **They have no automated
+coverage and never have** — the removal of the remaining packages should not have touched them, but this
+is precisely the sort of change that disturbs a shared resource dictionary. Check all four.
+
+**1. The quantity box, on the Till screen** — ⚠ **this one is on the money path.**
+
+- Type `3`, scan or pick an item → ✅ **three** go in.
+- Type `0` → ✅ it becomes **1**. ⚠⚠ **A basket line at quantity 0 charges nothing and looks exactly like
+  a sale.** That rule lives in the viewmodel now (it used to live in the control's markup, which is why
+  it is worth re-checking).
+- Type letters → ✅ refused; the box stays numeric.
+- The **−** and **+** buttons → ✅ both work.
+
+**2. The item list** — Inventory → View all items.
+
+- ✅ Opens without a crash, grouped, with **A–Z headers**.
+- ✅ The column header stays put when you scroll (it does not scroll away).
+- ✅ Search narrows the list.
+- ⚠ **Tap the SAME row twice** → ✅ it opens both times. (A `CollectionView` will not raise selection
+  twice for one row, so this specific case used to read as a freeze.)
+- ✅ The per-row **Edit** button works.
+
+**3. The discount multi-select** — Till → **Apply Discounts** with a few lines in the basket.
+
+- ✅ The list of lines appears, matching the till's own order.
+- ✅ **Select all** / **Unselect all** work, and the count updates **and** the rows highlight.
+- ✅ The lines you picked are the ones that get the discount.
+
+**4. The alterations sheet** — picking an alteration → ✅ opens the amount prompt.
+
+### G68d. A full sale, because this touched the app's startup
+
+`ConfigureSyncfusionCore()` was removed from `MauiProgram`, which runs before anything else.
+
+- ✅ Open a float, sell two or three items, take payment, print a receipt.
+- ✅ Refund one of them.
+- ✅ X-read, then Z-close.
+
+⚠ Nothing here should behave differently. This is in the list because **a change to app startup can
+break something arbitrarily far from it**, and a sale is the only test that covers the whole path.
+
+### G68e. The build folder — what Matt actually asked about
+
+Look at `D:\tmp\plutus-till-1.110.0`.
+
+**✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
+
+⚠ **It is still a flat folder of 268 files, and that is not a mistake.** .NET requires every assembly
+beside the app host — of the 179 DLLs, **6 are ours**. The 51 PNGs are MSIX tile assets.
+
+⚠⚠ **THE REAL ANSWER TO "WHY 299 FILES" IS THAT WE HAND YOU THE DEVELOPER LAYOUT**, and only because
+the Release MSIX is **unsigned** and Windows refuses to install it. **Signing the package is the fix** —
+then all of it lives inside the package and you install an application instead of being handed a
+directory. ≈half a day; `Shrink MAUI Build.md` §6.
+
+⚠ **The 86 remaining language folders could not be moved into a `languages/` folder** — you asked, and
+it is not possible: the Windows loader probes `<the DLL's own directory>\<culture>\` and there is no
+manifest to redirect. The **33 satellite folders are gone**; these 86 are native Windows App SDK
+resources, 3.8 MB. Nothing supported removes them.
+
+### G68f. Nothing else changed
+
+- ✅ **Reports tab** — unchanged, still reads the platform.
+- ✅ **Loyalty**, **Cash**, **Settings**, **Inventory** — all open.
+- ✅ **Printing** — a receipt and a card.
+- ✅ Trade with the network down, then let it reconnect and drain.
+
+⚠ **If anything crashes, grab the crash log before restarting** — the Plutus tab shows its path.
+`.pdb` files were deliberately kept in the build so that log carries **file and line numbers**.

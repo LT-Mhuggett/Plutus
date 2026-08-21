@@ -305,7 +305,11 @@ export default function App() {
   }
 
   return (
-    <main className="shell">
+    // ⚠ till-locked ONLY on the Till tab: it bounds the app to the viewport so the basket
+    // scrolls inside .basket-grid and the totals + action buttons never leave the screen
+    // (Matt, 2026-08-20: many items pushed Checkout off the bottom). Every other tab keeps
+    // the normal page scroll — reports and inventory are meant to scroll as a page.
+    <main className={tab === "Till" ? "shell till-locked" : "shell"}>
       <header className="appbar">
         <h1><PlutusMark />Plutus</h1>
         <nav className="tabs">

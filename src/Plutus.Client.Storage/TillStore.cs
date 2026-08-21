@@ -56,23 +56,49 @@ public sealed class TillStore : IOutboxStore, ISyncStore
     /// Resolve a scanned code. Binned items are excluded — an offline till must stop selling
     /// something the portal has withdrawn.
     ///
-    /// ⚠ ONE CODE PER ITEM: <see cref="CatalogueItem.IdOne"/> IS the barcode. There is no alias
-    /// lookup, because there is nothing to look up — the platform has **no barcode entity at all**
-    /// (verified 2026-08-09: nothing in `Plutus.Entities` models one, and the catalogue feed
-    /// carries no alias list), and Matt confirmed the same day that multi-barcode items are not
-    /// needed.
+    /// ⚠⚠ AN ITEM MAY HAVE MORE THAN ONE BARCODE (2026-08-20, `Build/archive/Multi-barcode plan.md`).
+    /// The item's own <see cref="CatalogueItem.IdOne"/> is tried first; on a miss the code is looked
+    /// up in <see cref="LocalItemBarcode"/> and the ALIASED ITEM is returned.
     ///
-    /// This method used to fall back to a local `Barcodes` table that **nothing has ever written**.
-    /// That is worse than not having the feature: it reads as support for multiple barcodes, so the
-    /// next person to be asked for them would reasonably assume the till half-supports it already.
-    /// Removed deliberately. Adding real multi-barcode support means a server entity, a feed field
-    /// and a portal UI first — a platform decision, not a till change.
+    /// ⚠⚠ **THE CALLER RECEIVES THE CANONICAL ITEM AND MUST CARRY ITS `IdOne`, NEVER THE SCANNED
+    /// STRING** (plan D2). Two faults punish a leak, and both are silent: an id the platform does not
+    /// recognise makes `StockProjectionConsumer` create a phantom `StockLevel` with no error, and
+    /// makes `VatBandStamp` leave the sale line's VAT band null. `SaleAssembler` is the tripwire —
+    /// it throws when a line's `ItemId` and `IdOne` disagree. ⚠ The scanned alias may be RECORDED
+    /// (`LineMeta.barcodeScanned`), which is a snapshot, not an identity.
+    ///
+    /// ⚠ THIS REVERSES A RECORDED RULING, and the history matters. This method used to fall back to a
+    /// local `Barcodes` table that nothing had ever written — deleted 2026-08-09 as worse than no
+    /// feature, because it read as support that did not exist. Its removal note named the
+    /// prerequisites: *"a server entity, a feed field and a portal UI first — a platform decision,
+    /// not a till change."* All three now exist, and Matt asked for the feature on 2026-08-20. The
+    /// difference between this lookup and the deleted one is simply that this table is FED.
+    ///
+    /// ⚠ Matching is exact (plan D6) — no case folding, exactly as `IdOne` matches here. On SQLite
+    /// that is case-SENSITIVE; the same is true of the web till's IndexedDB key and has never bitten,
+    /// because scanners emit exact strings. Folding only here would make an alias match where the
+    /// item's own barcode would not.
     /// </summary>
     public async Task<CatalogueItem?> FindByBarcodeAsync(string code, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(code)) return null;
-        return await _db.CatalogueItems.AsNoTracking()
+
+        var own = await _db.CatalogueItems.AsNoTracking()
             .FirstOrDefaultAsync(i => i.IdOne == code && !i.Removed, ct);
+        if (own != null) return own;
+
+        var canonical = await _db.ItemBarcodes.AsNoTracking()
+            .Where(b => b.Code == code)
+            .Select(b => b.ItemIdOne)
+            .FirstOrDefaultAsync(ct);
+
+        if (canonical == null) return null;
+
+        // ⚠ `!Removed` again on purpose: an alias of a binned item does not scan, exactly as the
+        // item's own barcode does not (plan D10). The Bin is what withdraws something from sale, and
+        // it cannot be worked around by scanning a different code for the same thing.
+        return await _db.CatalogueItems.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.IdOne == canonical && !i.Removed, ct);
     }
 
     /// <summary>
@@ -283,7 +309,14 @@ public sealed class TillStore : IOutboxStore, ISyncStore
         new(0, 0, Array.Empty<PricePointDto>(), Array.Empty<PricePointDto>());
 
     /// <summary>Apply a page of the changes feed. Tombstones (removed) are honoured, not skipped —
-    /// otherwise a binned item stays sellable on every offline till indefinitely.</summary>
+    /// otherwise a binned item stays sellable on every offline till indefinitely.
+    ///
+    /// ⚠ NO ALIASES HERE, and that is deliberate rather than an omission (multi-barcode, MB3). This
+    /// overload takes already-mapped <see cref="CatalogueItem"/> rows and predates the DTO; the wire
+    /// carries aliases on <c>CatalogueItemDto.Barcodes</c>, which only
+    /// <see cref="ApplyCatalogueAsync"/> receives. Said out loud because the note below rightly warns
+    /// that the two branches must be kept in step by hand — this is the one field where they
+    /// legitimately differ.</summary>
     public async Task ApplyCatalogueChangesAsync(IEnumerable<CatalogueItem> changes, long newVersion, CancellationToken ct = default)
     {
         foreach (var incoming in changes)
@@ -389,6 +422,44 @@ public sealed class TillStore : IOutboxStore, ISyncStore
             existing.Brand = mapped.Brand;
             existing.Desc = mapped.Desc;
             existing.CostPence = mapped.CostPence;
+        }
+
+        // ⚠⚠ MULTI-BARCODE (v7): AN ITEM'S ALIASES ARE REPLACED, NEVER MERGED — and that is what
+        // makes REMOVAL work with no tombstone table. The feed sends the whole set per item, so an
+        // item that lost a barcode arrives with a smaller array and the delete falls out of the
+        // replacement. Appending instead would leave a removed alias scanning for ever on every till
+        // that had already seen it, with nothing to say so.
+        //
+        // ⚠ Outside the item loop, in ONE pass over the page, because the alias table is keyed on the
+        // CODE: two items in the same page swapping a code between them must see the old row gone
+        // before the new one is inserted, or the insert collides with a row this very page is deleting.
+        //
+        // ⚠ Inside the same transaction as the items and the cursor: aliases that commit without the
+        // cursor are re-applied harmlessly next sync; a cursor that commits without them would strand
+        // the change for ever.
+        var touched = items.Select(i => i.IdOne).ToList();
+        if (touched.Count > 0)
+        {
+            var stale = await _db.ItemBarcodes.Where(b => touched.Contains(b.ItemIdOne)).ToListAsync(ct);
+            if (stale.Count > 0) _db.ItemBarcodes.RemoveRange(stale);
+            await _db.SaveChangesAsync(ct);
+
+            foreach (var dto in items)
+            {
+                if (dto.Barcodes == null) continue;
+
+                foreach (var code in dto.Barcodes)
+                {
+                    if (string.IsNullOrWhiteSpace(code)) continue;
+                    // ⚠ Never shadow an item's own barcode locally. The server refuses this
+                    // (`ItemBarcodesController`), so it should be impossible — but the till is the
+                    // side that would be unable to resolve the ambiguity, so it declines rather
+                    // than trusting the feed.
+                    if (string.Equals(code, dto.IdOne, StringComparison.Ordinal)) continue;
+
+                    _db.ItemBarcodes.Add(new LocalItemBarcode { Code = code, ItemIdOne = dto.IdOne });
+                }
+            }
         }
 
         if (cursor != null) await SetMetaAsync(MetaKeys.CatalogueVersion, cursor, ct);

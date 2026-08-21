@@ -40,7 +40,11 @@ namespace Plutus.Frontend.AppClient.Helpers.Security
             var answers = await CustomViews.InputAlertHelper.LaunchInputAlertAsync(
                 fields, "Confirm".Translate(), true, "AuthReq".Translate(), "Cancel".Translate());
 
-            if (answers is null) return null;
+            // ⚠ `Count == 0`, NOT `is null` — `InputAlertHelper.ShowAsync` ends
+            // `await popUp.PageClosedTask ?? new Dictionary<…>()`, so backing out yields an EMPTY
+            // dictionary and this method NEVER sees null. The old `is null` was a dead check that
+            // only appeared to work because the whitespace test below catches the same case.
+            if (answers.Count == 0) return null;
 
             answers.TryGetValue(1, out string emailOrId);
             answers.TryGetValue(2, out string password);

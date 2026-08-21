@@ -127,8 +127,9 @@ export default function CarrierBagsSection() {
   ];
 
   return (
-    <section className="panel">
-      <h2>Carrier bags</h2>
+    // Collapsed <details> like every other Company section — the Locations idiom (2026-08-20).
+    <details className="card store-card">
+      <summary><strong>Carrier bags</strong></summary>
       <p className="muted">
         Set the bags here and every till offers them — there is nothing to configure at a till. Each
         bag sells as a real line, standard-rated, in its own “Carrier bags” category, so bag charges
@@ -190,6 +191,6 @@ export default function CarrierBagsSection() {
         Leave the name blank and the price is used. Changing a price means adding the new bag and
         stopping the old one — they are different products, and the old one is on receipts already.
       </p>
-    </section>
+    </details>
   );
 }

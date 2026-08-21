@@ -25,24 +25,22 @@ namespace Plutus.Frontend.AppClient
             // exe in a shop and it disappears.
             Services.Analytics.CrashLog.Install();
 
-            // ⚠ THE SYNCFUSION LICENCE KEY, AND IT IS OUT OF DATE ON PURPOSE. Matt, 2026-08-10:
-            // *"I am not going to renew Syncfusion, it seems like it can be replaced."* Keys are
-            // version-specific and this one predates the 34.1.32 packages, so any licensed control
-            // that renders puts a modal in front of the page — which is how `SalesReportsView`
-            // became a screen with no way out.
+            // ⚠⚠ SYNCFUSION IS GONE FROM THIS APP ENTIRELY (2026-08-20). There is no licence
+            // registration here any more, no `ConfigureSyncfusionCore` in `MauiProgram`, and no
+            // Syncfusion package reference in the csproj — all ten came out together with the two
+            // legacy report screens and the Excel export they used.
             //
-            // ⚠ AS OF THIS COMMIT NO SYNCFUSION CONTROL IS ON ANY SCREEN AN OPERATOR CAN REACH.
-            // The quantity box, the alterations picker, the item list and the discount multi-select
-            // are plain MAUI. What is left is the two HIDDEN legacy report screens and the XlsIO
-            // export they use — see `Build/To do/MAUI-retrofit.md` §10 (L4) and `syncfusion-footprint.md`.
-            // The registration stays only until those go, because removing it while a licensed
-            // control still exists in the assembly is worse, not better: it turns a dormant screen
-            // into a trial-dialog screen.
+            // ⚠ THE ORDER MATTERED AND WAS FOLLOWED: screens → `ExcelHandling.cs` → packages →
+            // registration. Removing the registration while a licensed control still existed in the
+            // assembly would have turned a dormant screen into a **trial-dialog** screen — a modal with
+            // no way back, on a shop floor, which is the worst failure this app can have. Deleting the
+            // screens first is what discharged that hazard; the key had nothing left to license.
             //
-            // ⚠ DO NOT ADD A SYNCFUSION CONTROL TO A LIVE SCREEN. There is no key that will license
-            // it, and the failure is a modal on the shop floor, not a build error.
-            Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense(
-                "NDg3MzQ2QDMxMzkyZTMyMmUzMGxFd1VHR3l1ekdldEJSbjQyQ2NRTHhyakorOVZ6cmF6NSszNkNPTmtJNEk9");
+            // ⚠⚠ DO NOT ADD A SYNCFUSION CONTROL BACK. Matt, 2026-08-10: *"I am not going to renew
+            // Syncfusion, it seems like it can be replaced."* **No key is coming**, keys are
+            // version-specific, and the failure is a modal on the shop floor rather than a build error.
+            // The old key sat in this file out of date on purpose for exactly that reason; it is now
+            // deleted along with everything that needed it. See `Build/To do/Shrink MAUI Build.md` §4.
 
             //Set culture for AppResources
             I18N_L10N.I18N_L10N.SetCulture();

@@ -3,7 +3,7 @@
 **Status:** v3 (cleaned) · 2026-07-23
 **Scope:** Multi-tenant central platform for MAUI desktop tills, the React web POS, a company-management portal, stock management, payments/cash, and webstore (WooCommerce) integration.
 **Hosting stance:** Cloud-agnostic — every component maps to both an Azure service and a self-hosted equivalent (§13).
-**Companion documents:** `kapow-db-gap-analysis.md` (database review), `plutus-implementation-plan.md` (execution plan).
+**Companion documents:** `archive/kapow-db-gap-analysis.md` (database review), `plutus-implementation-plan.md` (execution plan).
 
 ---
 
@@ -407,7 +407,7 @@ The Mac mini remains dev/staging; production gets its own environment whichever 
 
 ## 14. Current database review
 
-Completed against the actual Kapow SQLite database — see **`kapow-db-gap-analysis.md`** for the five headline findings (sale-ID collision risk, VAT not stored on lines, decimal-text money, barcode-as-PK, negative stock counters), the pleasant surprises (write-once sales, event-shaped refunds, a ready-made permission seed in `AuthActions`), the confirmed-unused PII columns (dropped), the table-by-table disposition, and the 7-step migration order that turns `Plutus.SeedMigrator` into the client-onboarding tool.
+Completed against the actual Kapow SQLite database — see **`archive/kapow-db-gap-analysis.md`** for the five headline findings (sale-ID collision risk, VAT not stored on lines, decimal-text money, barcode-as-PK, negative stock counters), the pleasant surprises (write-once sales, event-shaped refunds, a ready-made permission seed in `AuthActions`), the confirmed-unused PII columns (dropped), the table-by-table disposition, and the 7-step migration order that turns `Plutus.SeedMigrator` into the client-onboarding tool.
 
 ---
 
