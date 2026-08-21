@@ -4970,7 +4970,7 @@ A quick regression sweep, because this touched the scan path:
 > understand how to use it."* The two lists are meant to be the same list. **If one looks or behaves
 > differently from the other, that is the finding** — say which, and how.
 >
-> ⚠⚠ **MAUI IS NOT IN THIS SECTION AND THAT IS DELIBERATE.** It has no item editor at all — only "View
+> ⚠⚠ **MAUI IS NOT IN THIS SECTION AND THAT IS DELIBERATE.** Its editor has no barcode section yet — ⚠ **not** "no item editor at all", which was wrong (see `MAUI-retrofit.md` WP10): `ViewAllViewModel`'s tap-menu carries **Edit item**, **Adjust stock…** and **Move to the Bin…**, and `CreateItemCommand` is bound — only "View
 > all items" — because a till-created item reaches no report, no other till and no VAT return. Item
 > writes are the portal's (`till-design.md` C1 "Portal decides, till obeys"); inventory parity is WP10.
 > **Nothing to check on the MAUI till here.** If you expected an editor there, that is a WP10

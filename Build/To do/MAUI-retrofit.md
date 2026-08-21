@@ -405,10 +405,10 @@ have a suite that reports coverage it does not have.
 ## Where it stands
 
 **Counted from Part B, not estimated — recounted 2026-08-20: 83 rows in B1–B5.**
-**Re-derived from the register 2026-08-21 — Part B MAUI ✅60 🟡21 ⬜4 · A0 MAUI ✅44 🟡37 ⬜4 ➖3.** ⚠ The 🟡 counts moved because rows were **ADDED** (the WP14 card-flow row, the two barcode rows), not because anything slipped. ⚠⚠ **Counted with `awk` over the MAUI column, not by hand** — §6 says these must be re-derived from `till-design.md` and never maintained here, and every hand-kept count on this page has gone stale within days.
+**Re-derived 2026-08-21 (late) — Part B MAUI ✅61 🟡21 ⬜4 · A0 MAUI ✅44 🟡38 ⬜3 ➖3.** ⚠ A0's ⬜ went 4→3 because *"add a new item on one screen"* was **already true** on MAUI (nine fields in one dialog) and the marker was wrong; Part B gained a ✅ from the print-route row. ⚠ The 🟡 counts moved because rows were **ADDED** (the WP14 card-flow row, the two barcode rows), not because anything slipped. ⚠⚠ **Counted with `awk` over the MAUI column, not by hand** — §6 says these must be re-derived from `till-design.md` and never maintained here, and every hand-kept count on this page has gone stale within days.
 
 ⚠ **Two of MAUI's four ⬜ arrived on 2026-08-20, not from slippage** — the new *manage barcodes* and
-*item change history* rows, which are ⬜ on MAUI because it has no item editor at all (WP10 / L2, a
+*item change history* rows, which are ⬜ on MAUI because its editor has no barcode section yet — ⚠ **NOT because it "has no item editor at all", which was wrong in six places and is corrected in [WP10](#wp10--the-item-editors-four-remaining-increments--1½2½d--matt-ruled-it-in-2026-08-21)** (WP10 / L2, a
 deliberate design position). A third, *remote lock*, is ⬜ on **both** tills. **So one row separates
 MAUI from the web till on anything a shop does today.**
 
@@ -1649,6 +1649,67 @@ portal's view.
 **Also here:** the **refund-only basket** Part B row's server half and the customer-attach-at-sale
 row. Six of the fifteen ⬜ rows close with this step.
 
+### WP10 — the item editor's four remaining increments · **≈1½–2½d** · ⚠ Matt ruled it IN, 2026-08-21
+
+> **Matt, 2026-08-21**, asked whether the open *decisions* should become work packages, and on the item
+> editor answered **"Yes — cost it as a work package."** This is that costing. ⚠ It came out **much
+> smaller than the ≈4–6d I offered him**, and the reason is the finding below, which arrived while
+> scoping it.
+
+#### ⚠⚠ FIRST: "MAUI HAS NO ITEM EDITOR AT ALL" WAS WRONG, IN SIX PLACES
+
+That sentence justified this cluster being a ⬜ and a *decision* rather than a small build. It
+**conflated two different code paths**:
+
+| | |
+|---|---|
+| `ExecuteOpenAddItem` / `AddEditView` | ✅ genuinely dead — the view was hidden 2026-08-10, and the command carries its own *"⚠ Unreachable"* comment |
+| `ViewAllViewModel`'s row tap-menu | ⚠⚠ **ALIVE, and it is the editor** — **Add to basket · Edit item · Adjust stock… · Move to the Bin…**, plus `CreateItemCommand` bound on `ViewAllView.xaml:58` and reached again from the unknown-scan offer |
+
+⚠ **A0 has said so all along, two tables above the rows in question:** *"Change an item's price or
+details **✅**"*, *"Add a new item **🟡**"*, *"Adjust stock, with a reason **✅**"*, *"Withdraw an item
+from sale (the Bin) **✅**"*, *"Manage categories **✅**"*. The prose and the register disagreed for
+days and the prose won, because it was the part quoted into §7, the handover and yesterday's
+barcode-editing write-up.
+
+#### What is actually left — and two of the four were not gaps
+
+| | A0 row | Real state | Est. |
+|---|---|---|---|
+| 1 | **Give an item another barcode, or correct one** | ⬜ **REAL.** Endpoints all exist (`GET`/`POST`/`PUT`/`DELETE api/v1/items/{id}/barcodes`), the rule is shared (`SharedKernel.ItemBarcodeRules`), the web till and portal both have the control. MAUI needs the section + the client calls | **~1d** |
+| 2 | **See who changed an item, and when** | ⬜ **REAL.** `GET api/v1/items/{id}/history` exists and is gated `portal.reports.view`. MAUI needs a read-only list — `TillTable` already scrolls, sorts, searches and pages | **~½d** |
+| 3 | Add a new item on **one screen** | ✅ **ALREADY TRUE — marker corrected to 🟡 2026-08-21.** `ExecuteCreateItem` raises **one** `LaunchInputAlertAsync` with nine fields: Barcode, Name, Brand, Description, Cost, Price inc tax, Tax band, Category, Opening stock. ⚠ Not to be confused with **W2**, which is the **WEB** till's three-questions-then-a-form add flow — a different surface, and still open there | **0** |
+| 4 | Put a withdrawn item back | ⬜ **SMALL — the server half exists.** `InventoryBulkController` already has a `"restore"` action ("restored from the Bin"), and `ItemController` supports `includeBinned=true`. MAUI has `ExecuteBinItem` and needs its inverse on the same tap-menu | **~½d** |
+
+**So: ~2 days, not 4–6, and one of the four rows closes by correcting a marker.**
+
+#### ⚠⚠ The one thing that DOES need deciding, and it is not "should the till have an editor"
+
+C1's contract is **"portal decides, till obeys"**, and increments 1 and 2 bend it: a barcode is
+identity, and letting a till mint an alias is a write with estate-wide reach. The question is
+therefore **not** whether MAUI gets an editor — it has one — but **whether a till may change an
+item's IDENTITY** as opposed to its price and stock.
+
+- ⚠⚠ **`Item.IdOne` IS the identity** — it seeds the deterministic item GUID (frozen golden vector,
+  TS twin), it is half the composite PK with five FK families on it, and it is on every historical
+  sale line. Barcodes are additive rows that resolve to an item; **nothing must re-key**.
+- ⚠ **Uniqueness is tenant-wide**, enforced by `IX_ItemBarcodes_TenantId_Code`. Two tills adding the
+  same alias offline would both believe they succeeded. **So this increment is ONLINE-ONLY**, like
+  adding a member — and for the same reason, which is that the constraint lives on the server.
+- ⚠ **Gate it `portal.stock.adjust`** for barcodes (matching the portal) and **`portal.reports.view`**
+  for history (naming who changed a price is a supervisory record, not a stock task — the split
+  yesterday's work already chose).
+- ⚠ **The reserved shapes stay in `SharedKernel.ItemBarcodeRules`** and arrive as a sentence shown
+  verbatim. A copy of an identity rule in a client is exactly the C2 fault.
+
+*DoD:* an alias added on MAUI scans to the **canonical** `idOne` on the web till, byte-identical (the
+§G66e money check); a membership-card shape is refused with the shared sentence; a code another item
+owns is refused **naming that item**; correction is one `PUT`, never delete-then-add; the history list
+shows the synthetic *"Created before change logging began"* bookend honestly; and a restored item
+scans again on both tills.
+
+⚠ **Increment 3 is already done, so do 4 first** — it is half a day, it completes the Bin round trip
+that already exists on both tills, and it needs no identity ruling.
 ### Step 28 — online-first login · **2–3d** · hardening
 
 Default 16: the **first sign-in of any account on a device must be ONLINE**. That first online login
@@ -2340,8 +2401,8 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 >
 > | | ✅ | 🟡 | ⬜ |
 > |---|---:|---:|---:|
-> | **A0 parity table**, MAUI column | 44 | 37 | **4** | *(+3 ➖)*
-> | **Part B** (B1–B5), MAUI column | 60 | 21 | **4** |
+> | **A0 parity table**, MAUI column | 44 | 38 | **3** | *(+3 ➖)*
+> | **Part B** (B1–B5), MAUI column | 61 | 21 | **4** |
 >
 > ⚠ **Re-derived 2026-08-21 with `awk` over the MAUI column, not counted by hand.** The 🟡
 > figures rose because rows were **added** — the WP14 card-flow row and the two barcode rows —
@@ -2383,8 +2444,8 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 > | ⬜ | **Step 28 — online-first login** | 2–3d | Hardening; unchanged |
 > | ✅ | **~~Step 24 — the roster move~~ — COMPLETE 2026-08-17 (till 1.72.0)** | ~~1d~~ **0** | ⚠ Phantom. The step's own body says `✅ STEP 24 IS COMPLETE`; only its heading and this row said otherwise |
 > | ⏸ | **Step 21 — delete `LoginViewModel.EnsureStoreAsync`** | — | ⚠⚠ **NOT BLOCKED BY WORKING CODE — corrected 2026-08-21.** Both remaining `Store.Id` dereferences are in **UNREACHABLE** code, which this row never said: `AddEditViewModel:337` sits in a view **hidden on 2026-08-10**, and `ViewAllViewModel:1385` is in `ExecuteUpdateItemStock`, whose `UpdateItemStockCommandArg` is **bound to nothing** (both verified in §0.3b). It waits on no build — **it rides with L2/L3's deletions, which are Matt's call.** ⚠ Reading it as "blocked" invites somebody to unblock it by rewriting dead code |
-> | ⬜ | **WP10 / L2 — an item editor on the till** | — | ⚠⚠ **Matt's call, and arguably NOT a gap at all.** All four A0 ⬜ rows are this. MAUI has no item editor deliberately: a till-created item reaches no report, no other till and no VAT return, and `ExecuteOpenAddItem` is unreachable dead code. C1 says *"Portal decides, till obeys"* — **decide whether this is ever wanted before costing it** |
-> | ⬜ | **Remote lock of a lost or stolen till** | — | ⬜ on **both** tills — platform work, not MAUI catch-up |
+> | ⬜ | **[WP10](#wp10--the-item-editors-four-remaining-increments--1½2½d--matt-ruled-it-in-2026-08-21) — the item editor's four remaining increments** | **≈1½–2½d** | ⚠ **Matt ruled it IN, 2026-08-21** (*"cost it as a work package"*), and costing it found the justification was wrong: **"MAUI has no item editor at all" conflated two code paths.** `ExecuteOpenAddItem`/`AddEditView` is dead; `ViewAllViewModel`'s tap-menu — Add to basket · **Edit item** · Adjust stock… · Move to the Bin… — is alive, and A0 has said so two tables up all along. **Two of the four rows were not gaps**: MAUI's add is already one screen (nine fields in one dialog → marker corrected to 🟡), and restore-from-Bin already exists server-side. What is real is a **barcode section** (~1d) and a **change-history list** (~½d) on an editor that exists, plus ~½d to wire restore. ⚠ The decision that remains is narrower and sharper: **may a till change an item's IDENTITY**, not whether it may edit one |
+> | ➖ | **~~Remote lock of a lost or stolen till~~ → MOVED OUT, 2026-08-21** | — | ⚠ **Matt: *"Make it a platform work package."*** Now **`plutus-platform-architecture.md` §12b — WP-SL**, ≈1½–2d, because it is ⬜ on the **web till and MAUI both** and sitting in a MAUI parity document is why nobody picked it up for twelve days. ⚠⚠ Its three open questions are answered there, and the load-bearing one is **what a locked till does with unsynced sales**: it must still drain its outbox, so enforcement has to refuse a token for SELLING without killing the drain. ⚠ **`Revoked` is still the real incident tool today** |
 > | ⏸ | **L1–L10 legacy removal** | — | Matt actions last. **L4 closed 2026-08-20** with the Syncfusion removal |
 >
 > ⚠ **So: not finished, but nothing like a two-month job.** ~~Roughly **10–15 days**~~ → **≈7–9 days**

@@ -386,6 +386,57 @@ POST /api/v1/heartbeat
 
 ---
 
+## 12b. WP-SL — remote lock of a lost or stolen till · **≈1½–2d** · ⚠⚠ THE KILL SWITCH IS HALF-BUILT
+
+> **Matt, 2026-08-21**, on whether the open decisions should become work packages: *"Make it a platform
+> work package."* **Moved here from `MAUI-retrofit.md` deliberately** — it is ⬜ on the **web till and
+> MAUI both**, so it was never MAUI catch-up, and sitting in a MAUI parity document is why nobody
+> picked it up for twelve days.
+
+### ⚠⚠ Why this is worse than an absent feature
+
+`Device.Locked` and `LockReason` ship (WP5's `AddDeviceSyncSignals`), `HeartbeatResult` carries them,
+and `SyncClient` surfaces `HeartbeatOutcome.Locked`. **The pieces look like a solution and are not
+one:**
+
+- **Nothing sets the flag.** No endpoint, no portal control — `grep` for `Locked =` returns nothing
+  outside the migration.
+- **Nothing enforces it.** `IssueDeviceTokenAsync` refuses a device only when `Status == Revoked`, so
+  even once set, the lock is **advice to the till** — and a thief running modified software ignores
+  advice. **A kill switch honoured only by the client is not a kill switch.**
+
+⚠⚠ **TODAY'S ACTUAL INCIDENT TOOL IS `Revoked`.** Reach for that, not for this. Anyone reading the
+column names and assuming there is a lock will lose the time that matters.
+
+### The order, and it is not negotiable
+
+⚠⚠ **ENFORCEMENT FIRST.** An endpoint that sets a flag nothing honours repeats the exact mistake this
+package exists to correct — and it would do it while *looking* like the fix.
+
+| # | Piece | ⚠ |
+|---|---|---|
+| 1 | **Enforce** — `IssueDeviceTokenAsync` refuses a `Locked` device as it refuses a `Revoked` one | ⚠ Its own message, not "revoked": a locked till can be unlocked and the manager needs to know which state they are in. ⚠ Device tokens are 12h HMAC bearers with **no server-side denylist**, so a lock takes effect at the next mint — say so in the portal, or somebody will believe a stolen till went dark instantly |
+| 2 | **Set** — an RBAC-gated endpoint, audited | Gate on the same permission that revokes a till (`portal.tills.enrol` today). ⚠ Audited with **who and why**: `LockReason` exists precisely so the next person knows whether this was theft or a returned lease |
+| 3 | **Portal control** — beside the existing device-removal one on Locations & tills | ⚠ Reuse the un-enrol/approve shape (WP6.2); a second idiom for "stop this till" is how an operator picks the wrong one under pressure |
+| 4 | **The till's side** — `HeartbeatOutcome.Locked` already arrives; both tills must show the reason and stop trading | ⚠ **Both tills.** The web till's `deviceStanding.ts` is the C2 twin of `DeviceRevocation.cs` and is where this belongs — a third state, not a second mechanism |
+
+### ⚠ The three questions the risk register deliberately left open — now answered
+
+| Question | Ruling |
+|---|---|
+| **Who may lock a till?** | Whoever may revoke one (`portal.tills.enrol`). ⚠ A lock is *less* destructive than a revoke, so a stricter gate would push people toward the irreversible action in an emergency |
+| **Is a lock reversible, and by whom?** | **Yes, by the same permission** — that is the whole point of it not being `Revoked`. ⚠ Reversible-by-nobody is a revoke with extra steps |
+| **What does a locked till do with UNSYNCED SALES?** | ⚠⚠ **It must still drain its outbox.** Those sales are the shop's money and they are already committed locally. A lock stops *new* trading; destroying queued takings would make the safe action the expensive one, and staff would stop using it. **The outbox pushes on the DEVICE token, so piece 1 must refuse a token for SELLING without killing the drain** — that is the design constraint this package turns on, and it is why enforcement is a day rather than an hour |
+
+*DoD:* a locked device is refused a new token with a message naming the lock; its queued sales still
+reach the server; both tills show the reason and refuse to sell; unlocking restores trading without a
+re-enrol; and the audit row names who locked it, when and why. ⚠ Prove the drain with a till that has
+unsynced sales **before** it is locked — the interesting case is not the empty one.
+
+⚠ **Then delete the "half-built" entry from `MAUI-retrofit.md` §9 risk 4** rather than leaving a risk
+that reads as open. Its A0 and Part B rows are ⬜ on both tills and stay that way until piece 4 lands.
+
+---
 ## 13. Hosting map (Azure ↔ self-hosted)
 
 Code against abstractions so this is a deployment choice, not a rewrite.
