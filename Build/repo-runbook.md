@@ -552,6 +552,25 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
     ⚠ **And read `git diff` after every scripted edit.** Both faults above were invisible in the
     tool's own output and obvious in the diff.
 
+    ⚠⚠ **AND IT CAUGHT ME AGAIN THE SAME DAY BY A SECOND ROUTE (2026-08-21).** The replacement was
+    clean, and the damage came from the OUTPUT LAYER instead:
+
+    ```perl
+    open my $o, '>:raw:encoding(UTF-8)', $f;   # ⚠⚠ NEVER. This is the same bug wearing a hat.
+    ```
+
+    Perl had read the file as Latin-1 bytes (`<:raw`), so every ⚠ was already three separate
+    characters. Writing through `:encoding(UTF-8)` encoded each of those three AGAIN — the whole
+    document, not just the edited lines. 46 ⚠ became `â\x9a\xa0` in one command, and it had to be
+    recovered with `git checkout`.
+
+    ✅ **`>:raw` IN AND `>:raw` OUT, ALWAYS. Never an `:encoding` layer on either side.** Read bytes,
+    edit bytes, write bytes — then the multi-byte characters are never interpreted at all, and
+    interpretation is the only thing that can corrupt them.
+
+    ✅ **AND CHECK AFTERWARDS, because the build will not.** `grep -c '⚠' <file>` before and after:
+    the count is unchanged if the file is fine, and 0 if it is ruined.
+
 23. ⚠⚠ **A `perl -0pi` one-liner that reassigns `@ARGV` MID-STREAM TRUNCATES THE FILE TO ZERO BYTES.**
     `local(@ARGV, $/) = "other-file"` inside the `-e` script — a common idiom for slurping a
     replacement from disk — destroys the in-place edit's own file handle. `CheckoutDialog.tsx` went to

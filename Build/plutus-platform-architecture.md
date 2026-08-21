@@ -476,7 +476,7 @@ nothing on screen admitting which.
 **Done when** a stagger-2 business sets it once in the portal and every VAT screen buckets
 Jan/Apr/Jul/Oct without anyone passing a parameter — and the report says so in words.
 
-### WP-ZERO — a day with no sales is a zero, not a gap · **≈½d** · ⚠ DO THIS FIRST
+### WP-ZERO — a day with no sales is a zero, not a gap · **≈½d** · ⚠ DO THIS FIRST -> **DONE 2026-08-21**
 
 > *"The reports still have to show ALL days, even ones where no sales were made e.g. this graph jumps
 > from the 15th to the 17th."*
@@ -495,7 +495,7 @@ of "which days are in this range" (C2).
 **Done when** a range containing a closed day renders a labelled zero bar, and the same range exported
 to CSV has a row for it.
 
-### WP-DRILL — click a day, get that day's sales · **≈½d**
+### WP-DRILL — click a day, get that day's sales · **≈½d** -> **DONE 2026-08-21**
 
 > *"when I click on a day in the dashboard it needs to take be to reporting filtered on the sales taken
 > on THAT day, which is a custom report filtered on that specific day … In reporting, I need to be able
@@ -507,7 +507,7 @@ did, and the tell would be two different day boundaries.
 
 ⚠ **Depends on WP-ZERO**: a drill from a bar is only trustworthy once the bars and the days line up.
 
-### WP-TABTOP — a tab click returns to that tab's top level · **≈¼d**
+### WP-TABTOP — a tab click returns to that tab's top level · **≈¼d** -> **DONE 2026-08-21**
 
 > *"Clicking on the tabs at the top needs to take you back to the top level of that tab."*
 
@@ -516,7 +516,7 @@ nothing visible, and returning to one drops you where you were — right for a b
 ⚠ **Both surfaces.** The portal has the deeper stacks (Platform's eleven screens, the store cards); the
 web till has the same expectation and MAUI's Shell tabs behave the same way.
 
-### WP-LIVE — the "Live" dot is fed by heartbeats · **≈½d**
+### WP-LIVE — the "Live" dot is fed by heartbeats · **≈½d** -> **DONE 2026-08-21**
 
 > *"The 'Live' grey icon needs to be fed from the heart beats. If the tills are active, then the client
 > is active."*

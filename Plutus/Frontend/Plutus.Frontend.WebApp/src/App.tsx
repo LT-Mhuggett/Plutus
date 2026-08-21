@@ -63,6 +63,32 @@ function Page({ tab }: { tab: Tab }) {
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("Till");
+
+  /**
+   * ⚠⚠ WP-TABTOP (2026-08-21). Matt: *"Clicking on the tabs at the top needs to take you back to the
+   * top level of that tab."*
+   *
+   * A page component stays MOUNTED across a tab change, so it keeps whatever sub-screen, filter and
+   * expanded row it was left on. Clicking the tab you are already on did nothing visible, and coming
+   * back to a tab dropped you wherever the last person left it — right for a browser, wrong for a
+   * till, where the tab bar is the way OUT of somewhere.
+   *
+   * ⚠⚠ **THE TILL TAB IS EXEMPT, AND THAT IS NOT AN INCONSISTENCY — IT IS THE BASKET.** Remounting
+   * `TillPage` mid-sale would take a part-rung basket off the screen because somebody brushed the
+   * tab bar. Nothing else on this till holds unsaved work an operator cannot get back; the basket is
+   * the one thing that does, and it is the whole point of the machine.
+   *
+   * ⚠ Same mechanism as the portal's (`App.tsx` `navEpoch`), and it must stay the same: two tills
+   * whose tab bars behave differently is the 2026-08-19 look-and-feel ruling being broken by the
+   * control an operator touches most.
+   */
+  const [navEpoch, setNavEpoch] = useState(0);
+
+  const goTab = (t: Tab) => {
+    setTab(t);
+    if (t !== "Till") setNavEpoch((n) => n + 1);
+    window.scrollTo({ top: 0 });
+  };
   const [session, setSession] = useState<Session | null>(() => (oidcMode ? null : getSession()));
   const [booting, setBooting] = useState<boolean>(oidcMode);
   const [authError, setAuthError] = useState("");
@@ -148,7 +174,7 @@ export default function App() {
   }, [session]);
 
   // "Add this item" on an unknown scan — jump to Inventory, which picks up the barcode.
-  useEffect(() => onNewItemRequested(() => setTab("Inventory Management")), []);
+  useEffect(() => onNewItemRequested(() => goTab("Inventory Management")), []);
 
   // Offline plumbing: connectivity indicator, outbox badge, replay on reconnect,
   // and a background pull of the item catalogue for offline scanning.
@@ -321,7 +347,7 @@ export default function App() {
         <h1><PlutusMark />Plutus</h1>
         <nav className="tabs">
           {TABS.map((t) => (
-            <button key={t} className={t === tab ? "tab active" : "tab"} onClick={() => setTab(t)}>
+            <button key={t} className={t === tab ? "tab active" : "tab"} onClick={() => goTab(t)}>
               {t}
             </button>
           ))}
@@ -381,7 +407,7 @@ export default function App() {
               <button
                 className="ghost"
                 onClick={() => {
-                  setTab("Users");
+                  goTab("Users");
                   setUserMenu(false);
                 }}
               >
@@ -422,7 +448,10 @@ export default function App() {
 
       <AskHost />
       <div className="page">
-        <Page tab={tab} />
+        {/* ⚠ THE `key` IS THE RESET (WP-TABTOP) — a changed key remounts the page, which is what
+            takes an operator back to a tab's top level. ⚠ `navEpoch` does NOT move for the Till tab,
+            deliberately: remounting it would drop a part-rung basket. See `goTab`. */}
+        <Page tab={tab} key={`${tab}:${navEpoch}`} />
       </div>
 
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} />}

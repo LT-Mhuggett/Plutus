@@ -22,10 +22,16 @@ namespace Plutus.Tenancy.Controllers
     public sealed class PlatformHealthController : ControllerBase
     {
         private readonly MySqlDbContext _db;
-        public PlatformHealthController(MySqlDbContext db) => _db = db;
+        private readonly TillPresence _presence;
+
+        public PlatformHealthController(MySqlDbContext db, TillPresence presence)
+        {
+            _db = db;
+            _presence = presence;
+        }
 
         /// <summary>One screenful of "is anyone having a bad day?": last-hour per-tenant request
-        /// health + open quarantine depth, plus platform-wide consumer lag.</summary>
+        /// health + open quarantine depth + LIVE TILLS, plus platform-wide consumer lag.</summary>
         [HttpGet("api/v1/platform/health")]
         [Authorize(Policy = PlutusPolicies.PlatformAdmin)]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -56,11 +62,68 @@ namespace Plutus.Tenancy.Controllers
                     .GroupBy(q => q.TenantId).Select(g => new { g.Key, C = g.Count() }).ToListAsync())
                 .ToDictionary(x => x.Key, x => x.C);
 
-            var tenants = byTenant.Select(t => new
+            // ⚠⚠ WP-LIVE (2026-08-21). Matt: *"The 'Live' grey icon needs to be fed from the heart
+            // beats. If the tills are active, then the client is active."*
+            //
+            // ⚠⚠ THE DOT ANSWERED THE WRONG QUESTION. Its only input was `TenantRequestStats`, so it
+            // said *"did the API see requests from this tenant in the last hour"* while being read as
+            // *"is this customer alive"*. Those differ in both directions, and the awkward one is a
+            // trading shop with a **quiet API hour** reading grey next to a plan and a renewal date.
+            //
+            // ⚠ PRESENCE IS IN-PROCESS AND EPHEMERAL (`TillPresence`) — no query, no write, and no
+            // history. It is the freshest signal on the platform and the cheapest to read, which is
+            // exactly what a health dot wants.
+            var devices = await _db.Devices.AsNoTracking()
+                .Select(d => new { d.Id, d.TenantId }).ToListAsync();
+
+            var tenantOfDevice = devices
+                .GroupBy(d => d.Id).ToDictionary(g => g.Key, g => g.First().TenantId);
+
+            var tills = new Dictionary<Guid, (int Online, int Stale, DateTime? LastSeen)>();
+
+            foreach (var entry in _presence.All())
             {
-                t.tenantId, t.requests, t.err4xx, t.err5xx, t.errorRatePct, t.peakP95Ms, t.maxMs,
-                quarantineOpen = quarantine.TryGetValue(t.tenantId, out var q) ? q : 0,
-            }).OrderByDescending(t => t.err5xx).ThenBy(t => t.tenantId).ToList();
+                if (!tenantOfDevice.TryGetValue(entry.DeviceId, out var tenant)) continue;
+
+                tills.TryGetValue(tenant, out var acc);
+
+                // ⚠ ONLINE AND STALE COUNTED APART. "Two tills, one of them stale" is a different
+                // morning from "two tills, both fine", and collapsing them into "2 live" hides the
+                // shop that is about to ring up.
+                if (entry.State == PresenceState.Online) acc.Online++;
+                else if (entry.State == PresenceState.Stale) acc.Stale++;
+
+                if (acc.LastSeen is null || entry.LastSeenUtc > acc.LastSeen) acc.LastSeen = entry.LastSeenUtc;
+
+                tills[tenant] = acc;
+            }
+
+            // ⚠⚠ THE UNION, AND IT IS THE HALF THAT FIXES THE BUG. Building the list from
+            // `TenantRequestStats` alone meant a tenant with no traffic in the window was **not in the
+            // response at all** — so the portal had nothing to colour and fell through to grey. A
+            // tenant whose till is beating now has a row whether or not the API saw anything else.
+            var ids = byTenant.Select(t => t.tenantId).Concat(tills.Keys).Distinct().ToList();
+
+            var tenants = ids.Select(id =>
+            {
+                var t = byTenant.FirstOrDefault(x => x.tenantId == id);
+                tills.TryGetValue(id, out var till);
+
+                return new
+                {
+                    tenantId = id,
+                    requests = t?.requests ?? 0,
+                    err4xx = t?.err4xx ?? 0,
+                    err5xx = t?.err5xx ?? 0,
+                    errorRatePct = t?.errorRatePct ?? 0d,
+                    peakP95Ms = t?.peakP95Ms ?? 0,
+                    maxMs = t?.maxMs ?? 0,
+                    quarantineOpen = quarantine.TryGetValue(id, out var q) ? q : 0,
+                    tillsOnline = till.Online,
+                    tillsStale = till.Stale,
+                    lastTillSeenUtc = till.LastSeen,
+                };
+            }).OrderByDescending(t => t.err5xx).ThenByDescending(t => t.tillsOnline).ThenBy(t => t.tenantId).ToList();
 
             // Consumer lag is platform-wide (offsets are per-consumer, not per-tenant).
             long maxOutboxId = await _db.OutboxEvents.AnyAsync() ? await _db.OutboxEvents.MaxAsync(e => e.Id) : 0;

@@ -10,9 +10,20 @@ import { apiDateTime } from "./apiTime.ts";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
-export default function CustomReport() {
-  const [from, setFrom] = useState(() => iso(new Date(Date.now() - 30 * 86400_000)));
-  const [to, setTo] = useState(() => iso(new Date()));
+/**
+ * The sales-line drill-down (WP3.2).
+ *
+ * ⚠ `day` NARROWS IT TO ONE BUSINESS DAY on arrival — WP-DRILL, 2026-08-21. Matt: *"it needs to take
+ * be to reporting filtered on the sales taken on THAT day, which is a custom report filtered on that
+ * specific day."* Both charts hand a day here through `dayDrill`; opening the tab normally still
+ * gets the 30-day window.
+ */
+export default function CustomReport({ day }: { day?: string }) {
+  // ⚠ SEEDED FROM `day`, not applied afterwards. Setting the range in an effect would fire the
+  // 30-day fetch first and then a second one — the operator sees a month of sales flash up and
+  // collapse to one day, which reads as a bug in the filter they just used.
+  const [from, setFrom] = useState(() => day ?? iso(new Date(Date.now() - 30 * 86400_000)));
+  const [to, setTo] = useState(() => day ?? iso(new Date()));
   const [sales, setSales] = useState<SaleRow[] | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
@@ -24,7 +35,20 @@ export default function CustomReport() {
       .then((data) => { setSales(data); setState("idle"); })
       .catch((e) => { setError(String(e instanceof Error ? e.message : e)); setState("error"); });
   };
-  useEffect(load, []); // initial 30-day window
+  useEffect(load, []); // the initial window — 30 days, or the one day drilled to
+
+  // ⚠⚠ A SECOND DRILL WHILE ALREADY HERE MUST STILL WORK. `useState` initialisers run once, so
+  // clicking another day on a chart with this tab already mounted would change nothing at all —
+  // the operator clicks, the page does not move, and the feature looks broken on its second use.
+  useEffect(() => {
+    if (!day) return;
+    setFrom(day);
+    setTo(day);
+    setState("loading"); setError("");
+    fetchSales(day, day)
+      .then((data) => { setSales(data); setState("idle"); })
+      .catch((e) => { setError(String(e instanceof Error ? e.message : e)); setState("error"); });
+  }, [day]);
 
   const totalPence = sales?.reduce((t, s) => t + s.grossPence, 0) ?? 0;
   const vatPence = sales?.reduce((t, s) => t + s.vatPence, 0) ?? 0;

@@ -31,21 +31,59 @@ type ConsumerLagRow = HealthResponse["consumerLag"][number];
 const STATUS = ["Trial", "Active", "PastDue", "Suspended", "Closed"];
 const short = (id: string | null) => (id ? id.slice(0, 8) : "—");
 
+/**
+ * ⚠⚠ WP-LIVE (2026-08-21). Matt: *"The 'Live' grey icon needs to be fed from the heart beats. If the
+ * tills are active, then the client is active."*
+ *
+ * ⚠⚠ THE DOT USED TO ANSWER A DIFFERENT QUESTION FROM THE ONE IT WAS LABELLED WITH. Its only input
+ * was `TenantRequestStats`, so grey meant *"the API saw no requests from this tenant in the last
+ * hour"* while it was read as *"is this customer alive"*. A shop trading all day through a quiet API
+ * hour read grey beside its plan and its renewal date.
+ *
+ * ⚠ `tillsOnline` NOW OUTRANKS SILENCE, and only silence. A live till cannot turn a red dot green:
+ * 5xx errors, an open quarantine and a bad error rate all still win, because "the shop is trading"
+ * and "the shop is trading badly" are both worth knowing and only one of them needs somebody.
+ *
+ * ⚠ TRUE GREY IS STILL POSSIBLE and still means something — no traffic AND no till beating. That is
+ * a customer who has not touched the platform in an hour, which is exactly what an operator scanning
+ * this list is looking for.
+ */
 function healthColor(h?: HealthTenantRow): string {
-  if (!h) return "#9ca3af";                                             // grey — no traffic
+  if (!h) return "#9ca3af";                                             // grey — nothing at all
   if (h.err5xx > 0 || h.quarantineOpen > 0 || h.errorRatePct >= 5) return "#dc2626"; // red
   if (h.peakP95Ms >= 1000 || h.errorRatePct > 0) return "#d97706";      // amber
+  if ((h.tillsOnline ?? 0) > 0) return "#16a34a";                       // green — a till is beating
+  if (h.requests === 0) return "#9ca3af";                               // grey — silent hour
   return "#16a34a";                                                     // green
 }
 
-// Plain-English hover text for the health dot — the words match healthColor's thresholds exactly,
-// and it always lists the underlying last-hour numbers so a red dot is self-explanatory (e.g. a
-// tenant can be red on an open quarantine or error rate even when the visible "5xx" column is 0).
+/**
+ * Plain-English hover text for the health dot — the words match `healthColor`'s thresholds exactly,
+ * and it always lists the underlying last-hour numbers so a red dot is self-explanatory (e.g. a
+ * tenant can be red on an open quarantine or error rate even when the visible "5xx" column is 0).
+ *
+ * ⚠⚠ IT NAMES WHICH SIGNAL ANSWERED. Two inputs that can disagree — API traffic and till presence —
+ * must say which one produced the colour, or a green dot on a tenant with no requests reads as a
+ * bug. That was the whole complaint about the old one: it gave an answer and not its reason.
+ */
 function healthTitle(h?: HealthTenantRow): string {
-  if (!h) return "No activity in the last hour — nothing to report.";
-  const stats = `5xx errors ${h.err5xx} · error rate ${h.errorRatePct}% · peak p95 ${h.peakP95Ms}ms · quarantined ${h.quarantineOpen} (last hour)`;
+  if (!h) return "No activity in the last hour and no till beating — nothing to report.";
+
+  const online = h.tillsOnline ?? 0;
+  const stale = h.tillsStale ?? 0;
+
+  const tills = online > 0
+    ? `${online} till${online === 1 ? "" : "s"} beating${stale > 0 ? ` (${stale} stale)` : ""}`
+    : stale > 0
+      ? `no till beating (${stale} stale)`
+      : "no till beating";
+
+  const stats = `${tills} · ${h.requests} requests · 5xx errors ${h.err5xx} · error rate ${h.errorRatePct}% · peak p95 ${h.peakP95Ms}ms · quarantined ${h.quarantineOpen}`;
+
   if (h.err5xx > 0 || h.quarantineOpen > 0 || h.errorRatePct >= 5) return `Needs attention — ${stats}`;
   if (h.peakP95Ms >= 1000 || h.errorRatePct > 0) return `Slow or minor errors — ${stats}`;
+  if (online > 0 && h.requests === 0) return `Trading — a till is beating, though the API has been quiet. ${stats}`;
+  if (h.requests === 0) return `Quiet — ${stats}`;
   return `Healthy — ${stats}`;
 }
 
@@ -930,6 +968,19 @@ function HealthScreen() {
         columns={[
           { key: "dot", label: "", sortable: false, render: (h) => <Dot color={healthColor(h)} title={healthTitle(h)} /> },
           { key: "tenantId", label: "Tenant", render: (h) => short(h.tenantId) },
+          // ⚠⚠ THE HEARTBEAT SIGNAL, ON THE SCREEN AND NOT ONLY IN A TOOLTIP (WP-LIVE, 2026-08-21).
+          // The dot is now fed by this as well as by request stats, and a colour whose reason is
+          // hidden behind a hover is a colour somebody has to take on trust. ⚠ Stale is shown apart
+          // from online: "2 (1 stale)" is a different morning from "2".
+          {
+            key: "tills", label: "Tills", numeric: true,
+            sort: (h) => h.tillsOnline ?? 0,
+            render: (h) => {
+              const online = h.tillsOnline ?? 0, stale = h.tillsStale ?? 0;
+              if (online === 0 && stale === 0) return <span className="muted">—</span>;
+              return <>{online}{stale > 0 && <span className="muted small"> ({stale} stale)</span>}</>;
+            },
+          },
           { key: "requests", label: "Requests", numeric: true },
           { key: "err4xx", label: "4xx", numeric: true },
           { key: "err5xx", label: "5xx", numeric: true },

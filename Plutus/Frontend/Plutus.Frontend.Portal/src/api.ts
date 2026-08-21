@@ -53,7 +53,9 @@ export interface PlatformTenant { id: string; name: string; status: number; plan
 export interface OverrideRow { entitlement: string; deny: boolean; reason: string | null; createdAtUtc: string }
 export interface FlagRow { flagName: string; enabled: boolean; reason: string | null; updatedAtUtc: string }
 export interface UsageSummaryRow { tenantId: string; totals: Record<string, number>; salesDaily: { day: string; value: number }[] }
-export interface HealthTenantRow { tenantId: string; requests: number; err4xx: number; err5xx: number; errorRatePct: number; peakP95Ms: number; maxMs: number; quarantineOpen: number }
+export interface HealthTenantRow { tenantId: string; requests: number; err4xx: number; err5xx: number; errorRatePct: number; peakP95Ms: number; maxMs: number; quarantineOpen: number; /* WP-LIVE 2026-08-21: the heartbeat signal — a live till means a live customer, whatever
+     the API saw. Optional so an older backend still deserialises. */
+  tillsOnline?: number; tillsStale?: number; lastTillSeenUtc?: string | null }
 export interface HealthResponse { generatedAtUtc: string; tenants: HealthTenantRow[]; consumerLag: { consumer: string; lag: number }[] }
 export interface HealthDrillRow { minuteUtc: string; routeGroup: string; count: number; err4xx: number; err5xx: number; p50Ms: number; p95Ms: number; maxMs: number }
 export interface AlertRow { alertKey: string; jobName: string; tenantId: string | null; kind: string; message: string; raisedAtUtc: string; lastSeenAtUtc: string; clearedAtUtc: string | null; occurrences: number }

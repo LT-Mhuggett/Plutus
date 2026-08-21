@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { fetchSalesSummary, gbp, type SalesSummary } from "./api.ts";
+import { useNav } from "./nav.tsx";
+import { dayFocus } from "./dayDrill.ts";
 
 // WP3.1 rich company Summary — the till's SummaryReport ported to the portal (feature-match, portal
 // styling): period select, inc/ex-VAT toggle, previous-period deltas, a daily chart, top items and
@@ -142,17 +144,31 @@ export default function SummaryReport() {
   );
 }
 
-/** Daily gross as a bar chart, reusing the portal's chart classes (no chart libraries). */
+/**
+ * Daily gross as a bar chart, reusing the portal's chart classes (no chart libraries).
+ *
+ * ⚠⚠ EVERY DAY IN THE RANGE IS A BAR SINCE WP-ZERO (2026-08-21) — including the shut ones. Matt:
+ * *"The reports still have to show ALL days, even ones where no sales were made e.g. this graph
+ * jumps from the 15th to the 17th."* The padding is done SERVER-SIDE, in `summary-rich`, because
+ * three surfaces read that series; this component simply gets a complete one now.
+ */
 function DailyBars({ data }: { data: { date: string; total: number }[] }) {
+  const { go } = useNav();
   const { bars, max } = useMemo(() => {
     const max = Math.max(1, ...data.map((d) => d.total));
     return { bars: data, max };
   }, [data]);
   if (data.length === 0) return <p className="muted">No sales in this period.</p>;
+  // ⚠ A FLAT CHART OF ZEROS IS NOT THE SAME AS NO CHART, and since WP-ZERO an empty period returns a
+  // row per day rather than an empty array — so the "no sales" line has to be said alongside the
+  // bars, not instead of them. Without it a shut fortnight looks like a rendering fault.
+  const silent = data.every((d) => d.total === 0);
   const gutter = 64, top = 8, h = 200, gap = 4, w = 780;
   const bw = Math.max(2, Math.floor((w - gutter) / data.length) - gap);
   const labelEvery = Math.max(1, Math.ceil(data.length / 10));
   return (
+    <>
+    {silent && <p className="muted small">No sales in this period — every day below is zero.</p>}
     <svg className="chart" viewBox={`0 0 ${w} ${h + top + 24}`} role="img" aria-label="Daily sales">
       {[0, 0.25, 0.5, 0.75, 1].map((f) => {
         const y = top + h - f * h;
@@ -164,13 +180,37 @@ function DailyBars({ data }: { data: { date: string; total: number }[] }) {
         );
       })}
       {bars.map((b, i) => {
-        const bh = Math.max(1, Math.round((b.total / max) * h));
+        // ⚠⚠ A TRUE ZERO DRAWS NOTHING. `Math.max(1, …)` exists so a day of £0.30 beside a day of
+        // £400 is still visible as a hairline — but applying it to an actual zero makes a shut shop
+        // look like it took something, which since WP-ZERO happens on every closed day rather than
+        // never. Zero is the one value allowed no pixels.
+        const bh = b.total === 0 ? 0 : Math.max(1, Math.round((b.total / max) * h));
         const x = gutter + i * (bw + gap);
         return (
           <g key={b.date}>
-            <rect x={x} y={top + h - bh} width={bw} height={bh} rx="2"><title>{`${b.date}: ${gbp(P(b.total))}`}</title></rect>
+            {/* ⚠⚠ THE BAR IS THE DRILL (WP-DRILL, 2026-08-21). Matt: *"In reporting, I need to be
+                able to click on a day and it shows all the sales from that specific day."*
+
+                ⚠ THE WHOLE COLUMN IS THE TARGET, not the drawn bar. A zero day draws NO bar since
+                WP-ZERO, and a quiet day draws a hairline — so hit-testing the rectangle would make
+                exactly the days somebody is investigating the ones they cannot click. The invisible
+                full-height rect below carries the click; the drawn bar is decoration on top of it. */}
+            <rect
+              x={x} y={top} width={bw} height={h} fill="transparent"
+              className="chart-hit"
+              role="button" tabIndex={0}
+              onClick={() => go("Reporting", dayFocus(b.date))}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") go("Reporting", dayFocus(b.date)); }}
+            >
+              <title>{`${b.date}: ${gbp(P(b.total))} — open this day's sales`}</title>
+            </rect>
+            <rect x={x} y={top + h - bh} width={bw} height={bh} rx="2" pointerEvents="none" />
             {i % labelEvery === 0 && (
               <text x={x + bw / 2} y={top + h + 14} textAnchor="middle" className="chart-label">
+                {/* ⚠ A BUSINESS DAY, NOT AN INSTANT — so this is parsed as LOCAL midnight on purpose
+                    and must NOT go through `apiTime.ts`. `apiDate` treats a bare value as UTC, which
+                    is right for every timestamp on this API and wrong for exactly this one: in a
+                    negative-offset zone it would label 12 March as the 11th. */}
                 {new Date(b.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
               </text>
             )}
@@ -178,5 +218,6 @@ function DailyBars({ data }: { data: { date: string; total: number }[] }) {
         );
       })}
     </svg>
+    </>
   );
 }

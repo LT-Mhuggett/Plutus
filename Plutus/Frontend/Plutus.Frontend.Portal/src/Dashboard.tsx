@@ -7,6 +7,7 @@ import DataTable from "./DataTable.tsx";
 import { useNav } from "./nav.tsx";
 import SaleDialog from "./SaleDialog.tsx";
 import { apiClock } from "./apiTime.ts";
+import { dayFocus } from "./dayDrill.ts";
 
 /** Adds the weekday to a day period (2026-07-18 → "2026-07-18 · Sat") and the month name to a
  *  month period; year unchanged. */
@@ -50,6 +51,7 @@ function chartLabel(period: string): string {
 
 /** Hand-rolled SVG bar chart with a currency Y-axis (plan discipline: no chart libraries). */
 function BarChart({ buckets }: { buckets: { period: string; grossPence: number }[] }) {
+  const { go } = useNav();
   if (buckets.length === 0) return <p className="muted">No trade in this range.</p>;
   const gutter = 64, top = 8, h = 200, gap = 6, w = 780;
   const plotW = w - gutter;
@@ -72,10 +74,35 @@ function BarChart({ buckets }: { buckets: { period: string; grossPence: number }
       {buckets.map((b, i) => {
         const bh = Math.max(1, Math.round((b.grossPence / max) * h));
         const x = gutter + i * (bw + gap);
+
+        // ⚠⚠ ONLY A **DAY** BUCKET DRILLS (WP-DRILL, 2026-08-21). Matt: *"when I click on a day in
+        // the dashboard it needs to take be to reporting filtered on the sales taken on THAT day."*
+        //
+        // ⚠ THIS CHART'S BUCKETS ARE NOT ALWAYS DAYS — the granularity control also produces weeks,
+        // months and years, and `period` is then `2026-W34` or `2026-08`. Handing one of those to a
+        // day filter would answer an empty report for a week that plainly took money, which is worse
+        // than the bar not being clickable. `dayFromFocus` would refuse it at the far end; refusing
+        // it HERE is what stops the cursor promising something that will not happen.
+        const drillable = /^\d{4}-\d{2}-\d{2}$/.test(b.period);
+
         return (
           <g key={b.period}>
-            <rect x={x} y={top + h - bh} width={bw} height={bh} rx="2">
-              <title>{`${b.period}: ${gbp(b.grossPence)}`}</title>
+            {/* ⚠ THE WHOLE COLUMN IS THE TARGET, not the drawn bar — a quiet day is a hairline, and
+                hit-testing the rectangle makes the days somebody is investigating the hardest to
+                click. */}
+            {drillable && (
+              <rect
+                x={x} y={top} width={bw} height={h} fill="transparent"
+                className="chart-hit"
+                role="button" tabIndex={0}
+                onClick={() => go("Reporting", dayFocus(b.period))}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") go("Reporting", dayFocus(b.period)); }}
+              >
+                <title>{`${b.period}: ${gbp(b.grossPence)} — open this day's sales`}</title>
+              </rect>
+            )}
+            <rect x={x} y={top + h - bh} width={bw} height={bh} rx="2" pointerEvents={drillable ? "none" : undefined}>
+              {!drillable && <title>{`${b.period}: ${gbp(b.grossPence)}`}</title>}
             </rect>
             {i % labelEvery === 0 && (
               <text x={x + bw / 2} y={top + h + 14} textAnchor="middle" className="chart-label">

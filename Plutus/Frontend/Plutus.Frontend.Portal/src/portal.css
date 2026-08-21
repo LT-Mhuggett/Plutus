@@ -325,3 +325,13 @@ th.sortable:hover { color: var(--ink); }
    as they need and sit under the heading rather than beside it. See `PlatformPage`: the health
    dashboard was unreachable in practice because its tab was lost in the toolbar. */
 .platform-tabs { flex-wrap: wrap; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+
+/* ⚠ THE CLICKABLE COLUMN ON A BAR CHART (WP-DRILL, 2026-08-21) — an invisible full-height rect over
+   each bar, because a zero day draws nothing and a quiet day draws a hairline, so hit-testing the
+   drawn bar makes exactly the days somebody is investigating the hardest to click.
+
+   ⚠ IT MUST LOOK CLICKABLE. An invisible target that gives no feedback is one nobody discovers, so
+   it tints on hover and takes a visible focus ring for the keyboard. */
+.chart-hit { cursor: pointer; }
+.chart-hit:hover { fill: rgba(0, 0, 0, 0.06); }
+.chart-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }

@@ -103,6 +103,23 @@ const tabFromHash = (): Tab => {
 export default function App() {
   const [tab, setTabState] = useState<Tab>(tabFromHash);
   const [focus, setFocus] = useState<string | undefined>(undefined);
+
+  // ⚠⚠ WP-TABTOP (2026-08-21). Matt: *"Clicking on the tabs at the top needs to take you back to the
+  // top level of that tab."*
+  //
+  // A page component stays MOUNTED across a tab change, so it keeps whatever sub-screen, filter,
+  // expanded card and dialog it was left on. Clicking the tab you are already on therefore did
+  // nothing visible at all, and coming back to a tab dropped you three screens deep in it — right
+  // for a browser, wrong for a till, where the tab bar is the way out of somewhere.
+  //
+  // ⚠ AN EPOCH ON THE `key`, NOT A RESET METHOD PER PAGE. Fifteen pages each remembering to expose
+  // "go back to your top level" is fifteen chances to forget; changing the key makes React do it,
+  // for every page, including ones not written yet.
+  //
+  // ⚠ IT BUMPS ON **EVERY** `go`, not only on a click of the current tab. A drill that lands on
+  // Reporting should also arrive at its top level — landing on a page still showing the last
+  // operator's filter is the same fault wearing a different hat.
+  const [navEpoch, setNavEpoch] = useState(0);
   // Navigate to a tab (from a nav button or a pill/link elsewhere). Mirrors into the URL hash so
   // reload + deep-links work; `focus` is an optional hint the target page may consume.
   const go = (t: string, f?: string) => {
@@ -110,6 +127,13 @@ export default function App() {
     if (!match) return;
     setTabState(match);
     setFocus(f);
+    setNavEpoch((n) => n + 1);
+
+    // ⚠ AND BACK TO THE TOP OF THE PAGE. A remounted page renders from its first row while the
+    // window is still scrolled to where the last one ended — so the operator lands halfway down a
+    // fresh screen, which reads as a page that failed to load its header.
+    window.scrollTo({ top: 0 });
+
     if (window.location.hash !== `#${tabSlug(match)}`) window.location.hash = tabSlug(match);
   };
   useEffect(() => {
@@ -213,7 +237,9 @@ export default function App() {
       <Announcements />
 
       <div className="page">
-        <Page tab={tab} />
+        {/* ⚠ THE `key` IS THE RESET (WP-TABTOP). A changed key remounts the page, and a remount is
+            what takes an operator back to a tab's top level instead of wherever they left it. */}
+        <Page tab={tab} key={`${tab}:${navEpoch}`} />
       </div>
 
       <footer className="muted small">Plutus management portal · portal v{__APP_VERSION__} · built {__BUILD_TIME__}</footer>

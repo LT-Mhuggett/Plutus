@@ -275,13 +275,48 @@ namespace Plutus.Reporting
                 .Where(s => s.BusinessDay >= from && s.BusinessDay <= to)
                 .Select(s => new { s.Id, s.BusinessDay, s.GrossPence, s.VatPence }).ToListAsync();
 
-            var byDay = sales.GroupBy(s => s.BusinessDay).OrderBy(g => g.Key).Select(g => new
+            // ⚠⚠ EVERY DAY IN THE RANGE, INCLUDING THE ONES WITH NO SALES (WP-ZERO, 2026-08-21).
+            //
+            // Matt, with a screenshot of the dashboard chart: *"The reports still have to show ALL
+            // days, even ones where no sales were made e.g. this graph jumps from the 15th to the
+            // 17th."*
+            //
+            // This was `sales.GroupBy(BusinessDay)`, so a day the shop was shut produced no group and
+            // therefore no row — and the chart drew the next bar hard against the last one. **The axis
+            // then silently lies about the interval**: 15 Aug beside 17 Aug reads as two consecutive
+            // days. Nobody can spot a closed Sunday, and — the reason this matters more than tidiness —
+            // **nobody can spot a till that stopped syncing**, which is exactly the failure a daily
+            // takings chart should make obvious.
+            //
+            // ⚠⚠ SERVER-SIDE, NOT IN THE CHART. Three consumers read this series (the portal's
+            // `SummaryReport`, the portal Dashboard, and MAUI's **Takings** report), and all three had
+            // the same hole. Filling it in one client would leave the other two wrong and put a fourth
+            // copy of "which days are in this range" into the estate — `till-design.md` C2 territory,
+            // and the same shape as the timestamp bug found the same morning.
+            //
+            // ⚠ `EnumeratePeriods` ALREADY DID THIS, for the granularity buckets on `/reports/sales`
+            // (see the `day`/`week`/`month`/`year` switch). The daily series simply never used it. A
+            // correct rule that one call site reaches is a rule the next call site gets wrong.
+            //
+            // ⚠ A ZERO DAY IS `orders = 0`, NOT A NULL OR A GAP. A client can then tell "the shop took
+            // nothing" from "we have no data", which are different claims — and `total` is a real
+            // 0.00, so summing the series still gives the period total.
+            var takings = sales.GroupBy(s => s.BusinessDay).ToDictionary(g => g.Key, g => g);
+
+            var byDay = EnumeratePeriods("day", from, to).Select(date =>
             {
-                date = g.Key.ToString("yyyy-MM-dd"),
-                total = P(g.Sum(s => s.GrossPence)),
-                totalExTax = P(g.Sum(s => s.GrossPence - s.VatPence)),
-                orders = g.Count(),
-            });
+                var day = DateOnly.ParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+                return takings.TryGetValue(day, out var g)
+                    ? new
+                    {
+                        date,
+                        total = P(g.Sum(s => s.GrossPence)),
+                        totalExTax = P(g.Sum(s => s.GrossPence - s.VatPence)),
+                        orders = g.Count(),
+                    }
+                    : new { date, total = 0m, totalExTax = 0m, orders = 0 };
+            }).ToList();
 
             // ALL lines (incl. ItemIdOne == null): the by-tax-rate table must cover every line or
             // legacy barcode-less lines fall out of their band (found 2026-07-30: the 19.81% band
