@@ -1852,6 +1852,164 @@ public sealed class PlutusApiClient
     /// to know "is there data?" still gets null for a malformed answer. Those are different questions
     /// and the split is deliberate.
     /// </summary>
+    // ── WP10: an item's additional barcodes, and its change history ─────────────────────────────
+    //
+    // ⚠⚠ MAUI HAD NONE OF THIS. The endpoints shipped 2026-08-19/20 with the portal and the web till
+    // both wired to them, and MAUI's item editor — which does exist, contrary to what six places in
+    // `MAUI-retrofit.md` claimed — had no barcode section and no history. This is the client half.
+
+    /// <summary>Every additional barcode this item answers to, in code order.</summary>
+    /// <remarks>
+    /// ⚠ The server's list endpoint returns the WHOLE TENANT'S codes, deliberately: the portal and the
+    /// web till use it to answer "is this code taken" with no round trip per keystroke. Filtering to
+    /// one item happens here so callers do not each re-derive it.
+    /// </remarks>
+    public async Task<List<ItemBarcodeDto>> GetItemBarcodesAsync(
+        string itemIdOne, CancellationToken ct = default)
+    {
+        var all = await GetAsync<List<ItemBarcodeDto>>("/api/v1/items/barcodes", ct);
+        if (all is null) return new List<ItemBarcodeDto>();
+
+        return all
+            .Where(b => string.Equals(b.ItemIdOne, itemIdOne, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(b => b.Code, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>Every barcode in the tenant — for the "is this code free" check with no round trip.</summary>
+    public async Task<List<ItemBarcodeDto>> GetAllItemBarcodesAsync(CancellationToken ct = default) =>
+        await GetAsync<List<ItemBarcodeDto>>("/api/v1/items/barcodes", ct) ?? new List<ItemBarcodeDto>();
+
+    /// <summary>
+    /// Give an item another barcode.
+    ///
+    /// ⚠⚠ RETURNS THE SERVER'S SENTENCE, NOT A BOOL. Every refusal here is written to be shown to a
+    /// person verbatim — "That is the shape of a membership card…", "That code belongs to &lt;item&gt;"
+    /// — and the reserved shapes live ONLY in `SharedKernel.ItemBarcodeRules`. A client that reduced
+    /// this to true/false would have to invent its own wording, which is exactly the C2 fault: a copy
+    /// of an identity rule in a client.
+    ///
+    /// ⚠ Re-adding the same code to the same item is a 204 NO-OP server-side, not a conflict — a retry
+    /// after a dropped response must not read as an error.
+    /// </summary>
+    public Task<ItemBarcodeOutcome> AddItemBarcodeAsync(
+        string itemIdOne, string code, CancellationToken ct = default) =>
+        BarcodeWriteAsync(HttpMethod.Post,
+            $"/api/v1/items/{Uri.EscapeDataString(itemIdOne)}/barcodes",
+            new ItemBarcodeBody(code), ct);
+
+    /// <summary>
+    /// Correct a barcode — ONE call, never delete-then-add.
+    ///
+    /// ⚠⚠ THE REASON IS THE WHOLE POINT (backend 1.20.0). Two calls can fail between them and leave
+    /// the item with NEITHER code, and for a barcode that means an item that silently stops scanning.
+    /// </summary>
+    public Task<ItemBarcodeOutcome> RenameItemBarcodeAsync(
+        string itemIdOne, string oldCode, string newCode, CancellationToken ct = default) =>
+        BarcodeWriteAsync(HttpMethod.Put,
+            $"/api/v1/items/{Uri.EscapeDataString(itemIdOne)}/barcodes/{Uri.EscapeDataString(oldCode)}",
+            new ItemBarcodeBody(newCode), ct);
+
+    /// <summary>Take a barcode off an item. ⚠ The item keeps its own `IdOne`, which is never a
+    /// removable alias — the server refuses that and says so.</summary>
+    public Task<ItemBarcodeOutcome> RemoveItemBarcodeAsync(
+        string itemIdOne, string code, CancellationToken ct = default) =>
+        BarcodeWriteAsync(HttpMethod.Delete,
+            $"/api/v1/items/{Uri.EscapeDataString(itemIdOne)}/barcodes/{Uri.EscapeDataString(code)}",
+            null, ct);
+
+    /// <summary>
+    /// One barcode write, and the server's own words when it refuses.
+    ///
+    /// ⚠ A TRANSPORT FAILURE IS NOT A REFUSAL and must not be shown as one — "that code belongs to
+    /// another item" and "the network dropped" call for different actions from the person holding the
+    /// scanner. `Ok=false` with a NULL `Problem` means the request never landed.
+    /// </summary>
+    private async Task<ItemBarcodeOutcome> BarcodeWriteAsync(
+        HttpMethod method, string url, ItemBarcodeBody? body, CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(method, url);
+            if (body is not null) req.Content = JsonContent.Create(body, options: Json);
+            await AuthoriseAsync(req, ct);
+
+            using var res = await _http.SendAsync(req, ct);
+            if (res.IsSuccessStatusCode) return new ItemBarcodeOutcome(true, null);
+
+            // ⚠ The sentence is `detail` on a ProblemDetails body. Read it, and fall back to something
+            // honest rather than a status code nobody at a counter can act on.
+            string? problem = null;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(
+                    await res.Content.ReadAsStringAsync(ct));
+                if (doc.RootElement.TryGetProperty("detail", out var d)) problem = d.GetString();
+            }
+            catch (Exception e) when (e is JsonException or NotSupportedException or ArgumentException)
+            {
+                // Not a ProblemDetails body. The fallback sentence below is still true.
+            }
+
+            return new ItemBarcodeOutcome(false,
+                string.IsNullOrWhiteSpace(problem) ? "Plutus refused that barcode." : problem);
+        }
+        catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+        {
+            // ⚠ NULL problem = it never landed. The caller says "check the connection", not "refused".
+            return new ItemBarcodeOutcome(false, null);
+        }
+    }
+
+    /// <summary>
+    /// What has happened to this item — price and detail edits, barcode changes, AND stock movements.
+    ///
+    /// ⚠ Gated `perm:portal.reports.view,pos.reports.view`. A **Cashier holds neither**, which is the
+    /// 2026-08-20 ruling: naming who changed a price is a supervisory record, not a stock task.
+    /// </summary>
+    public Task<ItemHistoryPage?> GetItemHistoryAsync(
+        string itemIdOne, int take = 100, CancellationToken ct = default) =>
+        GetAsync<ItemHistoryPage>(
+            $"/api/v1/items/{Uri.EscapeDataString(itemIdOne)}/history?take={take}", ct);
+
+    /// <summary>One of an item's additional barcodes.</summary>
+    public sealed class ItemBarcodeDto
+    {
+        public string? Code { get; set; }
+        public string? ItemIdOne { get; set; }
+    }
+
+    private sealed record ItemBarcodeBody(string Code);
+
+    /// <param name="Ok">The write landed.</param>
+    /// <param name="Problem">⚠ The server's own sentence, to be shown VERBATIM. Null when the request
+    /// never landed at all — a different thing, needing a different message.</param>
+    public sealed record ItemBarcodeOutcome(bool Ok, string? Problem);
+
+    /// <summary>An item's history, newest first.</summary>
+    public sealed class ItemHistoryPage
+    {
+        /// <summary>⚠ What EXISTS, not what was returned — say so when the page is short.</summary>
+        public int Total { get; set; }
+        public List<ItemHistoryRow> Rows { get; set; } = new();
+    }
+
+    public sealed class ItemHistoryRow
+    {
+        public DateTime AtUtc { get; set; }
+
+        /// <summary>The SERVER's words, so both tills say the same thing: "Created",
+        /// "Details changed", "Barcode added", "Stock received", "Stock written off"…</summary>
+        public string? Type { get; set; }
+
+        public string? Detail { get; set; }
+
+        /// <summary>The person's name, or their id when the roster no longer knows them — never
+        /// blank. Staff leave, and a trail that renders "(unknown)" answers less than one that
+        /// says who it was.</summary>
+        public string? By { get; set; }
+    }
+
     private async Task<T?> GetAsync<T>(string url, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);

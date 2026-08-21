@@ -49,7 +49,12 @@ namespace Plutus.Catalogue
         /// staff, which is why it is not simply `[Authorize]`.
         /// </summary>
         [HttpGet("api/v1/items/{itemIdOne}/history")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView)]
+        // ⚠⚠ WIDENED 2026-08-21 (WP10). Same fault as the barcode endpoints: a Supervisor holds
+        // `pos.reports.view`, never `portal.reports.view`, so the portal code alone put this out of
+        // reach of every till. ⚠ A **Cashier still cannot see it** — they hold neither code — and
+        // that is the 2026-08-20 ruling unchanged: naming who changed a price is a supervisory
+        // record, not a stock task, and different people hold the two.
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalReportsView + "," + PermissionCatalogue.PosReportsView)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> History([FromRoute] string itemIdOne, [FromQuery] int take = 100)

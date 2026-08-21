@@ -92,7 +92,14 @@ namespace Plutus.Catalogue
         /// natural retry after a dropped response must not read as an error.
         /// </summary>
         [HttpPost("api/v1/items/{itemIdOne}/barcodes")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust)]
+        // ⚠⚠ WIDENED 2026-08-21 (WP10). `portal.stock.adjust` ALONE made this unreachable from a till:
+        // a **Supervisor holds no portal permission at all**, so the moment MAUI grew a barcode
+        // section every supervisor would have met a 403 — and Matt had just ruled that editing an
+        // item is theirs. ⚠ `pos.items.manage` is the right till code because **a barcode is the
+        // item's IDENTITY**, not its quantity: it decides what scans to it in every shop on the
+        // estate. ⚠ It is also what the "Add/edit stock" role carries, so an individual granted
+        // that role can correct a barcode — which is the point of the role.
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust + "," + PermissionCatalogue.PosItemsManage)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -197,7 +204,14 @@ namespace Plutus.Catalogue
         /// ⚠ Validated exactly as an add is: same shared rule, same clash checks, same sentences.
         /// </summary>
         [HttpPut("api/v1/items/{itemIdOne}/barcodes/{code}")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust)]
+        // ⚠⚠ WIDENED 2026-08-21 (WP10). `portal.stock.adjust` ALONE made this unreachable from a till:
+        // a **Supervisor holds no portal permission at all**, so the moment MAUI grew a barcode
+        // section every supervisor would have met a 403 — and Matt had just ruled that editing an
+        // item is theirs. ⚠ `pos.items.manage` is the right till code because **a barcode is the
+        // item's IDENTITY**, not its quantity: it decides what scans to it in every shop on the
+        // estate. ⚠ It is also what the "Add/edit stock" role carries, so an individual granted
+        // that role can correct a barcode — which is the point of the role.
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust + "," + PermissionCatalogue.PosItemsManage)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -269,7 +283,14 @@ namespace Plutus.Catalogue
         /// the state that exists.
         /// </summary>
         [HttpDelete("api/v1/items/{itemIdOne}/barcodes/{code}")]
-        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust)]
+        // ⚠⚠ WIDENED 2026-08-21 (WP10). `portal.stock.adjust` ALONE made this unreachable from a till:
+        // a **Supervisor holds no portal permission at all**, so the moment MAUI grew a barcode
+        // section every supervisor would have met a 403 — and Matt had just ruled that editing an
+        // item is theirs. ⚠ `pos.items.manage` is the right till code because **a barcode is the
+        // item's IDENTITY**, not its quantity: it decides what scans to it in every shop on the
+        // estate. ⚠ It is also what the "Add/edit stock" role carries, so an individual granted
+        // that role can correct a barcode — which is the point of the role.
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalStockAdjust + "," + PermissionCatalogue.PosItemsManage)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> Remove([FromRoute] string itemIdOne, [FromRoute] string code)
         {

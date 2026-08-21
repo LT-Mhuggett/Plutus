@@ -503,6 +503,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 const string addToBasket = "Add to basket";
                 const string edit = "Edit item";
 
+                // ⚠⚠ WP10, 2026-08-21 — the two A0 rows MAUI was ⬜ on while both other surfaces had
+                // them. ⚠ ONE entry for both, not two: the web till puts barcodes and history inside
+                // its item editor, so a single dialog is the closer parity — and a six-item tap menu on
+                // a shop floor is a menu nobody reads to the bottom of.
+                const string detail = "Barcodes & history…";
+
                 // ⚠ "Move to the Bin" is a DESTRUCTIVE-LOOKING action on a tap menu, so it is last
                 // and it confirms. Binning withdraws the item from sale on every till in the
                 // estate, including offline ones — it is not a local tidy-up.
@@ -511,9 +517,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                 // ⚠ Not offered for an UNTRACKED item. Its level is meaningless by design, and a
                 // movement against it writes a number nothing will ever read.
+                // ⚠ `detail` sits after `edit` and before the two that CHANGE something, because it is
+                // the read: an operator checking what happened to an item should not have to walk past
+                // "Adjust stock…" and "Move to the Bin…" to reach it.
                 var actions = item.StockDisplay == "∞"
-                    ? new[] { addToBasket, edit, bin }
-                    : new[] { addToBasket, edit, stock, bin };
+                    ? new[] { addToBasket, edit, detail, bin }
+                    : new[] { addToBasket, edit, detail, stock, bin };
 
                 var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
                     App.Current.MainPage.DisplayActionSheet(
@@ -521,6 +530,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                 if (picked == addToBasket) ExecuteAddToBasket(item.Id);
                 else if (picked == edit) ExecuteOpenEditItem(item.Id);
+                else if (picked == detail) ExecuteOpenItemDetail(item);
                 else if (picked == stock) ExecuteAdjustStock(item);
                 else if (picked == bin) ExecuteBinItem(item);
             }
@@ -548,6 +558,216 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// entity: a bare price change would clear `StockUntracked` or blank `BinnedAtUtc`,
         /// restoring a withdrawn item to sale on every till in the estate.
         /// </summary>
+        /// <summary>
+        /// An item's barcodes and its history — WP10, 2026-08-21.
+        ///
+        /// ⚠⚠ THE TWO A0 ROWS THIS CLOSES were ⬜ on MAUI while the portal and the web till had them
+        /// from 2026-08-19/20. The justification in six places was *"MAUI has no item editor at all"*,
+        /// which conflated `AddEditView` (dead) with this tap-menu (alive). **So this is a section on an
+        /// editor that already existed.**
+        ///
+        /// ⚠⚠ A LOOP, AND IT HAS TO BE. The dialog closes before any prompt opens — MAUI cannot stack
+        /// two Mopups pages, the second lands behind the first and reads as a frozen till — so each
+        /// action is: close, prompt, write, **reopen**. Without the reopen an operator who adds a
+        /// barcode is dropped back to the item list with no evidence it worked, and the natural response
+        /// is to add it again.
+        ///
+        /// ⚠ ONLINE ONLY, deliberately. Barcode uniqueness is TENANT-WIDE and enforced by
+        /// `IX_ItemBarcodes_TenantId_Code` on the server; two offline tills adding the same alias would
+        /// both believe they had succeeded. Same reasoning as adding a member.
+        /// </summary>
+        private async void ExecuteOpenItemDetail(ItemModel item)
+        {
+            if (item?.Id is null) return;
+
+            try
+            {
+                // ⚠ Reading the history needs `pos.reports.view` (or the portal twin) and MANAGING
+                // barcodes needs `pos.items.manage` (or `portal.prices.manage`). They are different
+                // questions: a supervisor holds both, and a cashier holds neither — but the split is
+                // what lets the read stay open to a role that may not write.
+                var mayManage = Services.Security.TillGate.CheckAny(
+                    App.GetViewModel().SignedInOperator, null,
+                    PermissionCatalogue.PosItemsManage, PermissionCatalogue.PortalPricesManage).Allowed;
+
+                var mayRead = Services.Security.TillGate.CheckAny(
+                    App.GetViewModel().SignedInOperator, null,
+                    PermissionCatalogue.PosReportsView, PermissionCatalogue.PortalReportsView).Allowed;
+
+                if (!mayManage && !mayRead)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Barcodes and history are for a supervisor and above.", "OK".Translate());
+                    return;
+                }
+
+                // ⚠ THE OPERATOR'S CLIENT. Every endpoint here is `perm:`-gated, and `perm:*` resolves
+                // RBAC by the token's `NameIdentifier` — the DEVICE id on a device token, which holds no
+                // grants. On the device client all of this answers 403 whatever the operator's role.
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+                if (api is null)
+                {
+                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                        "Barcodes and history need someone signed in and a connection to Plutus.",
+                        "OK".Translate());
+                    return;
+                }
+
+                while (true)
+                {
+                    var barcodes = await api.GetItemBarcodesAsync(item.Id);
+
+                    // ⚠ NULL when it could not be read, and the dialog SAYS SO rather than rendering an
+                    // empty table — "nothing has happened to this item" is a different claim from "we
+                    // could not ask", and an operator acting on the first would change a price
+                    // believing nobody else had.
+                    var history = mayRead ? await api.GetItemHistoryAsync(item.Id) : null;
+
+                    var outcome = await Helpers.CustomViews.ItemDetailHelper.ShowAsync(
+                        item.Id, item.Name, barcodes, history, mayManage);
+
+                    if (outcome.IsClosed) return;
+
+                    // ⚠ Re-checked rather than trusted from the dialog. The buttons are absent when the
+                    // operator may not, but an outcome is data and this is a write.
+                    if (!mayManage) return;
+
+                    var done = outcome.Kind switch
+                    {
+                        Views.CustomViews.ItemDetailAlert.Kind.AddBarcode =>
+                            await PromptAddBarcodeAsync(api, item.Id),
+                        Views.CustomViews.ItemDetailAlert.Kind.EditBarcode =>
+                            await PromptRenameBarcodeAsync(api, item.Id, outcome.Code),
+                        Views.CustomViews.ItemDetailAlert.Kind.RemoveBarcode =>
+                            await ConfirmRemoveBarcodeAsync(api, item.Id, outcome.Code),
+                        _ => false,
+                    };
+
+                    // ⚠ The loop reopens either way. A refusal the operator has just read should leave
+                    // them looking at the list they were working on, not at the item grid.
+                    _ = done;
+
+                    // Refresh the underlying list so a changed code shows on the grid behind.
+                    if (done) InitItems();
+                }
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — without this the till closes.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.ExecuteOpenItemDetail", ex);
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Something went wrong reading this item's barcodes. The item is unchanged.",
+                    "OK".Translate());
+            }
+        }
+
+        /// <summary>
+        /// Ask for a new barcode and add it.
+        ///
+        /// ⚠⚠ THE SERVER'S SENTENCE IS SHOWN VERBATIM. The reserved shapes — membership cards, gift
+        /// cards, bag ids, the platform ids — live ONLY in `SharedKernel.ItemBarcodeRules`, and a copy
+        /// of an identity rule in a client is exactly the C2 fault. So this validates nothing about the
+        /// SHAPE; it asks, sends, and repeats what came back.
+        /// </summary>
+        private static async Task<bool> PromptAddBarcodeAsync(
+            Plutus.Client.Core.PlutusApiClient api, string itemIdOne)
+        {
+            var required = new IValidator[] { new RequiredValidator() };
+            var fields = new[]
+            {
+                new ViewElementData(1, "New barcode", "", required.AsEnumerable(), false, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                fields, "Add".Translate(), true, "Add another barcode", "Cancel".Translate());
+
+            // ⚠ Backing out yields an EMPTY dictionary — see `InputAlertHelper.ShowAsync`.
+            if (answers.Count == 0) return false;
+            answers.TryGetValue(1, out var code);
+            if (string.IsNullOrWhiteSpace(code)) return false;
+
+            var result = await api.AddItemBarcodeAsync(itemIdOne, code.Trim());
+            await SayBarcodeResultAsync(result, $"{code.Trim()} now scans to this item.");
+            return result.Ok;
+        }
+
+        /// <summary>
+        /// Correct a barcode — ONE `PUT`, never delete-then-add.
+        ///
+        /// ⚠⚠ THE REASON IS THE WHOLE POINT. Two calls can fail between them and leave the item with
+        /// NEITHER code, and for a barcode that means an item that silently stops scanning.
+        /// </summary>
+        private static async Task<bool> PromptRenameBarcodeAsync(
+            Plutus.Client.Core.PlutusApiClient api, string itemIdOne, string oldCode)
+        {
+            var required = new IValidator[] { new RequiredValidator() };
+            var fields = new[]
+            {
+                // ⚠ Pre-filled with the current code, because a correction is usually one character.
+                new ViewElementData(1, "Barcode", oldCode ?? "", required.AsEnumerable(), false, true),
+            };
+
+            var answers = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(
+                fields, "Save".Translate(), true, $"Correct {oldCode}", "Cancel".Translate());
+
+            if (answers.Count == 0) return false;
+            answers.TryGetValue(1, out var code);
+            if (string.IsNullOrWhiteSpace(code)) return false;
+
+            var trimmed = code.Trim();
+            // ⚠ Unchanged is not a write. Sending it would be a no-op the server has to reason about,
+            // and an audit row saying nothing happened.
+            if (string.Equals(trimmed, oldCode, StringComparison.OrdinalIgnoreCase)) return false;
+
+            var result = await api.RenameItemBarcodeAsync(itemIdOne, oldCode, trimmed);
+            await SayBarcodeResultAsync(result, $"{oldCode} is now {trimmed}.");
+            return result.Ok;
+        }
+
+        /// <summary>
+        /// Take a barcode off an item, after asking.
+        ///
+        /// ⚠ IT ASKS. Removing a code means the packaging in somebody's hand stops scanning, and there
+        /// is no undo at the counter — the operator has to remember what it was.
+        /// </summary>
+        private static async Task<bool> ConfirmRemoveBarcodeAsync(
+            Plutus.Client.Core.PlutusApiClient api, string itemIdOne, string code)
+        {
+            var yes = await App.Current.MainPage.DisplayAlert(
+                "Remove this barcode?",
+                $"{code} will stop scanning to this item. The item keeps its own code.",
+                "Remove", "Cancel".Translate());
+
+            if (!yes) return false;
+
+            var result = await api.RemoveItemBarcodeAsync(itemIdOne, code);
+            await SayBarcodeResultAsync(result, $"{code} no longer scans to this item.");
+            return result.Ok;
+        }
+
+        /// <summary>
+        /// Tell the operator what happened, in the server's words when it refused.
+        ///
+        /// ⚠⚠ A REFUSAL AND A DROPPED CONNECTION ARE DIFFERENT SENTENCES, and the difference is what the
+        /// operator does next. `Problem == null` means the request never landed — so "check the
+        /// connection", never "Plutus refused that", which would send somebody hunting for a rule that
+        /// was never applied.
+        /// </summary>
+        private static Task SayBarcodeResultAsync(
+            Plutus.Client.Core.PlutusApiClient.ItemBarcodeOutcome result, string success)
+        {
+            if (result.Ok)
+            {
+                return App.Current.MainPage.DisplayAlert("Done", success, "OK".Translate());
+            }
+
+            return App.Current.MainPage.DisplayAlert(
+                "Hmm".Translate(),
+                result.Problem
+                    ?? "That didn't reach Plutus, so nothing has changed. Check the connection and try again.",
+                "OK".Translate());
+        }
+
         private async void ExecuteOpenEditItem(string itemId)
         {
             try

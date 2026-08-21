@@ -1870,6 +1870,116 @@ curl -i -X PUT "https://plutus.huggett.dscloud.me/api/Item/<some-item-id>" \
 **✅ Expected: `403`.** ⚠ A `401` means the token is wrong, not that the gate worked — the two are easy
 to confuse and only one of them proves anything. (Pinned in CI by
 `A_cashier_cannot_edit_an_item_and_a_supervisor_can`, but a live check is worth one minute.)
+## G74. An item's barcodes and its history, on MAUI — **till 1.113.0** (WP10)
+
+> **Two A0 rows MAUI was ⬜ on** while the portal and the web till had them from 2026-08-19/20. ⚠ It
+> needs a **MAUI build** (1.113.0) — the artefact on the box does not contain it.
+>
+> ⚠⚠ **SIGN IN AS A SUPERVISOR FOR THIS.** The whole point of the gate-widening is that a supervisor
+> can now manage barcodes and read history — before today both endpoints were portal-code-only, so a
+> supervisor would have met a 403 on the capability Matt had just said was theirs.
+
+### G74a. Getting there
+
+**Inventory → View all items →** tap any row.
+
+**✅ Expected:** the menu reads **Add to basket · Edit item · Barcodes & history… · Adjust stock… ·
+Move to the Bin…** — one new entry, third, before the two that change something.
+
+⚠ It is one entry for both barcodes and history on purpose: the web till puts them inside its item
+editor, so a single dialog is the closer parity, and a six-item tap menu on a shop floor is one nobody
+reads to the bottom of. **Say if you would rather they were separate.**
+
+### G74b. What the dialog shows
+
+**✅ Expected**, top to bottom:
+
+- the item's **name** as the heading, with a **✕**
+- **Barcodes** — the item's **own code first**, marked *"(the item's own code)"*, with **no buttons on
+  that row**
+- then each additional barcode, each with **🔒 Edit** and **Remove**
+- **＋ Add another barcode**
+- **History** — a sortable, searchable table: **When · What · Detail · Who**
+
+⚠⚠ **THE ITEM'S OWN CODE MUST HAVE NO EDIT OR REMOVE BUTTON.** It is the identity — it seeds the item's
+platform id and is on every historical sale line — and it is not a removable alias. If you can reach a
+button on that row, stop and say so.
+
+### G74c. Add a barcode
+
+**＋ Add another barcode**, type any unused code, **Add**.
+
+**✅ Expected:** *"<code> now scans to this item."*, then **the dialog reopens with the new code in the
+list**.
+
+⚠⚠ **THE REOPEN IS THE CHECK.** MAUI cannot stack two dialogs, so this one closes to ask and reopens
+after. If it drops you back to the item grid instead, the operator has no evidence it worked and will
+add it again — say so.
+
+Now **go and scan that code on the till screen.** ✅ Expected: it rings up **this item**.
+
+### G74d. ⚠ The refusals — the server's words, not ours
+
+Try each of these on **＋ Add another barcode**:
+
+| Type this | ✅ Expected |
+|---|---|
+| a **membership-card** shape, e.g. `C1234567` | refused, with a sentence naming a membership card |
+| a code **another item already has** | refused, **naming that other item** |
+| a code with a **space in the middle** | refused |
+| a code with a **space at each end** | **accepted**, and trimmed |
+
+⚠ These sentences come from the server and are shown word for word — the shapes live in one place
+(`SharedKernel.ItemBarcodeRules`) so no till carries its own copy. **If any refusal is a bare code, a
+status number, or "Plutus refused that barcode", say so** — that last one is the fallback for a reply
+we could not read, and it means the real sentence went missing.
+
+### G74e. Correct and remove
+
+**🔒 Edit** on an additional code → the box opens **pre-filled** with it → change one character → Save.
+
+**✅ Expected:** *"<old> is now <new>."*, the dialog reopens showing the new code, and **scanning the
+new code finds the item while the old one does not.**
+
+**Remove** on an additional code → it asks first → confirm.
+
+**✅ Expected:** *"<code> no longer scans to this item."* and it is gone from the list. ⚠ **The item
+must still scan under its own code.**
+
+### G74f. The history — and this is the part Matt made a condition
+
+**✅ Expected:** the changes you just made appear at the **top** (newest first), each naming **you**.
+
+⚠⚠ **AND STOCK MUST BE IN THERE TOO.** Use **Adjust stock…** on the same item, with a reason, then
+reopen **Barcodes & history…**
+
+**✅ Expected:** a row reading **"Stock adjusted"** with a **signed** number and **your reason** —
+e.g. *"+1 — miscount"* — interleaved with the barcode rows **in time order**, not grouped after them.
+
+⚠ That merge is Matt's condition (*"so long as all edits to stock items are tracked for each item"*).
+A **sale** must **NOT** appear: selling is trading, not editing, and a busy item would otherwise bury
+the rows you came to read.
+
+### G74g. ⚠ As a CASHIER — the whole section should be refused
+
+Sign out, sign in as a **Cashier**, and open the same menu.
+
+**✅ Expected:** choosing **Barcodes & history…** is **refused with a message**, not silently ignored.
+
+⚠ **Add to basket must still work.** A cashier looking a price up is ordinary work; changing what
+scans to an item, or reading who changed a price, is not.
+
+### G74h. Offline
+
+Pull the network and open **Barcodes & history…**
+
+**✅ Expected:** a message saying it needs a connection. ⚠ **Deliberately online-only** — barcode
+uniqueness is tenant-wide and enforced on the server, so two offline tills adding the same alias would
+both believe they had succeeded.
+
+⚠ **The till must still SELL normally with the network down.** If this screen's failure affects
+scanning or checkout at all, that is a serious bug — say so immediately.
+
 # §W — WEB till checks
 
 ⚠ **These need the DEPLOYED WEB TILL**, not the MAUI build — `https://plutus.huggett.dscloud.me`.

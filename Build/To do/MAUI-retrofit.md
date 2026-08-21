@@ -1656,6 +1656,54 @@ row. Six of the fifteen ⬜ rows close with this step.
 > smaller than the ≈4–6d I offered him**, and the reason is the finding below, which arrived while
 > scoping it.
 
+#### ✅ DELIVERED 2026-08-21 — three of the four, and the fourth is not what it looked like
+
+| | Increment | State |
+|---|---|---|
+| 1 | **Give an item another barcode, or correct one** | ✅ **BUILT.** `ItemDetailAlert` + `ItemDetailHelper`, reached from the item tap-menu as **"Barcodes & history…"**. Client half is 5 new `PlutusApiClient` methods. ⚠ Every row is **locked** behind an explicit `🔒 Edit` (the 2026-08-20 ruling: a barcode is the string a scanner matches on, so a stray keystroke in a live box is an item that silently stops scanning). ⚠ Correction is **one `PUT`**, never delete-then-add. ⚠ The item's **own code is shown first and labelled** *"the item's own code"* — it is the identity, not a removable alias, and an operator who cannot tell them apart will try to "correct" it |
+| 2 | **See who changed an item, and when** | ✅ **BUILT.** A `TillTable` in the same dialog — When · What · Detail · Who — sortable, searchable, paged, and it now includes **stock movements** as well as edits (Matt's condition, 2026-08-21). ⚠ A failed read **says so** rather than rendering an empty table: *"this item has never been touched"* is a different claim from *"we could not ask"*, and an operator acting on the first would change a price believing nobody else had |
+| 3 | Add a new item on **one screen** | ✅ **ALREADY TRUE** — marker corrected. One dialog, nine fields |
+| 4 | Put a withdrawn item back | ⬜ **AND IT IS A SCREEN, NOT A WIRING JOB — my ½d estimate was WRONG.** See below |
+
+⚠ **Both endpoints had to be widened first, and that was a prerequisite rather than a nicety.** The
+barcode endpoints were `perm:portal.stock.adjust` and history `perm:portal.reports.view` — **portal
+codes only**, which a Supervisor does not hold. So the moment MAUI grew these sections every
+supervisor would have met a 403 on the capability Matt had just ruled was theirs. Barcodes now accept
+`pos.items.manage` too (**a barcode is the item's identity**, so that is the right till code, and it is
+what the "Add/edit stock" role carries); history accepts `pos.reports.view`. ⚠ **A Cashier still holds
+neither** — the 2026-08-20 ruling that naming who changed a price is a supervisory record is unchanged.
+
+⚠ **MAUI cannot stack two Mopups pages**, so each action **closes the dialog, prompts, writes, and
+reopens it**. Without the reopen an operator who adds a barcode is dropped back to the item grid with
+no evidence it worked, and the natural response is to add it again. Learned in `CustomerDetailAlert`.
+
+##### ⚠⚠ Why increment 4 is a day and not half of one — the finding that changes it
+
+**A binned item reaches the till as a TOMBSTONE, by design.** `CatalogueChangesController` sends
+`Removed: r.BinnedAtUtc != null`, and the comment beside it says why: *"a binned item MUST reach the
+till as a removal, not as an upsert… without this a binned item stays sellable"*. So the till
+**deletes it from its local catalogue**.
+
+And MAUI's item list is a **capped local SQLite read** (`TillStoreAccess.BrowseAsync`), not a server
+query — so `ItemParameters.Binned`, which is how the portal and the web till show their Bin, does not
+apply here at all. **There is nothing local to restore from.**
+
+⚠ So "put a withdrawn item back" on MAUI needs a **server-backed Bin view**: a new list call, a screen
+or filter toggle, and restore through `POST api/v1/items/bulk`. **Online-only**, and gated
+`inventory.bulk` to stay symmetric with MAUI's existing *Move to the Bin…* — which is manager-and-above
+deliberately, because one bulk action moves thousands of items.
+
+⚠⚠ **I ESTIMATED THIS AT ~½d ON THE ASSUMPTION THE ITEM WAS LOCALLY VISIBLE. It is not, and the
+estimate was wrong** — it is **~1d** and it is a screen. Recorded rather than quietly absorbed,
+because a wrong estimate that gets delivered late is how the ≈35–40-day figure happened.
+
+⚠ **Building the restore action without the Bin view would be the "built and wired to nothing" pattern
+this project has hit seven times** — `OutboxPusher.DrainAsync`, the catalogue browse,
+`TillStore.SearchAsync`, `NoticesClient`, `VatBandCache.RefreshAsync`, `OperatorSession.Token`, the
+heartbeat version write. So it is left ⬜ with the shape written down, not half-built.
+
+**Hand-run §G74.** ⚠ It needs a **Supervisor** login, because the whole point of the gate-widening is
+that a supervisor can now do this.
 #### ⚠⚠ FIRST: "MAUI HAS NO ITEM EDITOR AT ALL" WAS WRONG, IN SIX PLACES
 
 That sentence justified this cluster being a ⬜ and a *decision* rather than a small build. It

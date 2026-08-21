@@ -155,8 +155,8 @@ otherwise.
 | Can the till… | Web | MAUI |
 |---|---|---|
 | **Scan an item by ANY of its barcodes** | 🟡 | 🟡 |
-| **Give an item another barcode, or correct one** | 🟡 | ⬜ |
-| **See who changed an item, and when** | 🟡 | ⬜ |
+| **Give an item another barcode, or correct one** | 🟡 | 🟡 |
+| **See who changed an item, and when** | 🟡 | 🟡 |
 | Look up what is in stock | ✅ | ✅ |
 | Change an item's price or details | 🟡 | 🟡 | ⚠⚠ **SUPERVISOR AND ABOVE since 2026-08-21** — Matt: *"I also need editing of items to be a supervisor and above permission across all tills."* ⚠⚠ **AND IT WAS THE FIRST SERVER-SIDE GATE THIS EVER HAD:** `ItemController` inherited a bare `[Authorize]` from the legacy CRUD base, so **any signed-in user could create or edit any item** — the web till had **no client gate at all** and MAUI's was client-side only. Now `perm:portal.prices.manage,pos.items.manage` on `POST`/`PUT api/Item`. ⚠ New code **`pos.items.manage`** (Owner / Company Admin / Store Manager / Supervisor, **never Cashier**) — third instance of the `pos.stock.adjust` shape, and for the third time the same reason: **a Supervisor holds no portal permission at all**, so the portal code could never express "supervisor and above". ⚠ Both markers dropped ✅→🟡: the capability is unchanged but the **gate** is new on both tills and nobody has stood at a screen as a cashier and been refused. **Hand-run §G73.** |
 | Work out the ex-VAT price from the band | ✅ | 🟡 |
