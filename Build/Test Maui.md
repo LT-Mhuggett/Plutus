@@ -5080,7 +5080,7 @@ item"* offer, unchanged.
 
 ### G66d. The MAUI till — the same alias, the same item
 
-⚠ Run `D:\tmp\plutus-till-1.110.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+⚠ Run `D:\tmp\plutus-till-1.113.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
 (the v7 catalogue re-sync above).
 
 Scan `TEST-ALIAS-1`.
@@ -5326,7 +5326,9 @@ it if it gets in your way and it can be closed in one pass.
 - ✅ **Bulk edit**, the **Bin**, **Restore**, **Categories** — untouched.
 - ✅ A till **scan** of an ordinary barcode — untouched.
 
-## G68. Syncfusion is gone — **till 1.110.0**, `D:\tmp\plutus-till-1.110.0\Plutus.Frontend.AppClient.exe`
+## G68. Syncfusion is gone — **now on till 1.113.0**, `D:\tmp\plutus-till-1.113.0\Plutus.Frontend.AppClient.exe`
+
+> ⚠ **Written for 1.110.0, which has been DELETED.** Every check still applies unchanged — 1.113.0 carries the same Syncfusion-free build plus later work — but run it against **1.113.0**, the only build on the box.
 
 > Matt, 2026-08-20: *"if the packaging of it removes all you see, what about removing syncfusion now?
 > Worth it?"* — yes, and it is done. **264 MB → 169 MB (−36%).**
@@ -5424,7 +5426,7 @@ break something arbitrarily far from it**, and a sale is the only test that cove
 
 ### G68e. The build folder — what Matt actually asked about
 
-Look at `D:\tmp\plutus-till-1.110.0`.
+Look at `D:\tmp\plutus-till-1.113.0`.
 
 **✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
 
