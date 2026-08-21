@@ -41,7 +41,7 @@ public sealed record SyncOutcome(int Pages, int ItemsApplied, string? Cursor, bo
 /// updates? All tills should do this."* 26a0 The comparison happens HERE, once, using
 /// `PlutusVersion.IsOlderThan` 2014 never a string compare, or a till on 1.10.0 is told it is behind
 /// 1.9.0 for ever. 26a0 ADVISORY ONLY: nothing downstream may refuse to sell because of it.</param>
-public sealed record HeartbeatOutcome(bool Delivered, bool SyncNow, bool Locked, string? LockReason, bool CatalogueStale, string? UpdateAvailable = null, int UnreadSupportReplies = 0);
+public sealed record HeartbeatOutcome(bool Delivered, bool SyncNow, bool Locked, string? LockReason, bool CatalogueStale, string? UpdateAvailable = null, int UnreadSupportReplies = 0, string? StoreTimeZoneId = null);
 
 /// <summary>
 /// WP5 — the till's sync loop: beat, and pull the catalogue when it has moved.
@@ -118,7 +118,12 @@ public sealed class SyncClient
                 //
                 // ⚠ CARRIED, NOT ACTED ON, exactly like `UpdateAvailable` above it: nothing here
                 // interrupts a sale, and a badge is the least important passenger on this request.
-                UnreadSupportReplies: result.UnreadSupportReplies);
+                UnreadSupportReplies: result.UnreadSupportReplies,
+
+                // ⚠ WP-TZ — carried so the till can render its clock on the SHOP's time and warn
+                // when this PC disagrees. ⚠ It does NOT feed `BusinessDay`, which stays the till's
+                // own local wall clock: a money change does not ride along with a display one.
+                StoreTimeZoneId: result.StoreTimeZoneId);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

@@ -69,7 +69,12 @@ public sealed record HeartbeatResult(
     DateTime ServerUtcNow,
     string? ExpectedMauiVersion = null,
     string? ExpectedWebVersion = null,
-    int UnreadSupportReplies = 0);
+    int UnreadSupportReplies = 0,
+
+    /// <summary>WP-TZ: the shop's timezone (IANA), or null. ⚠ The till renders its clock in
+    /// it and WARNS when this PC disagrees — a PC on the wrong zone files sales under the
+    /// wrong trading day, silently. ⚠ It does NOT change `BusinessDay`.</summary>
+    string? StoreTimeZoneId = null);
 
 /// <summary>
 /// One catalogue row as a till holds it.

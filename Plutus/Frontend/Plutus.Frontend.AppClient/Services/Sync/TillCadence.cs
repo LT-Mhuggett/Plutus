@@ -112,6 +112,21 @@ namespace Plutus.Frontend.AppClient.Services.Sync
         public static event Action<int> UnreadSupportChanged;
 
         /// <summary>
+        /// The shop's timezone, as the portal set it — WP-TZ, 2026-08-22. Null until a beat lands, or
+        /// when the tenant has not set one.
+        ///
+        /// ⚠⚠ IT IS FOR DISPLAY AND FOR A WARNING, NOT FOR `BusinessDay`. The trading day stays the
+        /// till's own local wall clock — it is a C2 twin computed identically by both tills, and
+        /// re-deriving it from this would change which VAT period a late-evening sale lands in. What
+        /// this buys is the till NOTICING that its PC is on the wrong clock, which until now nothing
+        /// anywhere checked.
+        /// </summary>
+        public static string StoreTimeZoneId { get; private set; }
+
+        /// <summary>Raised when the shop's timezone arrives or changes.</summary>
+        public static event Action<string> StoreTimeZoneChanged;
+
+        /// <summary>
         /// Raised after every tick, so a screen showing queued state can redraw.
         ///
         /// ⚠ Matt, 2026-08-11: *"The open float was 'Waiting' and never updated. I navigated away
@@ -296,6 +311,15 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             // work: a till that stopped selling over a version number would strand a shop with no
             // route out.
             UpdateAvailable = beat.UpdateAvailable;
+
+            // ⚠ WP-TZ — the shop's clock, on a delivered beat only. Same reasoning as the badge
+            // below: a failed heartbeat must not blank a setting that is still true.
+            if (beat.Delivered && StoreTimeZoneId != beat.StoreTimeZoneId)
+            {
+                StoreTimeZoneId = beat.StoreTimeZoneId;
+                try { StoreTimeZoneChanged?.Invoke(StoreTimeZoneId); }
+                catch (Exception ex) { Services.Analytics.CrashLog.Write("TillCadence.StoreTimeZone", ex); }
+            }
 
             // ⚠ THE SUPPORT BADGE (WP-TICKETS). Only on a DELIVERED beat: a failed heartbeat must
             // not blank it — the replies are still unread, and a shop that briefly lost its link

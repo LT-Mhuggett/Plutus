@@ -690,6 +690,11 @@ export interface VatPeriodSettings {
   yearStartMonth: number;
   yearStartDay: number;
   configured: boolean;
+  /** WP-TZ: the shop's timezone (IANA), or null for "render on the reader's own clock". */
+  timeZoneId: string | null;
+  /** ⚠ Separate from `timeZoneId`: a stored id the SERVER cannot resolve renders device-local
+   *  rather than failing, and the portal has to be able to say so. */
+  timeZoneKnown: boolean;
   /** Words for a report header, including whether it was chosen. */
   describe: string;
   changedAtUtc: string | null;
@@ -707,6 +712,15 @@ export interface VatPeriodSettings {
 
 export const fetchVatPeriods = (year?: number) =>
   get<VatPeriodSettings>(`/api/v1/companies/vat-periods${year ? `?year=${year}` : ""}`);
+
+/**
+ * WP-TZ — set the shop's timezone (IANA), or "" to clear it back to the reader's own clock.
+ *
+ * ⚠ VALIDATED SERVER-SIDE against what that machine can actually resolve; a zone list shipped
+ * in the client would be wrong every time a country changes its mind about daylight saving.
+ */
+export const setTimeZone = (timeZoneId: string) =>
+  put<void>(`/api/v1/companies/time-zone`, { timeZoneId });
 
 export const setVatPeriods = (body: {
   basis: "quarter" | "month";

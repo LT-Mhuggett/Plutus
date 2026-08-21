@@ -93,6 +93,33 @@ namespace Plutus.Entities.Models
 
         /// <summary>The user id that last changed them. ⚠ See <see cref="VatSettingsChangedAtUtc"/>.</summary>
         public Guid? VatSettingsChangedBy { get; set; }
+
+        /// <summary>
+        /// The shop's timezone, as an IANA id (`Europe/London`). Null = never set.
+        ///
+        /// ⚠⚠ WP-TZ, 2026-08-22. Matt, asking for the till clock: *"somehow to set it in the portal
+        /// I assume."*
+        ///
+        /// ⚠⚠ **THE SURFACE THIS IS FOR IS THE PORTAL.** A till PC sits in the shop on the shop's
+        /// clock, so its own rendering is already right. The portal is opened from anywhere, and
+        /// every timestamp on it renders in the BROWSER's zone — the same sale reads 14:32 on the
+        /// shop floor and 15:32 in Madrid, with nothing on screen saying which.
+        ///
+        /// ⚠⚠ **IT DOES NOT MOVE `BusinessDay`.** That is the till's local wall clock, it is a C2
+        /// twin computed identically by both tills, and re-deriving it from this would change which
+        /// VAT period a late-evening sale lands in. A money change does not ride along with a
+        /// display one. What this DOES buy is a till noticing that its own clock disagrees with the
+        /// shop's — see `SharedKernel.StoreClock.DeviceDisagrees`.
+        ///
+        /// ⚠ ON THE BUSINESS, NOT THE STORE, for the same reason the VAT settings above are: a
+        /// second opinion about what time it is, per store, is a configuration nobody should be able
+        /// to express while one VAT return covers them all. A genuine multi-timezone estate is a
+        /// bigger question than a column.
+        ///
+        /// ⚠ IANA, NOT A WINDOWS ID. .NET 6+ resolves IANA on Windows too, browsers speak only IANA,
+        /// and storing the Windows form would need a translation table at every boundary.
+        /// </summary>
+        public string? TimeZoneId { get; set; }
         #region Relationships
         #region Collections
         public virtual ICollection<Category> Categories { get; set; }

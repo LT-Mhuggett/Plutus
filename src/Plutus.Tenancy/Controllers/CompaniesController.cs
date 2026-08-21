@@ -18,6 +18,10 @@ namespace Plutus.Tenancy.Controllers
 
     /// <summary>WP-FY — the company year and the VAT periods. ⚠ Its own body, deliberately: folding
     /// these into `CompanyAdminBody` would let the name/abbr form blank them on every save.</summary>
+    /// <summary>WP-TZ — the shop's timezone, IANA. ⚠ An empty string CLEARS it, back to "render on
+    /// the reader's own clock" — the behaviour every tenant had before, which must stay reachable.</summary>
+    public sealed record TimeZoneBody(string TimeZoneId);
+
     public sealed record VatPeriodsBody(
         string Basis, int? StaggerEndMonth, int YearStartMonth, int YearStartDay);
 
@@ -110,7 +114,7 @@ namespace Plutus.Tenancy.Controllers
                 {
                     x.Id, x.VatBasis, x.VatStaggerEndMonth,
                     x.FinancialYearStartMonth, x.FinancialYearStartDay,
-                    x.VatSettingsChangedAtUtc,
+                    x.VatSettingsChangedAtUtc, x.TimeZoneId,
                 })
                 .FirstOrDefaultAsync();
 
@@ -160,6 +164,17 @@ namespace Plutus.Tenancy.Controllers
                 changedAtUtc = b?.VatSettingsChangedAtUtc,
                 financialYear = year ?? currentYear,
                 currentFinancialYear = currentYear,
+
+                // ⚠⚠ WP-TZ (2026-08-22) — WHICH CLOCK THE SHOP IS ON. The portal renders every
+                // timestamp in the BROWSER's zone, so the same sale reads 14:32 on the shop floor
+                // and 15:32 in Madrid with nothing on screen saying which. Answered here rather
+                // than on its own endpoint because every caller that wants it already asks this.
+                //
+                // ⚠ `timeZoneKnown` IS SEPARATE FROM `timeZoneId`: a stored id this backend cannot
+                // resolve must render device-local rather than fail, and the portal has to be able
+                // to say so instead of showing a zone it is not really using.
+                timeZoneId = b?.TimeZoneId,
+                timeZoneKnown = StoreClock.IsKnown(b?.TimeZoneId),
                 periods,
             });
         }
@@ -224,6 +239,47 @@ namespace Plutus.Tenancy.Controllers
 
             Db.Audit(_tenant.TenantId, Actor, "company.vat-periods.update",
                 nameof(Business), business.Id.ToString(), body);
+
+            await Db.SaveChangesAsync();
+            return NoContent();
+        }
+
+        /// <summary>
+        /// WP-TZ — set the shop's timezone.
+        ///
+        /// ⚠ ITS OWN ENDPOINT, for the same reason the VAT periods have one: folding it into
+        /// `CompanyAdminBody` would let the name/abbr form blank it on every save.
+        ///
+        /// ⚠⚠ VALIDATED AGAINST THE PLATFORM, not against a list. `TimeZoneInfo.FindSystemTimeZoneById`
+        /// is the only thing that knows what this machine can actually resolve, and a hand-maintained
+        /// list of zones is wrong every time a country changes its mind about daylight saving.
+        ///
+        /// ⚠ AN EMPTY STRING CLEARS IT — back to "render on the reader's own clock", which is the
+        /// behaviour every tenant had before this existed and must remain reachable.
+        /// </summary>
+        [HttpPut("time-zone")]
+        [Authorize(Policy = "perm:" + PermissionCatalogue.PortalCompanyManage)]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> SetTimeZone([FromBody] TimeZoneBody body)
+        {
+            var id = body?.TimeZoneId?.Trim();
+            var clearing = string.IsNullOrEmpty(id);
+
+            if (!clearing && !StoreClock.IsKnown(id))
+                return BadRequest(new { detail = $"'{id}' isn't a timezone this server knows. Use an IANA id such as Europe/London." });
+
+            var business = await Db.Business.FirstOrDefaultAsync();
+            if (business == null) return NotFound(new { detail = "This tenant has no company record yet." });
+
+            Db.CurrentUser = Actor.ToString();
+            business.TimeZoneId = clearing ? null : id;
+
+            // ⚠ AUDITED. It changes what every timestamp in the portal READS AS, and "the times all
+            // moved an hour" is a support call that needs an answer.
+            Db.Audit(_tenant.TenantId, Actor, "company.time-zone.update",
+                nameof(Business), business.Id.ToString(), new { timeZoneId = business.TimeZoneId });
 
             await Db.SaveChangesAsync();
             return NoContent();

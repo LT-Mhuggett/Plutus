@@ -57,17 +57,86 @@ export function apiMs(value: string | null | undefined): number {
  */
 const NOTHING = "—";
 
+
+// ── WP-TZ, 2026-08-22: the shop's clock ─────────────────────────────────────────────────────────
+
+/**
+ * The timezone every timestamp is RENDERED in, or null for "the reader's own device".
+ *
+ * ⚠⚠ THE SURFACE THIS EXISTS FOR IS THE PORTAL. A till PC sits in the shop on the shop's clock, so
+ * its own rendering is already right. The portal is opened from anywhere — a manager at home, an
+ * accountant in another country — and every timestamp on it renders in the BROWSER's zone: the same
+ * sale reads 14:32 on the shop floor and 15:32 in Madrid, with nothing on screen saying which.
+ *
+ * ⚠⚠ IT CHANGES RENDERING ONLY. `apiDate` still answers the same INSTANT; only the wall clock those
+ * instants are printed against moves. Nothing here can change which day a sale filed under —
+ * `BusinessDay` is the till's own local clock and stays that way, deliberately.
+ *
+ * ⚠ NULL IS THE DEFAULT AND MUST STAY REACHABLE: a tenant that never sets a zone sees exactly what
+ * it saw before this existed.
+ */
+let displayZone: string | null = null;
+
+/**
+ * Point every formatter at a shop timezone.
+ *
+ * ⚠⚠ VALIDATED HERE, ONCE, BY ASKING `Intl`. A bad `timeZone` makes `toLocaleString` throw a
+ * RangeError — so an unknown id set here would not render a wrong time, it would blank every date on
+ * the page. Rejecting it at the door leaves the platform rendering device-local, which is wrong by
+ * an hour rather than wrong by everything.
+ *
+ * ⚠ Pass null or "" to clear.
+ */
+export function setDisplayZone(zone: string | null | undefined): boolean {
+  if (!zone) { displayZone = null; return true; }
+
+  try {
+    new Intl.DateTimeFormat("en-GB", { timeZone: zone }).format(new Date());
+  } catch {
+    displayZone = null;
+    return false;
+  }
+
+  displayZone = zone;
+  return true;
+}
+
+/** What the formatters are currently rendering in, or null for the device's own zone. */
+export const getDisplayZone = (): string | null => displayZone;
+
+/** The zone this device is on — what the reader would otherwise see. */
+export const deviceZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/**
+ * ⚠ IS THE READER ON A DIFFERENT CLOCK FROM THE SHOP, RIGHT NOW?
+ *
+ * ⚠⚠ COMPARED AS RENDERED TIMES, NOT AS ZONE NAMES. `Europe/London` and `Europe/Dublin` are two
+ * names for one clock all year, and warning about those would train people to ignore the banner.
+ * Two zones can also agree in January and differ in July, so it is asked at a moment.
+ */
+export function readerZoneDiffers(at: Date = new Date()): boolean {
+  if (!displayZone) return false;
+
+  const opts: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: false };
+  const shop = new Intl.DateTimeFormat("en-GB", { ...opts, timeZone: displayZone }).format(at);
+  const here = new Intl.DateTimeFormat("en-GB", opts).format(at);
+  return shop !== here;
+}
+
+/** ⚠ Every formatter below passes this, so one setting moves all of them or none. */
+const zoned = (extra?: Intl.DateTimeFormatOptions): Intl.DateTimeFormatOptions =>
+  displayZone ? { ...extra, timeZone: displayZone } : { ...extra };
 /** Date and time, as a person in this shop reads them. */
 export const apiDateTime = (value: string | null | undefined): string =>
-  apiDate(value)?.toLocaleString("en-GB") ?? NOTHING;
+  apiDate(value)?.toLocaleString("en-GB", zoned()) ?? NOTHING;
 
 /** Date only — for a column where the time is noise. */
 export const apiDay = (value: string | null | undefined): string =>
-  apiDate(value)?.toLocaleDateString("en-GB") ?? NOTHING;
+  apiDate(value)?.toLocaleDateString("en-GB", zoned()) ?? NOTHING;
 
 /** Time only, to the minute — for a list of today's sales, where the date is in the heading. */
 export const apiTime = (value: string | null | undefined): string =>
-  apiDate(value)?.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) ?? NOTHING;
+  apiDate(value)?.toLocaleTimeString("en-GB", zoned({ hour: "2-digit", minute: "2-digit" })) ?? NOTHING;
 
 /**
  * Time to the second — the portal Dashboard's live sale feed.
@@ -77,4 +146,4 @@ export const apiTime = (value: string | null | undefined): string =>
  * time on this platform is to the minute.
  */
 export const apiClock = (value: string | null | undefined): string =>
-  apiDate(value)?.toLocaleTimeString("en-GB") ?? NOTHING;
+  apiDate(value)?.toLocaleTimeString("en-GB", zoned()) ?? NOTHING;

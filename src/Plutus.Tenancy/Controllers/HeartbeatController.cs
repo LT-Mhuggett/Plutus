@@ -47,7 +47,12 @@ namespace Plutus.Tenancy.Controllers
         DateTime ServerUtcNow,
         string? ExpectedMauiVersion = null,
         string? ExpectedWebVersion = null,
-        int UnreadSupportReplies = 0);
+        int UnreadSupportReplies = 0,
+
+        /// <summary>WP-TZ: the shop's timezone (IANA), or null. ⚠ The till renders its clock in
+        /// it and WARNS when this PC disagrees — a PC on the wrong zone files sales under the
+        /// wrong trading day, silently. ⚠ It does NOT change `BusinessDay`.</summary>
+        string? StoreTimeZoneId = null);
 
     /// <summary>
     /// WP5 — POST /api/v1/heartbeat. A till says it is alive and collects whatever the platform
@@ -177,6 +182,19 @@ namespace Plutus.Tenancy.Controllers
             // ⚠⚠ NEVER FAILS THE BEAT. The heartbeat is what keeps a till trading: it renews the
             // token, carries the lock and triggers the drain. A support badge is the least important
             // thing on it, and an exception here would take all of that down with it.
+            // ⚠ WP-TZ — one cheap column, read on every beat so a change in the portal reaches the
+            // tills within a minute without anybody restarting anything.
+            //
+            // ⚠ NO TENANT PREDICATE, AND NONE IS POSSIBLE: `Business` carries no `TenantId` and is
+            // therefore not in `TenantOwned`, so no query filter applies to it. It is a legacy table
+            // in the tenant's own database and the whole codebase treats it as singular —
+            // `CompaniesController`, `StoresController` and `LegacySaleBridgeConsumer` all take the
+            // first row. Writing a predicate here would not compile, and inventing one would imply a
+            // scoping this table does not have.
+            var storeZone = await _db.Business.AsNoTracking()
+                .Select(b => b.TimeZoneId)
+                .FirstOrDefaultAsync();
+
             var unread = 0;
             try
             {
@@ -205,7 +223,16 @@ namespace Plutus.Tenancy.Controllers
                 ServerUtcNow: DateTime.UtcNow,
                 ExpectedMauiVersion: Blank(release?.ExpectedMauiVersion),
                 ExpectedWebVersion: Blank(release?.ExpectedWebVersion),
-                UnreadSupportReplies: unread));
+                UnreadSupportReplies: unread,
+
+                // ⚠ WP-TZ (2026-08-22) — the shop's clock, so the till can render in it and NOTICE
+                // when this PC's own timezone disagrees. A till on the wrong zone files sales under
+                // the wrong trading day, silently, and nothing has ever checked.
+                //
+                // ⚠ ON THE BEAT because the till holds a DEVICE token: the company settings endpoint
+                // is `portal.*`-gated and a device carries no portal grants. The beat is already how
+                // the platform tells a till anything.
+                StoreTimeZoneId: storeZone));
 
             // Empty string and null both mean "say nothing"; the wire carries one of them, not two.
             static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();

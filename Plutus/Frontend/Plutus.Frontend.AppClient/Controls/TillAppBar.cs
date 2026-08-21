@@ -70,7 +70,7 @@ namespace Plutus.Frontend.AppClient.Controls
             // ⚠ The hover caption names the TIMEZONE, and that is the diagnostic half — `Europe/London`
             // on a till reading an hour out says immediately whether the fault is the PC or the data.
             // That question took a morning on 2026-08-21.
-            ToolTipProperties.SetText(_clock, $"This PC's clock · {TimeZoneInfo.Local.Id}");
+            // ⚠ The caption is set by `Paint`, which knows whether the shop has its own zone.
 
             this.Add(_clock, 1, 0);
             this.Add(_help, 2, 0);
@@ -125,10 +125,39 @@ namespace Plutus.Frontend.AppClient.Controls
                 : "Help & support");
         }
 
-        /// <summary>⚠ SECONDS, deliberately — a clock showing only `HH:MM` is indistinguishable from a
-        /// static label for up to a minute, and "is this live?" is exactly what somebody is asking when
-        /// they look at it after a wrong time.</summary>
-        private void Paint() => _clock.Text = DateTime.Now.ToString("HH:mm:ss");
+        /// <summary>
+        /// Paint the clock.
+        ///
+        /// ⚠⚠ ON THE SHOP'S CLOCK WHEN THE PORTAL HAS SET ONE (WP-TZ, 2026-08-22), otherwise on this
+        /// PC's — which is the behaviour every till had before, and is right for a PC sitting in the
+        /// shop it belongs to.
+        ///
+        /// ⚠⚠ AND IT SHOUTS WHEN THE TWO DISAGREE. `BusinessDay` is this PC's local wall clock, so a
+        /// till on the wrong timezone files sales under the wrong trading day — silently, with no
+        /// clue in the numbers, and the Z-read then balances against another day's takings. Nothing
+        /// anywhere has ever checked this. The clock is the natural place to say so, because it is
+        /// the one control on the screen already claiming to know what time it is.
+        /// </summary>
+        private void Paint()
+        {
+            var zone = Services.Sync.StoreZone.Current;
+            var utcNow = DateTime.UtcNow;
+            var shopNow = SharedKernel.StoreClock.InStore(utcNow, zone);
+
+            _clock.Text = shopNow.ToString("HH:mm:ss");
+
+            // ⚠ Recomputed every tick rather than cached: two zones can agree in January and differ
+            // in July, and a till checked once at start-up is one that goes wrong at the clock change.
+            var drift = SharedKernel.StoreClock.DeviceDisagrees(zone, utcNow);
+
+            _clock.SetDynamicResource(Label.TextColorProperty, drift ? "ThemeDanger" : "ThemeInk");
+
+            ToolTipProperties.SetText(_clock, drift
+                ? "⚠ " + SharedKernel.StoreClock.DisagreementMessage(zone, utcNow)
+                : zone is null
+                    ? $"This PC's clock · {TimeZoneInfo.Local.Id}"
+                    : $"The shop's clock · {zone.Id}");
+        }
 
         private static void Start()
         {

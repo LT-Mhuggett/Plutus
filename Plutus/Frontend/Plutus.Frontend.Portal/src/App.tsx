@@ -25,6 +25,8 @@ const ACCOUNT_CONSOLE = "https://login.plutus.huggett.dscloud.me/realms/plutus/a
 import { fetchActiveAnnouncements, type ActiveAnnouncement } from "./api.ts";
 import { completeLoginIfCallback } from "./oidc.ts";
 import AskHost from "./Ask.tsx";
+import { fetchVatPeriods } from "./api.ts";
+import { setDisplayZone, readerZoneDiffers, deviceZone } from "./apiTime.ts";
 
 declare const __BUILD_TIME__: string;
 declare const __APP_VERSION__: string;
@@ -120,6 +122,27 @@ export default function App() {
   // Reporting should also arrive at its top level — landing on a page still showing the last
   // operator's filter is the same fault wearing a different hat.
   const [navEpoch, setNavEpoch] = useState(0);
+  /**
+   * ⚠⚠ WP-TZ (2026-08-22) — RENDER ON THE SHOP'S CLOCK, NOT THE READER'S.
+   *
+   * The portal is opened from anywhere: a manager at home, an accountant in another country. Every
+   * timestamp on it rendered in the BROWSER's zone, so the same sale read 14:32 on the shop floor
+   * and 15:32 in Madrid, with nothing on screen saying which one you were looking at.
+   *
+   * ⚠ ONCE, ON BOOT, BEFORE ANYTHING RENDERS A DATE — `setDisplayZone` is module state read by every
+   * formatter in `apiTime.ts`, so setting it late would leave whatever painted first on the wrong
+   * clock until the next re-render.
+   *
+   * ⚠ AND IT NEVER BLOCKS THE PORTAL. A tenant with no zone, an older backend, or a failed call all
+   * mean "render on the reader's device", which is exactly what the portal did before this existed.
+   */
+  const [shopZone, setShopZone] = useState<string | null>(null);
+  useEffect(() => {
+    void fetchVatPeriods()
+      .then((v) => { if (v.timeZoneId && v.timeZoneKnown && setDisplayZone(v.timeZoneId)) setShopZone(v.timeZoneId); })
+      .catch(() => undefined);
+  }, []);
+
   // Navigate to a tab (from a nav button or a pill/link elsewhere). Mirrors into the URL hash so
   // reload + deep-links work; `focus` is an optional hint the target page may consume.
   const go = (t: string, f?: string) => {
@@ -233,6 +256,20 @@ export default function App() {
         </button>
       </header>
 
+      {/* ⚠⚠ WP-TZ — SAY WHICH CLOCK, BUT ONLY WHEN IT IS NOT THE READER'S (2026-08-22).
+          A manager sitting in the shop must not read a banner about timezones every day; somebody
+          opening the portal from another country must, because every time on the screen is now the
+          shop's and not theirs, and a silently-shifted timestamp is worse than no shift at all.
+
+          ⚠ Checked at RENDER, not at boot: two zones can agree in January and differ in July, and a
+          portal tab left open across a clock change would otherwise keep yesterday's answer. */}
+      {shopZone && readerZoneDiffers() && (
+        <div className="pick-note maintenance">
+          <span className="grow">
+            🕒 Times below are the shop's ({shopZone}) — your device is on {deviceZone()}.
+          </span>
+        </div>
+      )}
       <AskHost />
       <Announcements />
 

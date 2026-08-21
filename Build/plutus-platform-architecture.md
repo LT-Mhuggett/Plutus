@@ -547,7 +547,7 @@ which one answered.
 | 4 | ⚠⚠ **A closed ticket does not LOOK closed, and neither side can ask to close one.** | One fix, two halves: a visible state in the thread, and "request closure" from either side. ⚠ **From the customer's side it is a REQUEST, not a command** — a shop closing its own open incident is how a fault gets lost. |
 
 
-### WP-TZ — a store's timezone, set in the portal · **≈1d** · ⚠ deferred deliberately
+### WP-TZ — a store's timezone, set in the portal · **≈1d** -> **DONE 2026-08-22**
 
 > **Matt, 2026-08-21**, alongside the live-clock request: *"somehow to set it in the portal I assume."*
 > Chosen scope: **the clock now, the portal timezone later as a WP.**
@@ -565,6 +565,28 @@ zone, every formatter routed through them, and a portal control — **in that or
 
 ⚠ And it is a **money** change, not a display one: which day a late-evening sale falls on decides which
 VAT period it lands in. `till-design.md` C2 covers the readers; a target zone belongs in the same row.
+
+**Shipped 2026-08-22, and what was deliberately NOT shipped.** The setting exists on the Company tab,
+the portal renders every timestamp on the shop's clock, and a banner names the zone whenever the
+reader's device is on a different one. `apiTime.ts` (twinned) holds it for both TypeScript apps and
+`SharedKernel.StoreClock` for .NET.
+
+⚠⚠ **`BusinessDay` WAS NOT TOUCHED, AND THAT IS THE DECISION WORTH RECORDING.** The original note
+above said this package was "a money change". On inspection it did not have to be: the trading day is
+already the till's LOCAL wall clock, computed identically by both tills (`SharedKernel.BusinessDay` ↔
+`pipeline.ts businessDay`), which is correct for a till PC set to the shop's timezone — and every
+till PC is. Re-deriving it from the configured zone would change which VAT period a late-evening sale
+lands in, on historical data, to fix a case that only arises when a PC's clock is *already* wrong.
+
+⚠ **So the money half was solved by DETECTION instead.** `StoreClock.DeviceDisagrees` compares the
+shop's offset with the PC's at the moment asked, and MAUI's clock turns red and says which two zones
+disagree and what it costs. A till on the wrong timezone has always filed sales under the wrong
+trading day, silently, and nothing anywhere checked — that is now visible without moving a single
+existing figure.
+
+⚠ **What remains, if a genuine multi-timezone estate ever appears:** the zone is on `Business`, not on
+`Store`. One VAT return covers the estate, so a per-store clock would let two stores disagree about a
+day the return has to reconcile. That is a bigger question than a column.
 ### WP-SIGNUP — a new tenant can sign up · **≈3–4d** · ⚠ NOT A UI JOB
 
 > *"I need to be able to add a new tennant, I don't think there is anyway to sign up at the moment?"*

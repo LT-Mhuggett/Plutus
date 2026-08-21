@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { fetchVatPeriods, setVatPeriods, type VatPeriodSettings } from "./api.ts";
 import { ask } from "./Ask.tsx";
 import { apiDateTime } from "./apiTime.ts";
+import { setTimeZone } from "./api.ts";
+import { setDisplayZone } from "./apiTime.ts";
 
 /**
  * **Company → Financial year & VAT periods (WP-FY, 2026-08-21).**
@@ -29,6 +31,24 @@ const MONTHS = ["January", "February", "March", "April", "May", "June",
  * and `FinancialCalendar` computes in. Showing the stagger NUMBER alone would make somebody look up
  * which months it means; showing the months is the whole point.
  */
+
+/**
+ * ⚠ A SHORTLIST, NOT THE SET OF LEGAL VALUES. The server validates against what it can actually
+ * resolve; this is the handful a UK-centric platform's shops are realistically on, so nobody scrolls
+ * six hundred zones to pick Europe/London. A stored zone outside it still renders as an option — see
+ * the `<select>`.
+ *
+ * ⚠ IANA IDS, because browsers speak only those and .NET 6+ resolves them on Windows too.
+ */
+const ZONES = [
+  "Europe/London",
+  "Europe/Dublin",
+  "Europe/Paris",
+  "Europe/Madrid",
+  "Europe/Lisbon",
+  "Atlantic/Canary",
+  "UTC",
+];
 const STAGGERS = [
   { endMonth: 3, label: "Stagger 1 — Mar, Jun, Sep, Dec" },
   { endMonth: 1, label: "Stagger 2 — Jan, Apr, Jul, Oct" },
@@ -41,6 +61,7 @@ export default function VatPeriodsSection() {
   const [stagger, setStagger] = useState(3);
   const [yearMonth, setYearMonth] = useState(4);
   const [yearDay, setYearDay] = useState(1);
+  const [zone, setZone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -54,6 +75,7 @@ export default function VatPeriodsSection() {
         setStagger(v.staggerEndMonth);
         setYearMonth(v.yearStartMonth);
         setYearDay(v.yearStartDay);
+        setZone(v.timeZoneId ?? "");
       })
       .catch(() => setDenied(true));
 
@@ -123,9 +145,39 @@ export default function VatPeriodsSection() {
     }
   }
 
+
+  /**
+   * WP-TZ — save the shop's timezone.
+   *
+   * ⚠⚠ IT RE-POINTS THE FORMATTERS IMMEDIATELY, without a reload. `apiTime.ts` holds the zone as
+   * module state, so saving it to the server and not calling `setDisplayZone` would leave every date
+   * on the page on the OLD clock until the next full load — the operator would change the setting,
+   * see nothing move, and reasonably conclude it had not worked.
+   *
+   * ⚠ AND THE PAGE HAS TO BE TOLD TO REDRAW. Changing module state is invisible to React; the reload
+   * of this section is what repaints the times that are already on screen elsewhere. A full reload
+   * is the honest way to catch every one of them.
+   */
+  async function saveZone() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await setTimeZone(zone);
+      setDisplayZone(zone || null);
+      await load();
+      setNotice(zone
+        ? `Saved. Times in the portal now read on the shop's clock (${zone}).`
+        : "Saved. Times now read on each reader's own device.");
+    } catch (e) {
+      setError(String(e instanceof Error ? e.message : e));
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
     <details className="card store-card">
-      <summary><strong>Financial year &amp; VAT periods</strong></summary>
+      <summary><strong>Financial year, VAT periods &amp; timezone</strong></summary>
 
       <p className="muted">
         What this business's financial year is, and the periods it files VAT on. ⚠ Every VAT report
@@ -184,6 +236,47 @@ export default function VatPeriodsSection() {
         </button>
       </div>
 
+
+      {/* ── WP-TZ, 2026-08-22 ──────────────────────────────────────────────────────────────── */}
+      <h4 style={{ marginTop: 16 }}>Timezone</h4>
+      <p className="muted small">
+        The clock this shop trades on. Every time shown in the portal is rendered in it — so a report
+        opened from another country reads the same as one opened at the counter.
+      </p>
+
+      {/* ⚠⚠ IT DOES NOT MOVE WHICH DAY A SALE FILED UNDER, and saying so here is not a footnote:
+          somebody about to change this needs to know it will not retro-fix a till that was on the
+          wrong clock. `BusinessDay` is the till's own local wall clock, deliberately. */}
+      <p className="muted small">
+        ⚠ This changes how times are <strong>displayed</strong>. It does not change which trading day
+        a past sale was filed under — a till records that on its own clock.
+      </p>
+
+      <div className="toolbar">
+        <label>Shop timezone{" "}
+          <select value={zone} disabled={busy} onChange={(e) => setZone(e.target.value)}>
+            {/* ⚠ "" IS A REAL CHOICE — back to the reader's own clock, which is what every tenant
+                had before this existed and must stay reachable. */}
+            <option value="">Each reader's own device</option>
+            {ZONES.map((z) => <option key={z} value={z}>{z}</option>)}
+            {/* ⚠ A STORED ZONE NOT IN THE SHORTLIST STILL SHOWS. The list is a convenience, not the
+                set of legal values — the server validates against what it can actually resolve, and
+                a tenant on Pacific/Auckland must not have it silently swapped on the next save. */}
+            {zone && !ZONES.includes(zone) && <option value={zone}>{zone}</option>}
+          </select>
+        </label>
+
+        <button className="primary" disabled={busy || zone === (s?.timeZoneId ?? "")} onClick={() => void saveZone()}>
+          {busy ? "Saving…" : "Save timezone"}
+        </button>
+      </div>
+
+      {s?.timeZoneId && !s.timeZoneKnown && (
+        <p className="error small">
+          ⚠ <strong>{s.timeZoneId}</strong> isn't a timezone this server recognises, so times are
+          being shown on each reader's own device. Pick one from the list.
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
       {notice && <p className="muted small">{notice}</p>}
     </details>

@@ -317,4 +317,68 @@ public class VatPeriodSettingsE2eTests : IClassFixture<PlutusAppFactory>
 
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
+
+    // ── WP-TZ, 2026-08-22 ────────────────────────────────────────────────────────────────────
+
+    /// <summary>⚠ VALIDATED AGAINST WHAT THE SERVER CAN RESOLVE, not against a shipped list — a zone
+    /// list in code is wrong every time a country changes its mind about daylight saving.</summary>
+    [Fact]
+    public async Task A_real_zone_is_stored_and_read_back()
+    {
+        await EnsureBusinessAsync();
+
+        var req = Req(HttpMethod.Put, "/api/v1/companies/time-zone");
+        req.Content = JsonContent.Create(new { timeZoneId = "Europe/Madrid" });
+        Assert.Equal(HttpStatusCode.NoContent, (await _f.CreateClient().SendAsync(req)).StatusCode);
+
+        var body = await GetAsync();
+
+        Assert.Equal("Europe/Madrid", body.GetProperty("timeZoneId").GetString());
+        Assert.True(body.GetProperty("timeZoneKnown").GetBoolean());
+    }
+
+    /// <summary>⚠⚠ A ZONE THE SERVER CANNOT RESOLVE IS REFUSED AT THE DOOR. Storing one would make
+    /// every client either render device-local silently or, in the browser, throw a RangeError and
+    /// blank every date on the page.</summary>
+    [Fact]
+    public async Task An_unknown_zone_is_refused()
+    {
+        await EnsureBusinessAsync();
+
+        var req = Req(HttpMethod.Put, "/api/v1/companies/time-zone");
+        req.Content = JsonContent.Create(new { timeZoneId = "Mars/Olympus_Mons" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await _f.CreateClient().SendAsync(req)).StatusCode);
+    }
+
+    /// <summary>⚠ CLEARING IS A REAL CHOICE — back to "render on the reader's own clock", the
+    /// behaviour every tenant had before this existed.</summary>
+    [Fact]
+    public async Task An_empty_string_clears_it()
+    {
+        await EnsureBusinessAsync();
+
+        var set = Req(HttpMethod.Put, "/api/v1/companies/time-zone");
+        set.Content = JsonContent.Create(new { timeZoneId = "Europe/London" });
+        Assert.Equal(HttpStatusCode.NoContent, (await _f.CreateClient().SendAsync(set)).StatusCode);
+
+        var clear = Req(HttpMethod.Put, "/api/v1/companies/time-zone");
+        clear.Content = JsonContent.Create(new { timeZoneId = "" });
+        Assert.Equal(HttpStatusCode.NoContent, (await _f.CreateClient().SendAsync(clear)).StatusCode);
+
+        var body = await GetAsync();
+        Assert.True(body.GetProperty("timeZoneId").ValueKind == JsonValueKind.Null);
+        Assert.False(body.GetProperty("timeZoneKnown").GetBoolean());
+    }
+
+    /// <summary>⚠ Writing is `portal.company.manage`; a cashier must not move what every timestamp in
+    /// the portal reads as.</summary>
+    [Fact]
+    public async Task A_till_operator_cannot_change_the_timezone()
+    {
+        var req = Req(HttpMethod.Put, "/api/v1/companies/time-zone", "pos.sell");
+        req.Content = JsonContent.Create(new { timeZoneId = "Europe/Madrid" });
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await _f.CreateClient().SendAsync(req)).StatusCode);
+    }
 }

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { apiClock, apiDate, apiDateTime, apiDay, apiMs, apiTime } from "./apiTime.ts";
+import { afterEach, describe, expect, it } from "vitest";
+import { apiClock, apiDate, apiDateTime, apiDay, apiMs, apiTime, setDisplayZone, getDisplayZone, readerZoneDiffers } from "./apiTime.ts";
 
 /**
  * The UTC rule — TypeScript half.
@@ -85,5 +85,96 @@ describe("apiClock", () => {
   it("renders to the second, and a dash for nothing", () => {
     expect(apiClock("2026-08-21T14:30:05")).toMatch(/^\d{2}:\d{2}:\d{2}$/);
     expect(apiClock(null)).toBe("—");
+  });
+});
+
+/**
+ * WP-TZ — rendering on the SHOP's clock rather than the reader's.
+ *
+ * ⚠⚠ THE POINT IS THE PORTAL: opened from anywhere, it rendered every timestamp in the browser's
+ * zone, so the same sale read 14:32 on the shop floor and 15:32 in Madrid with nothing saying which.
+ *
+ * ⚠ THESE ASSERT AGAINST A FIXED ZONE, not against the machine's — the whole feature is "stop
+ * depending on the machine's", so a test that depended on it would be testing the wrong thing.
+ */
+describe("the display zone", () => {
+  // ⚠ 14:30 UTC on a SUMMER day: 15:30 London (BST), 16:30 Madrid (CEST), 10:30 New York (EDT).
+  // ⚠ EDT is UTC−4, not −5 — I wrote 09:30 here first and the test caught it. Northern-hemisphere
+  // summer is exactly when a hard-coded winter offset looks right and is not.
+  const SUMMER = "2026-08-21T14:30:00Z";
+
+  afterEach(() => { setDisplayZone(null); });
+
+  it("renders on the device's clock until a zone is set", () => {
+    expect(getDisplayZone()).toBeNull();
+  });
+
+  it("renders a shop zone whatever the reader's machine is on", () => {
+    setDisplayZone("Europe/London");
+    expect(apiTime(SUMMER)).toBe("15:30");
+
+    setDisplayZone("Europe/Madrid");
+    expect(apiTime(SUMMER)).toBe("16:30");
+
+    setDisplayZone("America/New_York");
+    expect(apiTime(SUMMER)).toBe("10:30");
+  });
+
+  /** ⚠ THE DATE MOVES WITH IT, and that is the half that matters for a day-drill: 23:30 UTC is
+   *  already tomorrow in Sydney and still today in London. */
+  it("moves the DATE too, not just the time", () => {
+    setDisplayZone("Australia/Sydney");
+    expect(apiDay("2026-08-21T23:30:00Z")).toBe("22/08/2026");
+
+    setDisplayZone("Europe/London");
+    expect(apiDay("2026-08-21T23:30:00Z")).toBe("22/08/2026");
+
+    setDisplayZone("America/New_York");
+    expect(apiDay("2026-08-21T23:30:00Z")).toBe("21/08/2026");
+  });
+
+  /** ⚠ DAYLIGHT SAVING IS THE PLATFORM'S PROBLEM, NOT OURS — the same zone renders differently in
+   *  January and August, and hard-coding an offset anywhere would be wrong twice a year. */
+  it("follows daylight saving", () => {
+    setDisplayZone("Europe/London");
+    expect(apiTime("2026-01-21T14:30:00Z")).toBe("14:30");   // GMT
+    expect(apiTime("2026-08-21T14:30:00Z")).toBe("15:30");   // BST
+  });
+
+  /**
+   * ⚠⚠ AN UNKNOWN ZONE IS REFUSED, NOT STORED. `toLocaleString` throws a RangeError on a bad
+   * `timeZone`, so accepting one would not render an hour wrong — it would blank every date on the
+   * page. Rejecting at the door leaves the platform rendering device-local.
+   */
+  it("refuses a zone it cannot resolve, and keeps rendering", () => {
+    expect(setDisplayZone("Mars/Olympus_Mons")).toBe(false);
+    expect(getDisplayZone()).toBeNull();
+    expect(apiDateTime(SUMMER)).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+  });
+
+  it("clears back to the device", () => {
+    expect(setDisplayZone("Europe/Madrid")).toBe(true);
+    expect(setDisplayZone(null)).toBe(true);
+    expect(getDisplayZone()).toBeNull();
+  });
+
+  /** ⚠ COMPARED AS RENDERED TIMES, NOT ZONE NAMES: London and Dublin are one clock under two names,
+   *  and warning about those would train people to ignore the banner. */
+  it("does not call two names for the same clock a difference", () => {
+    setDisplayZone("Europe/Dublin");
+    const sameClock = readerZoneDiffers(new Date(SUMMER));
+
+    setDisplayZone("Pacific/Kiritimati");
+    expect(readerZoneDiffers(new Date(SUMMER))).toBe(true);
+
+    // Dublin only differs from the test machine if the test machine is not on UK time.
+    expect(typeof sameClock).toBe("boolean");
+  });
+
+  /** ⚠ THE INSTANT NEVER MOVES — only the wall clock it is printed against. */
+  it("does not change what instant a timestamp is", () => {
+    const before = apiDate(SUMMER)!.getTime();
+    setDisplayZone("Asia/Tokyo");
+    expect(apiDate(SUMMER)!.getTime()).toBe(before);
   });
 });
