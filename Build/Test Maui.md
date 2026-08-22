@@ -109,7 +109,7 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.117.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-22 from HEAD `0dfa2f1e`**, artefact reads **1.117.0** — verified in the assembly (`ProductVersion 1.117.0+0dfa2f1e`), with **no stale 1.110.0 / 1.112.0 / 1.115.0 / 1.116.0 string anywhere in it** (MSBuild caches the evaluated version, so a bump can otherwise re-emit the previous one — `bin/Release` and `obj/Release` were deleted before this publish). ⚠ **The ONLY build on the box** — 1.116.0 deleted, so the folder listing is the truth. ⚠ **Launched and ran 25s with no startup crash and no crash log**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G76–G79** — the **Bin** and restoring a withdrawn item (WP10 #4, §G76); **online-first sign-in** with a device-local verifier (step 28 till half, §G77 — ⚠ a fresh till now REFUSES a first sign-in offline, deliberately); **Today's sales** on Reports (§G78); and a **hang sweep** (§G79 — nothing new to see, but say so if anything stops working and recovers ~30s later). |
+| **Run** | ✅ `D:\tmp\plutus-till-1.118.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-22 from HEAD `2a2a7e52`**, artefact reads **1.118.0** (`ProductVersion 1.118.0+2a2a7e52`). ⚠⚠ **AND THE STALE-STRING CHECK IS NOW A REAL ONE.** The 1.117.0 line here claimed "no stale 1.110.0/1.112.0/1.115.0/1.116.0 string anywhere in it" — that check piped through `strings`, **which is not installed on this box**, so it returned zero matches because the command did not exist. It could not have found a stale version if one were there. Redone by reading all 3,325,952 bytes of the assembly and searching both ASCII and UTF-16: **`1.118.0` appears 3 times, `1.115.0`/`1.116.0`/`1.117.0` zero times.** ⚠ `bin/Release` and `obj/Release` were deleted before the publish (MSBuild caches the evaluated version). ⚠ **The ONLY build on the box** — 1.117.0 deleted. ⚠ **Launched and ran 25s with no startup crash**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G80** — the app bar now matches the web till, Reports is TABS not a drop-down, native drop-down lists follow the theme, table columns line up, and **the Bin actually works** (it never did in 1.117.0). §G76–G79 still apply. |
 | **Deployed** | ✅ **ALL LIVE 2026-08-20** — backend **1.19.0** · portal **1.15.0** · web till **1.28.0**, each verified on the artefact (right host, real byte size, and a string only that change introduced — not a 200). ✅ **§G62–§G66 are all testable now.** ⚠⚠ **But two ordering rules first:** **§G65b** before §G64 (every discount rule has `AutoApply = 0`, so nothing discounts until one is ticked *Apply it automatically* — correct behaviour, not a fault), and **§G66a** before §G66c–h (nothing to scan until a barcode exists). |
 | **Backend 1.19.0 deploy record** | ✅ Verified on four axes: swagger 200 · junk device id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path; a 500 would mean schema and model disagree) · `GET /api/v1/items/barcodes` → **401, not 404** · and the MIGRATION checked as a TABLE, not a history row: `ItemBarcodes` exists with its six columns and **`IX_ItemBarcodes_TenantId_Code` is UNIQUE**. ⚠ **20,474 items before and after** — an additive migration touched nothing. Rollback `~/PLUTUS/backend.pre-1.19.0`; pre-deploy dump `plutus-20260820.sql.gz` verified at **76.5 MB uncompressed, 103 tables** (and confirmed to contain NO `ItemBarcodes` table, so the before/after is real). |
 | **Web till deploy record** | ✅ **1.27.0 live**, verified on the four axes the runbook demands rather than a 200: the right host (`plutus.…`, not `admin.plutus.…`) names `index-BKSYpWKu.js` · the bundle is **377,813 bytes**, not the ~981-byte SPA fallback that answers 200 for anything · the deployed **CSS contains `till-locked`**, a string only this change introduced · the previous bundle now returns **981 bytes**, so it really was replaced. No unsubstituted `__APP_VERSION__`/`__BUILD_TIME__` in the built OR the deployed bundle (the 2026-08-09 blank-portal fault). Rollback: `/srv/apps/PLUTUS/web/current.pre-1.27.0`. |
@@ -4238,7 +4238,7 @@ item"* offer, unchanged.
 
 ### G66d. The MAUI till — the same alias, the same item
 
-⚠ Run `D:\tmp\plutus-till-1.117.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+⚠ Run `D:\tmp\plutus-till-1.118.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
 (the v7 catalogue re-sync above).
 
 Scan `TEST-ALIAS-1`.
@@ -4596,7 +4596,7 @@ break something arbitrarily far from it**, and a sale is the only test that cove
 
 ### G68e. The build folder — what Matt actually asked about
 
-Look at `D:\tmp\plutus-till-1.117.0`.
+Look at `D:\tmp\plutus-till-1.118.0`.
 
 **✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
 
@@ -5768,4 +5768,102 @@ sign out and back in.
 WERE DOING.** That is this change reporting a real hang underneath it — the timeout is working and
 something else is at fault. It would previously have been a permanent freeze with no clue at all,
 so the report is the valuable part.
+
+
+---
+
+## G80. MAUI looks like the web till · *new in 1.118.0*
+
+> **Matt, 2026-08-22, of 1.117.0:** *"Why does MAUI still look different to the webtill? It is
+> missing the plutus name, Baskets in the top right shouldnt be there. The till name is missing,
+> liunk to the portal. Please make the MAUI interface match the webtill."*
+>
+> ⚠ **Open both side by side for all of this.** The whole test is whether they read the same;
+> checking MAUI alone tells you it looks tidy, which is not the question.
+
+### G80a. The app bar
+
+**✅ Expected, left to right:** **Plutus** (a bold `P` in the accent colour, then the word) — then the
+tabs — then, hard against the **right** edge: the **till's name**, **Switch to Portal**, the
+**clock**, **❓**, **👥**.
+
+⚠⚠ **THEY WERE ALL ON THE LEFT IN 1.117.0.** If the clock is still on the left, the fix has not
+taken.
+
+⚠⚠ **AND "Baskets" MUST BE GONE.** It was a duplicate of the **Retrieve** button and it sat exactly
+where the web till puts the clock. Park a basket or two and confirm: **Retrieve** (next to Save)
+works, and nothing appears in the top-right corner.
+
+⚠ The **till name** appears a beat after the bar draws — it is fetched. The web till does the same.
+If it never appears, say so; if the till is not enrolled, absent is correct.
+
+### G80b. Switch to Portal
+
+Tap it. **✅ Expected:** the portal opens **in your browser**, and the till stays open behind it.
+
+⚠ A browser, not a window inside the till — deliberate. Embedding it would mean a second sign-in and
+a second place for a token to live.
+
+⚠ **It is only shown to operators who may use the portal.** Sign in as a cashier: it should be
+absent, not present-and-refused. ⚠ If it says *"This till hasn't been told where the portal is
+yet"*, that is the honest answer for a till configured with an IP or `localhost` — the portal
+address is derived from the server address, and `admin.192.168.1.20` resolves to nothing.
+
+### G80c. ⚠ The drop-down lists follow the theme
+
+Open any remaining drop-down — **Inventory → an item → the tax band or category picker**, and the
+**date pickers** on Reports.
+
+**✅ Expected:** the open list matches the till's scheme. On a dark theme it is **dark**.
+
+⚠⚠ **A WHITE LIST IS THE BUG.** Matt: *"they are white and do not follow themeing."* The closed
+control was always styled; the open list is drawn by Windows and used to ignore the theme entirely.
+
+⚠ It is **light-or-dark, not tinted in the shop's colours** — that is the honest limit and not a
+fault to report. Windows' own theme is a binary; a scheme is arbitrary colours.
+
+### G80d. Reports is TABS, not a drop-down
+
+**Reports.** ✅ Expected: a row of **pill tabs** across the top — Takings, VAT, Items sold, By
+category, Best sellers, Stock, Negative stock, Sales — with the current one filled in the accent
+colour, exactly like the web till's.
+
+⚠ **No drop-down.** Matt: *"Instead of the drop down in reports, can it not be like the webtill?
+Where they are tabs?"*
+
+⚠ Tap along them. The chosen report should run on the **first** tap. ⚠ Tapping the tab you are
+already on should do **nothing** — re-running a report you are reading is churn.
+
+⚠ On a narrow window the row **scrolls sideways**; it must not wrap onto a second line, which would
+move everything below it as you resize.
+
+⚠ **Only the reports this operator may read are shown** — unchanged behaviour, but now visible at a
+glance rather than hidden in a list. Sign in as a limited role and confirm the row is shorter.
+
+### G80e. ⚠ The table columns line up
+
+**Reports → Sales.** Look down the **VAT** and **Total** columns.
+
+**✅ Expected:** every row's figures sit under their own heading, and the columns are the same width
+all the way down.
+
+⚠⚠ **THEY WANDERED IN 1.117.0** and the header matched none of them — a row reading £13.30 sized
+that column narrow, £163.81 sized it wide, because each row measured itself. ⚠ A day with a wide
+spread of totals is the test; a day where everything is £5-ish will look fine either way.
+
+⚠ Check the other tables too — **Cash**, **Inventory → View all items**, **Loyalty**. They share one
+control, so this changed all of them.
+
+### G80f. ⚠⚠ The Bin — it never worked before
+
+**Inventory → View all items → The Bin.**
+
+**✅ Expected:** the withdrawn items, or a plain statement that nothing is withdrawn.
+
+⚠⚠ **IN 1.117.0 THIS ALWAYS FAILED**, with *"The bin couldn't be read... Try again when the till is
+back online"* — on a till that was online the whole time. The request was missing a header the
+server requires, so it could never have worked. If you still see that message, the fix has not
+taken and it is worth saying so immediately.
+
+Then follow **§G76** in full — restoring an item and confirming it sells.
 
