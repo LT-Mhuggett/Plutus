@@ -46,7 +46,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto">
                 <SearchBar Grid.Column="0"
                            Placeholder="{Binding Source={i18n:Translate Items}, StringFormat={i18n:Translate SearchArg}}"
                            Text="{Binding SearchText}"/>
@@ -58,6 +58,14 @@
                         Command="{Binding CreateItemCommand}"/>
                 <Button Grid.Column="2" Text="Categories" Margin="0,0,4,0"
                         Command="{Binding ManageCategoriesCommand}"/>
+                <!-- ⚠⚠ THE BIN (WP10 #4, 2026-08-22). It has to be a BUTTON HERE and cannot be a
+                     filter on the list beside it: this list is a capped read of LOCAL SQLite, and a
+                     binned item is not in it — the catalogue feed sends binned items as tombstones
+                     and the till deletes them, so a withdrawn product stops scanning even offline.
+                     The Bin is a server-backed view of something the till deliberately does not hold.
+                     ⚠ Which is also why it is online-only, and says so when it cannot be read. -->
+                <Button Grid.Column="3" Text="The Bin" Margin="0,0,4,0"
+                        Command="{Binding OpenBinCommand}"/>
             </Grid>
 
             <!-- ⚠ FOUR columns, and the row template below MUST match. A header that disagrees with

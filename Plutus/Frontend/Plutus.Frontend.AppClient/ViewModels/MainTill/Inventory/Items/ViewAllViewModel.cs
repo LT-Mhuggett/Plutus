@@ -558,6 +558,124 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// entity: a bare price change would clear `StockUntracked` or blank `BinnedAtUtc`,
         /// restoring a withdrawn item to sale on every till in the estate.
         /// </summary>
+
+        #region The Bin — WP10 #4
+
+        private Command _openBinCommand;
+
+        /// <summary>
+        /// Show what has been withdrawn from sale, and put one back.
+        ///
+        /// ⚠⚠ SERVER-BACKED, BECAUSE THERE IS NOTHING LOCAL. A binned item reaches this till as a
+        /// TOMBSTONE — `CatalogueChangesController` sends `Removed: r.BinnedAtUtc != null` and the
+        /// till DELETES it, deliberately, so a withdrawn product stops scanning even on a till that
+        /// has been offline since. `ItemParameters.Binned`, which is how the portal and the web till
+        /// show their Bin, does not apply to a local SQLite read at all.
+        ///
+        /// ⚠ SO IT IS ONLINE-ONLY, and it says so rather than showing an empty list. An empty Bin
+        /// and an unreachable server look identical otherwise — and a shop that believes the first
+        /// when the second is true re-creates a product that already exists, under a NEW id, which
+        /// splits its sales history in two.
+        /// </summary>
+        public Command OpenBinCommand => _openBinCommand ??= new Command(ExecuteOpenBin);
+
+        /// <summary>⚠ `async void` on a Command — nothing may escape, or the till closes.</summary>
+        private async void ExecuteOpenBin()
+        {
+            try
+            {
+                // ⚠⚠ READING IS OPEN, RESTORING IS NOT. Knowing a product was withdrawn answers
+                // "why will this not scan" for anybody on the shop floor; putting it back changes
+                // what every till in the estate sells, and that is `inventory.bulk` — the same gate
+                // as *Move to the Bin…*, deliberately symmetric.
+                var mayRestore = Services.Security.TillGate.Check(
+                    App.GetViewModel().SignedInOperator, PermissionCatalogue.InventoryBulk).Allowed;
+
+                // ⚠ THE OPERATOR'S CLIENT. `/api/Item/Index` reads an `objectidentifier` claim in
+                // its base constructor, which only an operator token carries — a device token does
+                // not merely fail the policy, it 500s before the action runs.
+                var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
+
+                while (true)
+                {
+                    // ⚠ NULL IS "COULD NOT READ", NEVER AN EMPTY BIN — the dialog renders them
+                    // differently and the distinction is the whole reason this returns null.
+                    var items = api is null ? null : await api.GetBinnedItemsAsync();
+
+                    var outcome = await Helpers.CustomViews.BinHelper.ShowAsync(items, mayRestore);
+
+                    if (outcome.IsClosed) return;
+
+                    // ⚠ Re-checked rather than trusted from the dialog. The row is only tappable
+                    // when the operator may restore, but an outcome is data and this is a write.
+                    if (!mayRestore || api is null) return;
+
+                    await RestoreFromBinAsync(api, items, outcome.IdOne);
+                }
+            }
+            catch (Exception ex)
+            {
+                // ⚠ `async void` — without this the till closes.
+                Services.Analytics.CrashLog.Write("ViewAllViewModel.OpenBin", ex);
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    "Something went wrong reading the Bin. Nothing has been changed.", "OK".Translate());
+            }
+        }
+
+        /// <summary>
+        /// Put one item back, with a confirmation that says what it actually does.
+        ///
+        /// ⚠⚠ IT RESTORES ON EVERY TILL, INCLUDING OFFLINE ONES, and the wording says so — the same
+        /// sentence *Move to the Bin…* uses in the other direction, because it is the same fact. An
+        /// operator who thinks they are un-hiding it "on this till" will be surprised by a shop-wide
+        /// change they did not intend.
+        ///
+        /// ⚠ AND IT SYNCS THE CATALOGUE AFTERWARDS. Without that the item is sellable on the
+        /// platform and still absent from THIS till's local catalogue until the next cadence tick —
+        /// so the operator restores it, tries to scan it, and it does not work. Exactly the
+        /// complaint the item editor's own header records about editing a price.
+        /// </summary>
+        private static async Task<bool> RestoreFromBinAsync(
+            Plutus.Client.Core.PlutusApiClient api,
+            IReadOnlyList<Plutus.Contracts.Client.BinnedItemDto> items,
+            string idOne)
+        {
+            if (string.IsNullOrWhiteSpace(idOne)) return false;
+
+            var name = items?.FirstOrDefault(i => i.IdOne == idOne)?.Name;
+            var label = string.IsNullOrWhiteSpace(name) ? idOne : name;
+
+            var confirmed = await Services.UIHandeling.Modal.ShowAsync(() =>
+                App.Current.MainPage.DisplayAlert(
+                    "Put it back?",
+                    $"“{label}” will start selling again on EVERY till, including tills that are "
+                    + "offline right now. It keeps its id, so its sales history stays in one piece.",
+                    "Put it back", "Cancel".Translate()));
+
+            if (!confirmed) return false;
+
+            // ⚠ `bin: false` IS THE RESTORE. `BinItemsAsync` already carried both directions — the
+            // action was wired and had no door, which is the "built and wired to nothing" pattern
+            // this project has hit repeatedly. This is the door.
+            var (ok, problem) = await api.BinItemsAsync(new[] { idOne }, bin: false);
+
+            if (!ok)
+            {
+                await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                    problem ?? "Plutus refused that. Nothing has been changed.", "OK".Translate());
+                return false;
+            }
+
+            // ⚠ Pull the catalogue so the item is scannable HERE, now — see the summary.
+            await Services.Storage.CatalogueSyncService.SyncAsync();
+
+            await App.Current.MainPage.DisplayAlert("Support",
+                $"“{label}” is back on sale.", "OK".Translate());
+
+            return true;
+        }
+
+        #endregion
         /// <summary>
         /// An item's barcodes and its history — WP10, 2026-08-21.
         ///
@@ -1204,7 +1322,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         "Move to the Bin?",
                         $"“{item.Name}” will stop selling on EVERY till, including tills that are " +
                         "offline right now. Nothing is deleted — it keeps its sales history and can " +
-                        "be restored from the portal.",
+                        "be put back from The Bin, here or in the portal.",
                         "Move to the Bin", "Cancel".Translate()));
 
                 if (!confirmed) return;

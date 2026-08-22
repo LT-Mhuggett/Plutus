@@ -1590,7 +1590,7 @@ row. Six of the fifteen ⬜ rows close with this step.
 | 1 | **Give an item another barcode, or correct one** | ✅ **BUILT.** `ItemDetailAlert` + `ItemDetailHelper`, reached from the item tap-menu as **"Barcodes & history…"**. Client half is 5 new `PlutusApiClient` methods. ⚠ Every row is **locked** behind an explicit `🔒 Edit` (the 2026-08-20 ruling: a barcode is the string a scanner matches on, so a stray keystroke in a live box is an item that silently stops scanning). ⚠ Correction is **one `PUT`**, never delete-then-add. ⚠ The item's **own code is shown first and labelled** *"the item's own code"* — it is the identity, not a removable alias, and an operator who cannot tell them apart will try to "correct" it |
 | 2 | **See who changed an item, and when** | ✅ **BUILT.** A `TillTable` in the same dialog — When · What · Detail · Who — sortable, searchable, paged, and it now includes **stock movements** as well as edits (Matt's condition, 2026-08-21). ⚠ A failed read **says so** rather than rendering an empty table: *"this item has never been touched"* is a different claim from *"we could not ask"*, and an operator acting on the first would change a price believing nobody else had |
 | 3 | Add a new item on **one screen** | ✅ **ALREADY TRUE** — marker corrected. One dialog, nine fields |
-| 4 | Put a withdrawn item back | ⬜ **AND IT IS A SCREEN, NOT A WIRING JOB — my ½d estimate was WRONG.** See below |
+| 4 | Put a withdrawn item back | ✅ **BUILT 2026-08-22 — and it WAS a screen, as the note below predicted.** `BinAlert` + `BinHelper`, reached from a **The Bin** button on the Inventory toolbar |
 
 ⚠ **Both endpoints had to be widened first, and that was a prerequisite rather than a nicety.** The
 barcode endpoints were `perm:portal.stock.adjust` and history `perm:portal.reports.view` — **portal
@@ -1604,6 +1604,42 @@ neither** — the 2026-08-20 ruling that naming who changed a price is a supervi
 reopens it**. Without the reopen an operator who adds a barcode is dropped back to the item grid with
 no evidence it worked, and the natural response is to add it again. Learned in `CustomerDetailAlert`.
 
+
+##### ✅ Built 2026-08-22 — and the ~1d estimate was the right one
+
+The Bin is a **button on the Inventory toolbar**, not a filter on the list beside it, and that follows
+directly from the finding above: the list is a capped read of local SQLite and **a binned item is not
+in it**.
+
+| Piece | Where |
+|---|---|
+| The server-backed list | `PlutusApiClient.GetBinnedItemsAsync` → `GET /api/Item/Index?…&Binned=true` — the same route the portal's Bin uses, so there is one definition of "what is in the Bin" |
+| The screen | `Views/CustomViews/BinAlert.cs` — a `TillTable` with search, sort and paging |
+| The door | `BinHelper.ShowAsync`, one push / one await / one pop in a `finally` |
+| Restore | `BinItemsAsync(ids, bin: false)` — ⚠ **it already existed and had no caller**, which is the pattern the note below names |
+
+⚠⚠ **AN EMPTY BIN AND AN UNREACHABLE SERVER ARE RENDERED DIFFERENTLY, and that is the one thing here
+that could cost money.** They look identical otherwise — and a shop that believes "nothing was
+withdrawn" when the truth is "we could not ask" will **re-create a product that already exists**, under
+a new id, splitting its sales history in two. `GetBinnedItemsAsync` answers `null` rather than an empty
+list for exactly this reason, and the dialog says which it got.
+
+⚠ **Reading is open; restoring is `inventory.bulk`** — symmetric with *Move to the Bin…*, deliberately:
+one call changes what every till in the estate sells, so the way back must not be easier than the way
+in. Knowing a product was withdrawn still answers *"why will this not scan"* for anybody on the floor.
+
+⚠ **It syncs the catalogue after a restore.** Without that the item is sellable on the platform and
+still absent from THIS till until the next cadence tick — so the operator restores it, tries to scan
+it, and it does not work. The same complaint the item editor's own header records about a price.
+
+⚠ *Move to the Bin…*'s confirmation used to end *"can be restored from the portal"*. **That sentence is
+now false and was corrected in the same commit** — it says "from The Bin, here or in the portal".
+
+⚠ 4 E2E tests. ⚠⚠ Two of them failed first on **order dependence**: one test restores the seeded item,
+and the seed short-circuited rather than re-binning, so every later test saw an empty Bin and it read
+as *"the Bin view is broken"*. The seed now asserts the state it needs on every call. The same class
+of fault as the WP-FY tests two days earlier — a shared fixture database rewards seeds that are
+idempotent about STATE, not just about existence.
 ##### ⚠⚠ Why increment 4 is a day and not half of one — the finding that changes it
 
 **A binned item reaches the till as a TOMBSTONE, by design.** `CatalogueChangesController` sends
@@ -2443,7 +2479,7 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 > | Un-enrol + manager approval (1 row) | ✅ **DONE 2026-08-16** (till 1.70.0) |
 > | VAT-band consistency guard (1 row) → WP10 | ⬜ — rides with the item-editor cluster |
 
-## 7. How long, honestly — **≈3–5 days** (re-costed 2026-08-22, twice)
+## 7. How long, honestly — **≈2–4 days** (re-costed 2026-08-22)
 
 > ⚠⚠ **THE OLD NUMBER WAS ≈35–40 DAYS AND IT WAS BADLY STALE.** Its own arithmetic said *"two thirds is
 > step 27 (12–15d) and step 26 (8–10d)"* — and **both have substantially landed**. Removing just those
@@ -2460,11 +2496,11 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 > | 🔄 | **Step 28 — online-first login** | ~~2–3d~~ **the TILL half done 2026-08-22** | ⚠ The server still ships platform hashes; stopping that is a separate FLAGGED change, and the order cannot be reversed — every till must mint verifiers first or the deploy locks out anyone who has not signed in since. |
 > | ✅ | **~~Step 24 — the roster move~~ — COMPLETE 2026-08-17 (till 1.72.0)** | ~~1d~~ **0** | ⚠ Phantom. The step's own body says `✅ STEP 24 IS COMPLETE`; only its heading and this row said otherwise |
 > | ⏸ | **Step 21 — delete `LoginViewModel.EnsureStoreAsync`** | — | ⚠⚠ **NOT BLOCKED BY WORKING CODE — corrected 2026-08-21.** Both remaining `Store.Id` dereferences are in **UNREACHABLE** code, which this row never said: `AddEditViewModel:337` sits in a view **hidden on 2026-08-10**, and `ViewAllViewModel:1385` is in `ExecuteUpdateItemStock`, whose `UpdateItemStockCommandArg` is **bound to nothing** (both verified in §0.3b). It waits on no build — **it rides with L2/L3's deletions, which are Matt's call.** ⚠ Reading it as "blocked" invites somebody to unblock it by rewriting dead code |
-> | ⬜ | **[WP10](#wp10--the-item-editors-four-remaining-increments--1½2½d--matt-ruled-it-in-2026-08-21) — the item editor's four remaining increments** | **≈1½–2½d** | ⚠ **Matt ruled it IN, 2026-08-21** (*"cost it as a work package"*), and costing it found the justification was wrong: **"MAUI has no item editor at all" conflated two code paths.** `ExecuteOpenAddItem`/`AddEditView` is dead; `ViewAllViewModel`'s tap-menu — Add to basket · **Edit item** · Adjust stock… · Move to the Bin… — is alive, and A0 has said so two tables up all along. **Two of the four rows were not gaps**: MAUI's add is already one screen (nine fields in one dialog → marker corrected to 🟡), and restore-from-Bin already exists server-side. What is real is a **barcode section** (~1d) and a **change-history list** (~½d) on an editor that exists, plus ~½d to wire restore. ⚠ The decision that remains is narrower and sharper: **may a till change an item's IDENTITY**, not whether it may edit one |
+> | ✅ | **[WP10](#wp10--the-item-editors-four-remaining-increments--1½2½d--matt-ruled-it-in-2026-08-21) — the item editor's four remaining increments** | **≈1½–2½d** | ⚠ **Matt ruled it IN, 2026-08-21** (*"cost it as a work package"*), and costing it found the justification was wrong: **"MAUI has no item editor at all" conflated two code paths.** `ExecuteOpenAddItem`/`AddEditView` is dead; `ViewAllViewModel`'s tap-menu — Add to basket · **Edit item** · Adjust stock… · Move to the Bin… — is alive, and A0 has said so two tables up all along. **Two of the four rows were not gaps**: MAUI's add is already one screen (nine fields in one dialog → marker corrected to 🟡), and restore-from-Bin already exists server-side. What is real is a **barcode section** (~1d) and a **change-history list** (~½d) on an editor that exists, plus ~½d to wire restore. ⚠ The decision that remains is narrower and sharper: **may a till change an item's IDENTITY**, not whether it may edit one |
 > | ➖ | **~~Remote lock of a lost or stolen till~~ → MOVED OUT, 2026-08-21** | — | ⚠ **Matt: *"Make it a platform work package."*** Now **`plutus-platform-architecture.md` §12b — WP-SL**, ≈1½–2d, because it is ⬜ on the **web till and MAUI both** and sitting in a MAUI parity document is why nobody picked it up for twelve days. ⚠⚠ Its three open questions are answered there, and the load-bearing one is **what a locked till does with unsynced sales**: it must still drain its outbox, so enforcement has to refuse a token for SELLING without killing the drain. ⚠ **`Revoked` is still the real incident tool today** |
 > | ⏸ | **L1–L10 legacy removal** | — | Matt actions last. **L4 closed 2026-08-20** with the Syncfusion removal |
 >
-> ⚠ **So: not finished, but nothing like a two-month job.** ~~Roughly **10–15 days**~~ → ~~≈7–9 days~~ → ~~≈5–7 days~~ → **≈3–5 days** (Step 11b and the till half of 28 closed 2026-08-22)
+> ⚠ **So: not finished, but nothing like a two-month job.** ~~Roughly **10–15 days**~~ → ~~≈7–9 days~~ → ~~≈5–7 days~~ → ~~≈3–5 days~~ → **≈2–4 days** (11b, the till half of 28, and WP10 all closed 2026-08-22)
 > after 2026-08-21, and the shape has changed as much as the number: the 🔴 at the top was **already
 > closed and mis-recorded**, WP16 was **built on the till the row said was missing it**, and WP14 —
 > the one row that was accurately ⬜ — took half a day. **What is left is one real build (step 11b,

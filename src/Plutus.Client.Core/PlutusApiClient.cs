@@ -806,6 +806,47 @@ public sealed class PlutusApiClient
         }
     }
 
+
+    /// <summary>
+    /// The items in the Bin — WP10 #4, 2026-08-22.
+    ///
+    /// ⚠⚠ **THIS EXISTS BECAUSE THERE IS NOTHING LOCAL TO RESTORE FROM.** A binned item reaches the
+    /// till as a **tombstone**: `CatalogueChangesController` sends `Removed: r.BinnedAtUtc != null`,
+    /// and the till DELETES it from its local catalogue — deliberately, so a binned item stops
+    /// scanning even on a till that has been offline since. MAUI's item list is a capped read of
+    /// that local SQLite, so the Bin is not merely hidden there, it is **absent**.
+    ///
+    /// ⚠ SO THIS IS ONLINE-ONLY, and the screen says so rather than rendering an empty list. An
+    /// empty Bin and an unreachable server look identical otherwise, and one of them means "nothing
+    /// was withdrawn" while the other means "ask again later".
+    ///
+    /// ⚠ THE LEGACY `Index` ENDPOINT, not a v1 route: it is what the portal's Bin view uses
+    /// (`fetchCatalogueItemsPaged(..., binned = true)`), and a second server-side definition of
+    /// "which items are in the Bin" is a definition that can disagree with the first.
+    /// </summary>
+    /// <returns>Null when it could not be read — never an empty list, which would read as "the Bin
+    /// is empty".</returns>
+    public async Task<IReadOnlyList<BinnedItemDto>?> GetBinnedItemsAsync(
+        string? search = null, int page = 1, int pageSize = 100, CancellationToken ct = default)
+    {
+        var url = $"/api/Item/Index?PageNumber={page}&PageSize={pageSize}&Binned=true"
+                + (string.IsNullOrWhiteSpace(search) ? "" : $"&Search={Uri.EscapeDataString(search.Trim())}");
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            await AuthoriseAsync(req, ct);
+            using var res = await _http.SendAsync(req, ct);
+            if (!res.IsSuccessStatusCode) return null;
+
+            return await res.Content.ReadFromJsonAsync<BinnedItemDto[]>(Json, ct);
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            // ⚠ Null, not empty. See the summary — the two mean opposite things to an operator.
+            return null;
+        }
+    }
     /// <summary>
     /// Move items to the Bin, or bring them back (WP10 / cutover step 25).
     ///
