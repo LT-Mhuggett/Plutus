@@ -112,20 +112,45 @@ namespace Plutus.Frontend.AppClient.Tests.Models
             Assert.Same(basketItem.Item, clone.Item);
         }
 
+        /// <summary>
+        /// ⚠⚠ THE FLAG CARRIES THE MEANING NOW (step 11b, 2026-08-22). This was
+        /// `BasketReturnItem_SetItemReturn_SetsReasonAndSaleId`, and the subclass it named is gone —
+        /// `IBasketRecord`'s seam comment called out `Reason` and `ReturnSaleId` as two of the three
+        /// things that had to move before it could.
+        /// </summary>
         [Fact]
-        public void BasketReturnItem_SetItemReturn_SetsReasonAndSaleId()
+        public void MarkAsReturn_SetsTheFlagTheReasonAndTheSaleId()
         {
-            var returnItem = new BasketReturnItem(MakeItem(), 1);
-            returnItem.SetItemReturn("Faulty", "SALE-123");
+            var returnItem = new BasketItem(MakeItem(), 1);
 
+            // ⚠ A LINE IS A SALE UNTIL IT IS MARKED. Constructing one and forgetting the mark is the
+            // hazard the whole collapse introduced, so the "before" is asserted, not assumed.
+            Assert.False(returnItem.IsReturn);
+
+            returnItem.MarkAsReturn("Faulty", "SALE-123");
+
+            Assert.True(returnItem.IsReturn);
             Assert.Equal("Faulty", returnItem.Reason);
             Assert.Equal("SALE-123", returnItem.ReturnSaleId);
         }
 
+        /// <summary>
+        /// ⚠⚠ BOTH ARE OPTIONAL, AND THAT IS DELIBERATE — it is what the old subclass allowed. The
+        /// till demands a reason before it will proceed and `CheckoutCommit` filters blank ones out
+        /// of the sale note, so the guard lives THERE. Requiring them here would be stricter than
+        /// the platform has ever been, and it would break `ParkedBasket` restoring a blob parked
+        /// before the reason was captured.
+        /// </summary>
         [Fact]
-        public void BasketReturnItem_IsABasketItem()
+        public void MarkAsReturn_WithoutAReason_StillMarksTheLine()
         {
-            Assert.IsAssignableFrom<BasketItem>(new BasketReturnItem(MakeItem()));
+            var line = new BasketItem(MakeItem(), 1);
+
+            line.MarkAsReturn();
+
+            Assert.True(line.IsReturn);
+            Assert.Null(line.Reason);
+            Assert.Null(line.ReturnSaleId);
         }
 
         [Fact]

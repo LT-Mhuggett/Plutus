@@ -304,10 +304,15 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         [Fact]
         public void A_refund_only_basket_attracts_no_fee()
         {
-            var basket = new List<IBasketRecord> { new BasketReturnItem(new ItemModel
+            var returned = new BasketItem(new ItemModel
             {
                 Id = "A", Name = "A", Price = 10m, ExPrice = 10m, Vat = new TaxModel { Name = "" },
-            }, 1) };
+            }, 1);
+
+            // ⚠ MARKED, NOT SUBCLASSED (step 11b) — without this it is a SALE line.
+            returned.MarkAsReturn();
+
+            var basket = new List<IBasketRecord> { returned };
 
             Assert.Null(CheckoutCommit.SurchargeItem(basket, 169, 20));
         }
@@ -343,7 +348,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             var item = Item("A", 10m, 10m, qty: 2);
             var basket = new List<IBasketRecord> { item, Alteration(-5m, item) };
 
-            var asTheTillSumsIt = basket.Sum(r => r.Price * (r is BasketReturnItem ? -1 : 1) * r.Quantity);
+            var asTheTillSumsIt = basket.Sum(r => r.Price * (r is BasketItem b && b.IsReturn ? -1 : 1) * r.Quantity);
 
             Assert.Equal(15m, asTheTillSumsIt);
             Assert.Equal(1500, CheckoutCommit.BasketMoneyPence(basket));
@@ -532,11 +537,15 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         [Fact]
         public void Basket_items_and_returns_never_appear_as_notes()
         {
-            var returned = new BasketReturnItem(new ItemModel
+            var returned = new BasketItem(new ItemModel
             {
                 Id = "R", Name = "Returned", Price = 10m, ExPrice = 10m,
                 Vat = new TaxModel { Name = "Standard" },
             }, 1);
+
+            // ⚠ MARKED, NOT SUBCLASSED (step 11b) — without this it is a SALE line, and
+            // every assertion below about return handling would pass for the wrong reason.
+            returned.MarkAsReturn();
 
             Assert.Empty(CheckoutCommit.ReceiptNotesFrom(new List<IBasketRecord>
             {
@@ -719,11 +728,15 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         [Fact]
         public void A_discount_that_lands_on_no_line_records_no_attribution()
         {
-            var returned = new BasketReturnItem(new ItemModel
+            var returned = new BasketItem(new ItemModel
             {
                 Id = "R", Name = "Returned", Price = 10m, ExPrice = 10m,
                 Vat = new TaxModel { Name = "Standard" },
             }, 1);
+
+            // ⚠ MARKED, NOT SUBCLASSED (step 11b) — without this it is a SALE line, and
+            // every assertion below about return handling would pass for the wrong reason.
+            returned.MarkAsReturn();
 
             var lines = CheckoutCommit.LinesFrom(new List<IBasketRecord>
             {

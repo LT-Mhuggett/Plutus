@@ -89,7 +89,7 @@
                     </StackLayout>
                 </ViewCell>
             </DataTemplate>
-            <DataTemplate x:Key="BasketReturnItem">
+            <DataTemplate x:Key="BasketReturnRow">
                 <ViewCell>
                     <ViewCell.ContextActions>
                         <MenuItem Text="{Binding Source={i18n:Translate Returns}, StringFormat={i18n:Translate RevertArg}}"
@@ -143,7 +143,7 @@
             </DataTemplate>
             <ext:BasketDataTemplateSelector x:Key="BasketDataTemplateSelector"
                                             BasketItemTemplate="{StaticResource BasketItem}"
-                                            BasketItemReturnTemplate="{StaticResource BasketReturnItem}"
+                                            BasketItemReturnTemplate="{StaticResource BasketReturnRow}"
                                             BasketNoteTemplate="{StaticResource BasketNote}"/>
         </ResourceDictionary>
     </ContentPage.Resources>

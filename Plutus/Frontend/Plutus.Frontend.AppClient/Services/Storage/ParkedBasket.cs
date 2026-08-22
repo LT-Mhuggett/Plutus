@@ -57,27 +57,19 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             {
                 switch (record)
                 {
-                    // ⚠ Return BEFORE item — BasketReturnItem derives from BasketItem, so testing
-                    // for the base type first would park every refund as an ordinary sale line and
-                    // recall it as money owed TO the shop rather than by it.
-                    case BasketReturnItem r:
+                    // ⚠⚠ ONE CASE FOR BOTH, SPLIT ON `IsReturn` (step 11b, 2026-08-22). This was two
+                    // cases with a comment insisting the RETURN one came first, because the return
+                    // type derived from the item type and testing the base first would have parked
+                    // every refund as an ordinary sale line — recalled as money owed TO the shop
+                    // rather than by it. With the subclass collapsed there is no order to get wrong.
+                    case BasketItem r:
                         records.Add(new ParkedRecord
                         {
-                            Kind = ParkedRecord.KindReturn,
+                            Kind = r.IsReturn ? ParkedRecord.KindReturn : ParkedRecord.KindItem,
                             IdOne = r.Item?.Id, Name = r.Item?.Name,
                             IncPence = Pence.FromDecimal(r.Price), ExPence = Pence.FromDecimal(r.PriceExTax),
                             Qty = r.Quantity, VatBand = r.Item?.Vat?.Name,
                             Reason = r.Reason, OriginSaleId = r.ReturnSaleId,
-                        });
-                        break;
-
-                    case BasketItem i:
-                        records.Add(new ParkedRecord
-                        {
-                            Kind = ParkedRecord.KindItem,
-                            IdOne = i.Item?.Id, Name = i.Item?.Name,
-                            IncPence = Pence.FromDecimal(i.Price), ExPence = Pence.FromDecimal(i.PriceExTax),
-                            Qty = i.Quantity, VatBand = i.Item?.Vat?.Name,
                         });
                         break;
 
@@ -138,8 +130,14 @@ namespace Plutus.Frontend.AppClient.Services.Storage
 
                 if (string.Equals(r.Kind, ParkedRecord.KindReturn, StringComparison.OrdinalIgnoreCase))
                 {
-                    var ret = new BasketReturnItem(item, Math.Max(1, r.Qty));
-                    ret.SetItemReturn(r.Reason, r.OriginSaleId);
+                    // ⚠⚠ ONE OBJECT, MARKED — not a subclass constructed and then told what it is
+                    // (step 11b, 2026-08-22). The old pair was `new BasketReturnItem(...)` followed by
+                    // `SetItemReturn(...)`: two steps, with a window in between where the line was a
+                    // return carrying no reason and no origin sale. `MarkAsReturn` takes both at once
+                    // because a refund with neither is money leaving the drawer with nothing to net
+                    // it off.
+                    var ret = new BasketItem(item, Math.Max(1, r.Qty));
+                    ret.MarkAsReturn(r.Reason, r.OriginSaleId);
                     basket.Add(ret);
                 }
                 else

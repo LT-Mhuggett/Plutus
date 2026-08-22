@@ -15,14 +15,19 @@ namespace Plutus.Frontend.AppClient.Helpers.Extensions.XAML
 
         protected override DataTemplate OnSelectTemplate(object item, BindableObject container)
         {
-            if (item is BasketReturnItem basketReturnItem)
-                return BasketItemReturnTemplate;
-            else if(item is BasketItem basketItem)
-                return BasketItemTemplate;
-            else if (item is BasketNote basketNote)
+            // ⚠⚠ CHOSEN ON `IsReturn`, NOT ON THE RUNTIME TYPE (step 11b, 2026-08-22). This was
+            // `item is BasketReturnItem` FIRST and `is BasketItem` second, and the order was
+            // load-bearing: the return type derived from the item type, so reversing the two cases
+            // would have rendered every return with the SALE template — right money, wrong words,
+            // silently. `IBasketRecord`'s seam comment named this selector as one of the two things
+            // that had to move before the subclass could go.
+            if (item is BasketItem basketItem)
+                return basketItem.IsReturn ? BasketItemReturnTemplate : BasketItemTemplate;
+
+            if (item is BasketNote)
                 return BasketNoteTemplate;
-            else
-                throw new ArgumentException("object is not a type that has a valid Template", "item");
+
+            throw new ArgumentException("object is not a type that has a valid Template", nameof(item));
         }
     }
 }

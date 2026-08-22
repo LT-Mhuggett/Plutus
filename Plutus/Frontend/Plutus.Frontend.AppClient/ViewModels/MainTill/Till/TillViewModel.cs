@@ -398,7 +398,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
         private Command _revertReturnCommandArg;
 
-        public Command RevertReturnCommandArg => _revertReturnCommandArg ?? (_revertReturnCommandArg = new Command<BasketReturnItem>(ExecuteRevertReturn));
+        public Command RevertReturnCommandArg => _revertReturnCommandArg ?? (_revertReturnCommandArg = new Command<BasketItem>(ExecuteRevertReturn));
 
         #endregion
         #endregion
@@ -1112,7 +1112,15 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 };
                 #endregion
 
-                var returnItem = basketItem.Adapt<BasketReturnItem>();
+                // ⚠⚠ A COPY OF THE LINE, NOT A CAST TO A SUBCLASS (step 11b, 2026-08-22). This
+                // was `basketItem.Adapt<BasketReturnItem>()` — a Mapster hop across an inheritance
+                // chain that existed only to change the runtime type. The subclass is gone; the line
+                // is flagged instead, by `MarkAsReturn` below once the reason and origin are known.
+                //
+                // ⚠ STILL A COPY, and deliberately: the basket may already hold the SALE line for
+                // this item, and flagging that one in place would turn a sale the customer is buying
+                // into a refund under their hands.
+                var returnItem = basketItem.Adapt<BasketItem>();
 
                 // ⚠ PICK THE SALE, DON'T TYPE ITS UUID. Until 2026-08-10 this dialog's first field
                 // was "Sale id" and nothing in the app could produce one — no list, no search. The
@@ -1274,7 +1282,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     // the direction it goes wrong is whichever way the shop loses.
                     returnItem.Price = resolution.UnitIncPence / 100m;
                     returnItem.PriceExTax = resolution.UnitExPence / 100m;
-                    returnItem.SetItemReturn(reasonText, saleIdText);
+                    returnItem.MarkAsReturn(reasonText, saleIdText);
                 }
                 //finalize change
                 Basket.Remove(basketItem);
@@ -1291,7 +1299,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             }
         }
 
-        private void ExecuteRevertReturn(BasketReturnItem basketReturnItem)
+        private void ExecuteRevertReturn(BasketItem basketReturnItem)
         {
             if (IsBusy)
                 return;
@@ -3238,7 +3246,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         {
             try
             {
-                var originIds = Basket.OfType<BasketReturnItem>()
+                var originIds = Basket.OfType<BasketItem>().Where(r => r.IsReturn)
                     .Select(r => r.ReturnSaleId)
                     .Where(id => Guid.TryParse(id, out _))
                     .Select(Guid.Parse)
@@ -3292,7 +3300,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         {
             try
             {
-                var originIds = Basket.OfType<BasketReturnItem>()
+                var originIds = Basket.OfType<BasketItem>().Where(r => r.IsReturn)
                     .Select(r => r.ReturnSaleId)
                     .Where(id => Guid.TryParse(id, out _))
                     .Select(Guid.Parse)

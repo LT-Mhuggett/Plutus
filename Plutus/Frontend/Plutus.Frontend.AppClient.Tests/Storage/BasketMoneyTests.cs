@@ -43,8 +43,9 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
                 Vat = new TaxModel { Name = "Standard" },
             }, qty);
 
-        private static BasketReturnItem Return(decimal price, decimal exPrice, int qty = 1) =>
-            new(new ItemModel
+        private static BasketItem Return(decimal price, decimal exPrice, int qty = 1)
+        {
+            var line = new BasketItem(new ItemModel
             {
                 Id = "ITEM",
                 Name = "Item",
@@ -52,6 +53,14 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
                 ExPrice = exPrice,
                 Vat = new TaxModel { Name = "Standard" },
             }, qty);
+
+            // ⚠⚠ MARKED, NOT SUBCLASSED (step 11b, 2026-08-22). This helper returned a
+            // `BasketReturnItem`, where the TYPE carried the meaning. Widening the return type
+            // WITHOUT this call hands every test a SALE line named `Return` — the arithmetic
+            // flips sign silently and the tests still pass, on the wrong numbers.
+            line.MarkAsReturn();
+            return line;
+        }
 
         private static BasketNote Note(string text) =>
             new(new NoteModel { Note = text });

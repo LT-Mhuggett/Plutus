@@ -22,11 +22,11 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         private static BasketItem Item(string idOne, decimal price, decimal ex, int qty = 1, string band = "Standard") =>
             new(new ItemModel { Id = idOne, Name = "Item " + idOne, Price = price, ExPrice = ex, Vat = new TaxModel { Name = band } }, qty);
 
-        private static BasketReturnItem Return(string idOne, decimal price, decimal ex, string reason, string origin)
+        private static BasketItem Return(string idOne, decimal price, decimal ex, string reason, string origin)
         {
-            var r = new BasketReturnItem(
+            var r = new BasketItem(
                 new ItemModel { Id = idOne, Name = "Item " + idOne, Price = price, ExPrice = ex, Vat = new TaxModel { Name = "Standard" } }, 1);
-            r.SetItemReturn(reason, origin);
+            r.MarkAsReturn(reason, origin);
             return r;
         }
 
@@ -59,7 +59,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         }
 
         /// <summary>
-        /// ⚠ A RETURN MUST COME BACK AS A RETURN. `BasketReturnItem` derives from `BasketItem`, so
+        /// ⚠ A RETURN MUST COME BACK AS A RETURN. `BasketReturnItem` used to derive from `BasketItem`, so
         /// a type test in the wrong order parks every refund as an ordinary sale line — and it
         /// recalls as money owed TO the shop instead of by it, silently doubling the error.
         /// </summary>
@@ -71,7 +71,10 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             var back = ParkedBasket.FromJson(ParkedBasket.ToJson(original));
 
             var line = Assert.Single(back);
-            var ret = Assert.IsType<BasketReturnItem>(line);
+            // ⚠ The type test became a FLAG test (step 11b) — same guarantee, new seam. A parked
+            // return coming back as a sale line is exactly what this pins.
+            var ret = Assert.IsType<BasketItem>(line);
+            Assert.True(ret.IsReturn, "a parked return must come back as a return");
             Assert.Equal(9.99m, ret.Price);
             Assert.Equal("faulty", ret.Reason);
             Assert.Equal("01931f3c-0000-7000-8000-000000000001", ret.ReturnSaleId);
@@ -91,8 +94,8 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             var back = ParkedBasket.FromJson(ParkedBasket.ToJson(original));
 
             Assert.Equal(3, back.Count);
-            Assert.IsType<BasketItem>(back[0]);
-            Assert.IsType<BasketReturnItem>(back[1]);
+            Assert.False(Assert.IsType<BasketItem>(back[0]).IsReturn);
+            Assert.True(Assert.IsType<BasketItem>(back[1]).IsReturn);
             Assert.Equal(4, back[2].Quantity);
         }
 

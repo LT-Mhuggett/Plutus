@@ -17,6 +17,16 @@ namespace Plutus.Frontend.AppClient.Tests.Services
                 .SetValue(manager, value);
         }
 
+        /// <summary>⚠ A return line. Step 11b collapsed `BasketReturnItem` into a flag, so this is
+        /// a `BasketItem` that has been MARKED — constructing one without the mark would make
+        /// the receipt print a sale where the test says return.</summary>
+        private static BasketItem Returned(ItemModel item)
+        {
+            var line = new BasketItem(item);
+            line.MarkAsReturn();
+            return line;
+        }
+
         private static ItemModel MakeItem(string id, decimal price) => new ItemModel
         {
             Id = id,
@@ -127,7 +137,7 @@ namespace Plutus.Frontend.AppClient.Tests.Services
             var basket = new IBasketRecord[]
             {
                 new BasketItem(MakeItem("I1", 12m)),
-                new BasketReturnItem(MakeItem("I2", 5m)),
+                Returned(MakeItem("I2", 5m)),
             };
             var sale = Receipt(1200, 1000, new ReceiptTender("Cash", 1200, 200));
 

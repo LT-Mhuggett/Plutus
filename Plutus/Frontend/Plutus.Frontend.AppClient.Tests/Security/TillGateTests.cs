@@ -27,9 +27,18 @@ namespace Plutus.Frontend.AppClient.Tests.Security
         private static BasketItem Item(string idOne, decimal price, int qty = 1) =>
             new(new ItemModel { Id = idOne, Name = idOne, Price = price, ExPrice = price, Vat = new TaxModel { Name = "" } }, qty);
 
-        private static BasketReturnItem Return(string idOne, decimal price, int qty = 1) =>
-            new(new ItemModel { Id = idOne, Name = idOne, Price = price, ExPrice = price, Vat = new TaxModel { Name = "" } },
+        private static BasketItem Return(string idOne, decimal price, int qty = 1)
+        {
+            var line = new BasketItem(new ItemModel { Id = idOne, Name = idOne, Price = price, ExPrice = price, Vat = new TaxModel { Name = "" } },
                 qty);
+
+            // ⚠⚠ MARKED, NOT SUBCLASSED (step 11b, 2026-08-22). This helper returned a
+            // `BasketReturnItem`, where the TYPE carried the meaning. Widening the return type
+            // WITHOUT this call hands every test a SALE line named `Return` — the arithmetic
+            // flips sign silently and the tests still pass, on the wrong numbers.
+            line.MarkAsReturn();
+            return line;
+        }
 
         // ── the null operator ──
 

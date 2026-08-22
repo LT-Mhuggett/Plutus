@@ -287,7 +287,8 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         internal static string ReturnReasonOf(IEnumerable<IBasketRecord> basket)
         {
             var reasons = (basket ?? Enumerable.Empty<IBasketRecord>())
-                .OfType<BasketReturnItem>()
+                .OfType<BasketItem>()
+                .Where(r => r.IsReturn)
                 .Select(r => r.Reason)
                 .Where(r => !string.IsNullOrWhiteSpace(r))
                 .Select(r => r.Trim())
@@ -438,7 +439,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 .Any(r => r is BasketItem && !r.IsReturn);
 
         private static Guid? OriginOf(IBasketRecord record) =>
-            record is BasketReturnItem r && Guid.TryParse(r.ReturnSaleId, out var id) ? id : null;
+            record is BasketItem r && r.IsReturn && Guid.TryParse(r.ReturnSaleId, out var id) ? id : null;
 
         /// <summary>
         /// Assemble and commit. ⚠ Returns an outcome instead of throwing: the caller is a checkout

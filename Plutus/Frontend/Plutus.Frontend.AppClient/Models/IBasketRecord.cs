@@ -38,15 +38,21 @@ namespace Plutus.Frontend.AppClient.Models
         /// <summary>
         /// Is this record goods going BACK?
         ///
-        /// ⚠⚠ THE SEAM FOR COLLAPSING `BasketReturnItem` (step 11b). The app asks
-        /// `is BasketReturnItem` in ~28 places; each one is a type test that has to be found and
-        /// changed by hand the day the subclass goes. Logic asks THIS instead, so the type test
-        /// exists in exactly one implementation and the subclass can be removed underneath it.
+        /// ⚠⚠ **THE SEAM WORKED, AND THE SUBCLASS IS GONE (step 11b, 2026-08-22).** This property was
+        /// added so that logic could ask a QUESTION instead of testing a TYPE: the app asked
+        /// `is BasketReturnItem` in roughly fourteen places, and each one had to be found by hand the
+        /// day the subclass went. Because they all moved here first, that day was a small change
+        /// rather than a hunt.
         ///
-        /// ⚠ It is NOT yet safe to delete `BasketReturnItem`: it carries `ReturnSaleId` and
-        /// `Reason`, and `BasketDataTemplateSelector` still picks the row template BY TYPE — a
-        /// selector that chose wrongly would render the wrong row silently. Those are the two things
-        /// that must move before the subclass can.
+        /// ⚠ The two things this comment said had to move before the subclass could, both moved:
+        /// `Reason` and `ReturnSaleId` are on `BasketItem`, and `BasketDataTemplateSelector` picks
+        /// the row template from this flag rather than from the runtime type. That selector is worth
+        /// remembering — it tested the derived type FIRST, and the order was load-bearing: reversed,
+        /// every return would have rendered with the SALE template, right money and wrong words.
+        ///
+        /// ⚠ Set through `BasketItem.MarkAsReturn`, which takes the reason and the origin sale with
+        /// it. ⚠ Both are optional there, deliberately: the till demands a reason before it will
+        /// proceed and `CheckoutCommit` filters blank ones, so the guard stays where it always was.
         /// </summary>
         bool IsReturn { get; }
     }

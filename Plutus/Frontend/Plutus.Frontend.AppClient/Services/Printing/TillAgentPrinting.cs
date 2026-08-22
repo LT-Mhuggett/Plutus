@@ -132,7 +132,7 @@ namespace Plutus.Frontend.AppClient.Services.Printing
             var lines = new List<ReceiptDocLine>();
             foreach (var record in basket ?? Enumerable.Empty<IBasketRecord>())
             {
-                if (record is BasketReturnItem ret)
+                if (record is BasketItem ret && ret.IsReturn)
                 {
                     // ⚠ `Math.Abs` on the unit price, and IsReturn carries the meaning. The paper
                     // says "RETURN —" in words; a bare minus sign in a price column is not something

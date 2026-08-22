@@ -118,18 +118,35 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
             Assert.True(vm.CurrentLoadingItemIsBlank);
         }
 
+        /// <summary>
+        /// ⚠⚠ THE MAPSTER COPY IS STILL LOAD-BEARING, so it is still pinned (step 11b, 2026-08-22).
+        ///
+        /// This was `Adapt_MapsBasketItemToBasketReturnItemAndBack` and it guarded a hop ACROSS an
+        /// inheritance chain. The subclass is gone, but the copy is not: `ExecuteReturnSelected`
+        /// still adapts the selected line into a NEW `BasketItem` before marking it, because the
+        /// basket may already hold the sale line for that item — flagging that one in place would
+        /// turn a sale the customer is buying into a refund under their hands.
+        ///
+        /// ⚠ `BasketItem` HAS NO PARAMETERLESS CONSTRUCTOR, and Mapster does not attempt
+        /// constructor-parameter matching unless told to. Without `MapToConstructor` in
+        /// `BasketMapsterConfig` this throws at runtime — in the refund flow.
+        /// </summary>
         [Fact]
-        public void Adapt_MapsBasketItemToBasketReturnItemAndBack()
+        public void Adapt_CopiesABasketItem()
         {
             var basketItem = new BasketItem(MakeItem(), 2);
 
-            var returnItem = basketItem.Adapt<BasketReturnItem>();
-            Assert.Equal("Widget", returnItem.Name);
-            Assert.Equal(2, returnItem.Quantity);
+            var copy = basketItem.Adapt<BasketItem>();
 
-            var backToItem = returnItem.Adapt<BasketItem>();
-            Assert.Equal("Widget", backToItem.Name);
-            Assert.Equal(2, backToItem.Quantity);
+            Assert.Equal("Widget", copy.Name);
+            Assert.Equal(2, copy.Quantity);
+
+            // ⚠ A DIFFERENT OBJECT, which is the whole reason the copy exists.
+            Assert.NotSame(basketItem, copy);
+
+            // ⚠ AND A COPY OF A SALE IS A SALE. If `IsReturn` ever came across as true, every refund
+            // would produce two return lines instead of one.
+            Assert.False(copy.IsReturn);
         }
 
         [Fact]

@@ -117,9 +117,71 @@ namespace Plutus.Frontend.AppClient.Models
             }
         }
 
-        /// <summary>⚠ THE ONE TYPE TEST. Every other place asks `IsReturn`; when `BasketReturnItem`
-        /// is finally collapsed into a flag, this is the line that changes — see `IBasketRecord`.</summary>
-        public virtual bool IsReturn => this is BasketReturnItem;
+        /// <summary>
+        /// Is this line goods going BACK?
+        ///
+        /// ⚠⚠ **A FLAG, NOT A SUBCLASS, SINCE STEP 11b (2026-08-22).** This was
+        /// `this is BasketReturnItem`, and the subclass it tested for is gone. `IBasketRecord`'s own
+        /// header called this "the seam": the app asked `is BasketReturnItem` in roughly fourteen
+        /// places, each one a type test that had to be found and changed by hand — and two of them,
+        /// in `ParkedBasket` and `BasketDataTemplateSelector`, depended on **case order** or on the
+        /// runtime type to pick a row template. A selector that chose wrongly would have rendered a
+        /// return as a sale, silently, with the money the right way round and the words the wrong
+        /// way round.
+        ///
+        /// ⚠ SET THROUGH <see cref="MarkAsReturn"/>, never assigned loosely — a return carries a
+        /// reason and an origin sale with it, and a line flagged as a return with neither is a
+        /// refund nothing can be reconciled against.
+        /// </summary>
+        public bool IsReturn { get; private set; }
+
+        /// <summary>
+        /// Why it came back. ⚠ Required by the refund flow before it will proceed — see
+        /// `CheckoutCommit`, which refuses a return line with no reason.
+        /// </summary>
+        public string Reason { get; private set; }
+
+        /// <summary>
+        /// The sale this line is going back AGAINST.
+        ///
+        /// ⚠⚠ THIS IS WHAT MAKES A REFUND RECONCILABLE. `CheckoutCommit` parses it to link the credit
+        /// to the original sale, and the cross-till refund cap counts against it. A return without
+        /// one is money leaving the drawer with nothing to net it off.
+        ///
+        /// ⚠ A STRING, because it also holds what an operator TYPED for a sale rung up on another
+        /// till — see `CheckoutCommit.OriginSaleIdOf`, which is the only thing that may parse it.
+        /// </summary>
+        public string ReturnSaleId { get; private set; }
+
+        /// <summary>
+        /// Turn this line into a return.
+        /// </summary>
+        /// <remarks>
+        /// ⚠ ONE DOOR. Previously a caller constructed a `BasketReturnItem` and then called
+        /// `SetItemReturn` — two steps, and in between the line was a return that knew nothing about
+        /// itself. This takes both facts at the moment the line becomes a return.
+        ///
+        /// ⚠⚠ BUT BOTH ARE OPTIONAL, AND THAT IS ON PURPOSE — it is what the old subclass allowed.
+        /// `ExecuteReturnSelected` demands a reason before it will proceed and `CheckoutCommit`
+        /// filters blank ones out of the sale note, so **the guard lives at the till and at commit,
+        /// not here**. Requiring them at this point would be stricter than the platform has ever
+        /// been, and it would break `ParkedBasket` restoring a blob parked before the reason was
+        /// captured. Moving a guard while collapsing a type is how a refactor changes behaviour it
+        /// promised not to.
+        /// </remarks>
+        public void MarkAsReturn(string reason = null, string returnSaleId = null)
+        {
+            IsReturn = true;
+            Reason = reason;
+            ReturnSaleId = returnSaleId;
+
+            // ⚠ The row template is chosen from `IsReturn`, and the grid re-asks on a change
+            // notification — without these the line keeps the SALE template until something else
+            // happens to refresh it.
+            OnPropertyChanged(nameof(IsReturn));
+            OnPropertyChanged(nameof(Reason));
+            OnPropertyChanged(nameof(ReturnSaleId));
+        }
 
         /// <summary>
         /// When this line SELLS a gift card, the code being loaded — WP13.
