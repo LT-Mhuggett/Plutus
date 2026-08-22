@@ -118,7 +118,23 @@ namespace Plutus.Frontend.AppClient.Services.UIHandeling
             // the settle. Waiting here would be waiting on ourselves.
             if (Holding.Value) return await OnUiThread(show).ConfigureAwait(true);
 
-            await Gate.WaitAsync().ConfigureAwait(true);
+            // ⚠⚠ A DEADLINE, AND THEN IT GOES AHEAD ANYWAY — the one gate in the till that does.
+            //
+            // This gate SERIALISES dialogs; it does not make them correct. If it is stuck, refusing
+            // to wait any longer and showing the dialog risks two stacked modals, which is untidy.
+            // Refusing to show it at all means the till can no longer ask the operator ANYTHING —
+            // no confirm, no amount, no payment — and there is no way back from that without a
+            // restart. Untidy beats unusable.
+            //
+            // ⚠ 30s, the same number as every other gate here. Anything past half a minute waiting
+            // for a dialog slot is a hang, not contention: nothing legitimately holds this that long.
+            if (!await Gate.WaitAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(true))
+            {
+                Analytics.CrashLog.Write("Modal.ShowAsync(gate-timeout)", new TimeoutException(
+                    "A dialog held the modal gate for over 30 seconds. Showing this one anyway — "
+                    + "a till that cannot ask the operator a question cannot take a payment."));
+                return await OnUiThread(show).ConfigureAwait(true);
+            }
             Holding.Value = true;
             try
             {

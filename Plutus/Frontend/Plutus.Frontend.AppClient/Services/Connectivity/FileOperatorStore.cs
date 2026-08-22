@@ -44,11 +44,32 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
         private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
         private readonly SemaphoreSlim _gate = new(1, 1);
 
+        /// <summary>
+        /// ⚠⚠ EVERY GATE IN THIS APP WAITS WITH A DEADLINE — see `TillGateDeadlineTests`. These
+        /// three methods used to `WaitAsync(ct)`, which is unbounded: a `CancellationToken` carries
+        /// the CALLER'S cancellation, not a timeout, and on the hang path nothing cancels it.
+        ///
+        /// ⚠ THIS GATE GUARDS THE OPERATOR ROSTER, so a hang here means nobody can sign in — and
+        /// with no exception and nothing logged, the till would simply stop accepting staff.
+        ///
+        /// ⚠ 30 seconds, matching `TillStoreAccess.UseAsync`. This gate is held only across a small
+        /// local file read or write, so half a minute is not contention, it is a hang.
+        /// </summary>
+        private async Task<bool> EnterAsync(string who, CancellationToken ct)
+        {
+            if (await _gate.WaitAsync(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false)) return true;
+
+            Analytics.CrashLog.Write($"FileOperatorStore.{who}(timeout)", new TimeoutException(
+                "The operator-roster file gate did not become free within 30 seconds."));
+            return false;
+        }
+
         private static string Path => System.IO.Path.Combine(FileSystem.AppDataDirectory, "operators.json");
 
         public async Task<TillOperatorsResult?> LoadAsync(CancellationToken ct = default)
         {
-            await _gate.WaitAsync(ct);
+            // ⚠ Null is this method's existing "no roster here" answer — every caller handles it.
+            if (!await EnterAsync(nameof(LoadAsync), ct).ConfigureAwait(false)) return null;
             try
             {
                 if (!File.Exists(Path)) return null;
@@ -67,7 +88,9 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
 
         public async Task SaveAsync(TillOperatorsResult roster, CancellationToken ct = default)
         {
-            await _gate.WaitAsync(ct);
+            // ⚠ A DROPPED SAVE, NOT A CRASH. This runs from the sync cadence; throwing on a
+            // background tick is how this app has been killed before. The next sync writes again.
+            if (!await EnterAsync(nameof(SaveAsync), ct).ConfigureAwait(false)) return;
             try
             {
                 Directory.CreateDirectory(FileSystem.AppDataDirectory);
@@ -84,7 +107,9 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
 
         public async Task ClearAsync(CancellationToken ct = default)
         {
-            await _gate.WaitAsync(ct);
+            // ⚠ Un-enrol calls this. A missed clear leaves a stale roster on disk, which the
+            // staleness tier already refuses to trust — worse than a crash mid-un-enrol it is not.
+            if (!await EnterAsync(nameof(ClearAsync), ct).ConfigureAwait(false)) return;
             try { if (File.Exists(Path)) File.Delete(Path); }
             catch (Exception ex) { Analytics.CrashLog.Write("FileOperatorStore.Clear", ex); }
             finally { _gate.Release(); }

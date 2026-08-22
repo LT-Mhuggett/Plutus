@@ -57,7 +57,20 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
 
             var url = new ViewModels.Settings().ServerUrlSetting;
 
-            await Gate.WaitAsync(ct).ConfigureAwait(false);
+            // ⚠⚠ A DEADLINE — the convention `TillStoreAccess.UseAsync` set, applied to every gate
+            // in the till. This one only builds an HttpClient, so it should never be slow; that is
+            // exactly why an un-deadlined wait here would be so hard to diagnose if it ever were.
+            // A stuck gate means EVERY api call afterwards waits for ever, and the till just stops
+            // reaching the server with nothing logged.
+            // ⚠ Returns null, which is this method's existing "not connected" answer — every caller
+            // already handles it, so a timeout degrades to offline rather than to an exception on a
+            // background tick.
+            if (!await Gate.WaitAsync(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false))
+            {
+                Analytics.CrashLog.Write("PlutusApi.GetAsync(timeout)", new TimeoutException(
+                    "The API-client gate did not become free within 30 seconds."));
+                return null;
+            }
             try
             {
                 if (_client is not null && _builtForUrl == url && _builtForDevice == deviceId)

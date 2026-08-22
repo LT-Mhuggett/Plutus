@@ -63,7 +63,24 @@ namespace Plutus.Frontend.AppClient.Services.Reporting
         /// </summary>
         internal static async Task<bool> RefreshAsync(CancellationToken ct = default)
         {
-            await Gate.WaitAsync(ct).ConfigureAwait(false);
+            // ⚠⚠ A DEADLINE, BECAUSE THIS GATE IS HELD ACROSS A NETWORK CALL. The body below
+            // awaits the API, so a request that never returns holds this semaphore for ever and
+            // every later refresh queues behind it in silence — the published-report list simply stops
+            // updating, with no error anywhere. That is the `TillStoreAccess` fault in a second
+            // place, and the convention it established is a deadline on every gate.
+            //
+            // ⚠ 30s, matching `TillStoreAccess.UseAsync`. One number, so nobody has to remember
+            // which gate waits how long.
+            // ⚠ AND IT RETURNS FALSE RATHER THAN THROWING — unlike the store gate, and
+            // deliberately: this method runs on the settings cadence and its contract is NEVER
+            // THROWS. "No change" is already how it reports being offline, and a timeout is the
+            // same answer for the caller.
+            if (!await Gate.WaitAsync(TimeSpan.FromSeconds(30), ct).ConfigureAwait(false))
+            {
+                Analytics.CrashLog.Write("PublishedReports.RefreshAsync(timeout)", new TimeoutException(
+                    "The refresh gate did not become free within 30 seconds; this pass was skipped."));
+                return false;
+            }
             try
             {
                 var api = await Connectivity.PlutusApi.GetAsync(ct).ConfigureAwait(false);
