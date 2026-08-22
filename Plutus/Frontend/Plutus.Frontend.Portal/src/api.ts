@@ -64,6 +64,26 @@ export interface JobRow { jobName: string; tenantId: string | null; runStatus: s
 export const fetchTenants = () => get<PlatformTenant[]>("/api/v1/tenants");
 export const fetchUsageSummary = () => get<UsageSummaryRow[]>("/api/v1/platform/usage/summary");
 export const fetchHealth = () => get<HealthResponse>("/api/v1/platform/health");
+/**
+ * Quarantined sales — the sales that did not get in. ⚠ `source` decides what can be DONE with a
+ * row, and the three sources are not interchangeable: `migration` holds a bare legacy reference
+ * and can only be dismissed, `webstore` is replayed from the connector screen, `ingest` here.
+ */
+export interface QuarantineRow {
+  id: string; tenantId: string; tenantName: string | null; saleId: string;
+  reason: string; source: "migration" | "webstore" | "ingest" | "unknown";
+  reference: string; canRetry: boolean; retryHint: string;
+  receivedAtUtc: string; resolvedAtUtc: string | null;
+  resolvedBy: string | null; resolutionNote: string | null;
+}
+export const fetchQuarantine = (state: "open" | "resolved" | "all" = "open") =>
+  get<QuarantineRow[]>(`/api/v1/platform/quarantine?state=${state}`);
+export const fetchQuarantinePayload = (id: string) =>
+  get<{ id: string; source: string; payload: string }>(`/api/v1/platform/quarantine/${id}/payload`);
+/** ⚠ The note is REQUIRED by the server — a dismissal with no reason is refused with a 400. */
+export const resolveQuarantine = (id: string, note: string) =>
+  post<void>(`/api/v1/platform/quarantine/${id}/resolve`, { note });
+
 export const fetchTenantHealth = (tenantId: string) =>
   get<{ tenantId: string; from: string; to: string; rows: HealthDrillRow[] }>(`/api/v1/platform/health/${tenantId}`);
 // WP15.2 advisory SLA: monthly availability from TenantRequestStats. month = "YYYY-MM" (omit ⇒ current).

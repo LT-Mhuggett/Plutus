@@ -163,6 +163,16 @@ namespace Plutus.Entities.Models
         public string Reason { get; set; }
         public DateTime ReceivedAtUtc { get; set; }
         public DateTime? ResolvedAtUtc { get; set; }
+
+        /// <summary>Who cleared it — an operator email, or the job that healed it. ⚠ Nullable for
+        /// every row written before 2026-08-22; an old resolved row honestly says "not recorded"
+        /// rather than blaming whoever is asked first.</summary>
+        public string? ResolvedBy { get; set; }
+
+        /// <summary>WHY it was cleared. ⚠ Required by the API when a human dismisses a row rather
+        /// than retrying it: a stuck sale waved through with no reason is the one somebody asks
+        /// about at year end, and "it was already like that" is not an answer.</summary>
+        public string? ResolutionNote { get; set; }
     }
 
     public class OutboxEvent

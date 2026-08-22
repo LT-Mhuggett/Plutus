@@ -10,6 +10,7 @@ import {
   fetchPlans, createPlan, updatePlan, deletePlan, assignPlan, type PlanRow,
   fetchContracts, fetchTenantUsers, type ContractLite, type TenantUser,
   fetchTickets, fetchOperatorThread, operatorReply, setTicket, SUPPORT_STATUS, SUPPORT_SEVERITY, type TicketRow, type TicketMessage,
+  fetchQuarantine, fetchQuarantinePayload, resolveQuarantine, type QuarantineRow,
   type PlatformTenant, type UsageSummaryRow, type HealthResponse, type HealthTenantRow,
   type HealthDrillRow, type AlertRow, type JobRow, type OverrideRow, type FlagRow, type AnnouncementRow, type SlaResponse,
   type SignalRow, type ContractRow, type MarginResponse, type MarginRow, type AnalyticsResponse, type ConnectorRow,
@@ -106,7 +107,7 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Subscribers" | "Tickets" | "Health" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
+  const [screen, setScreen] = useState<"Subscribers" | "Tickets" | "Health" | "Quarantine" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
   return (
     <section className="panel">
       {/* ⚠⚠ THE SCREEN SWITCHER IS ITS OWN ROW (2026-08-21). Matt, of the health dashboard: *"Which
@@ -120,7 +121,7 @@ export default function PlatformPage() {
           within one screen: the same thing should look the same wherever it appears. */}
       <div className="toolbar"><h2 className="grow">Platform</h2></div>
       <nav className="tabs platform-tabs">
-        {(["Subscribers", "Tickets", "Plans", "Health", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
+        {(["Subscribers", "Tickets", "Plans", "Health", "Quarantine", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </nav>
@@ -128,6 +129,7 @@ export default function PlatformPage() {
       {screen === "Plans" && <PlansScreen />}
       {screen === "Subscribers" && <TenantsScreen />}
       {screen === "Health" && <HealthScreen />}
+      {screen === "Quarantine" && <QuarantineScreen />}
       {screen === "Jobs" && <JobsScreen />}
       {screen === "Flags" && <FlagsScreen />}
       {screen === "Comms" && <CommsScreen />}
@@ -637,6 +639,181 @@ function AnalyticsScreen() {
         </tbody>
       </table>
     </>
+  );
+}
+
+/**
+ * **Platform → Quarantine: the sales that did not get in.**
+ *
+ * ⚠⚠ THE SCREEN THE RED DOT NEEDED. `quarantineOpen > 0` turns a tenant red on Health and holds it
+ * there for ever, and until 2026-08-22 there was nowhere to see what was stuck. Matt: *"Where is
+ * quarentine? What can I do to view and resolve these issues?"*
+ *
+ * ⚠ A QUARANTINED SALE IS NOT LOST AND NOT ACCEPTED — the ingest parks anything failing validation
+ * rather than rewriting it (which would change what a customer was charged) or dropping it (which
+ * would lose money silently). Every row is a decision somebody has to make.
+ *
+ * ⚠⚠ AND THE ACTION DEPENDS ON THE SOURCE, which is why `source` is the second column and not
+ * buried. A `migration` row holds only a legacy reference — there is no sale to replay, so the only
+ * honest action is to look it up in the old system and dismiss with a note. A Retry button on one of
+ * those would tell the operator the sale had been recovered when nothing had happened at all.
+ */
+function QuarantineScreen() {
+  const [state, setStateFilter] = useState<"open" | "resolved" | "all">("open");
+  const [rows, setRows] = useState<QuarantineRow[]>([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<QuarantineRow | null>(null);
+
+  const refresh = () =>
+    fetchQuarantine(state).then((r) => { setRows(r); setError(""); }).catch((e) => setError(String(e)));
+  useEffect(() => { void refresh(); }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <>
+      <p className="muted small">
+        Sales the platform refused rather than guess at. Nothing here has been lost — each is still
+        exactly as it arrived — but none of them appear in reporting or on a VAT return until they
+        are recorded, and dismissing a row does <strong>not</strong> record the sale.
+      </p>
+
+      <div className="toolbar">
+        <nav className="tabs">
+          {(["open", "resolved", "all"] as const).map((s) => (
+            <button key={s} className={s === state ? "tab active" : "tab"} onClick={() => setStateFilter(s)}>
+              {s === "open" ? "Open" : s === "resolved" ? "Resolved" : "All"}
+            </button>
+          ))}
+        </nav>
+        <span className="grow" />
+        <button className="ghost small" onClick={() => void refresh()}>Refresh</button>
+      </div>
+
+      {error && <p className="error small">{error}</p>}
+
+      <DataTable<QuarantineRow>
+        columns={[
+          { key: "tenantName", label: "Tenant", render: (r) => r.tenantName ?? r.tenantId.slice(0, 8) },
+          { key: "source", label: "Source" },
+          { key: "reference", label: "Reference", render: (r) => <code className="small">{r.reference}</code> },
+          { key: "reason", label: "Why it was refused" },
+          { key: "receivedAtUtc", label: "Parked", render: (r) => apiDateTime(r.receivedAtUtc) },
+          {
+            key: "resolvedAtUtc", label: "Resolved",
+            render: (r) => (r.resolvedAtUtc
+              ? <span title={r.resolutionNote ?? ""}>{apiDay(r.resolvedAtUtc)} · {r.resolvedBy ?? "not recorded"}</span>
+              : <span className="muted">—</span>),
+          },
+        ]}
+        rows={rows}
+        getKey={(r) => r.id}
+        search={(r) => `${r.tenantName ?? ""} ${r.reference} ${r.reason} ${r.source}`}
+        initialSortKey="receivedAtUtc"
+        initialSortDir="desc"
+        emptyText={state === "open" ? "Nothing is stuck." : "No rows."}
+        rowActions={(r) => <button className="ghost small" onClick={() => setOpen(r)}>Open</button>}
+      />
+
+      {open && (
+        <QuarantineDetail
+          row={open}
+          busy={busy}
+          onClose={() => setOpen(null)}
+          onResolve={(note) => {
+            setBusy(true);
+            return resolveQuarantine(open.id, note)
+              .then(() => { setOpen(null); return refresh(); })
+              .catch((e) => setError(String(e)))
+              .finally(() => setBusy(false));
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * One row, its stored payload, and the decision.
+ *
+ * ⚠ THE NOTE IS REQUIRED and the button stays disabled without one. The server refuses an empty note
+ * with a 400, and a dialog that lets you press a button the server will reject is a worse version of
+ * the same rule.
+ */
+function QuarantineDetail({ row, busy, onClose, onResolve }: {
+  row: QuarantineRow; busy: boolean; onClose: () => void; onResolve: (note: string) => void | Promise<unknown>;
+}) {
+  const [note, setNote] = useState("");
+  const [payload, setPayload] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void fetchQuarantinePayload(row.id)
+      .then((p) => { if (live) setPayload(p.payload); })
+      .catch(() => { if (live) setPayload(null); });
+    return () => { live = false; };
+  }, [row.id]);
+
+  // ⚠ Escape cancels, and there is a visible ✕ — the dialog contract (till-design D4), which the
+  // portal follows too.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="toolbar">
+          <h3 className="grow">Quarantined sale</h3>
+          <button className="ghost small" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <dl className="env-info">
+          <dt>Tenant</dt><dd>{row.tenantName ?? row.tenantId}</dd>
+          <dt>Reference</dt><dd><code>{row.reference}</code></dd>
+          <dt>Source</dt><dd>{row.source}</dd>
+          <dt>Parked</dt><dd>{apiDateTime(row.receivedAtUtc)}</dd>
+          <dt>Why</dt><dd>{row.reason}</dd>
+        </dl>
+
+        <p className="muted small">{row.retryHint}</p>
+
+        <details className="panel">
+          <summary>Stored payload</summary>
+          <pre className="small" style={{ maxHeight: 260, overflow: "auto", whiteSpace: "pre-wrap" }}>{payload ?? "…"}</pre>
+        </details>
+
+        {row.resolvedAtUtc ? (
+          <p className="small">
+            Resolved {apiDateTime(row.resolvedAtUtc)} by {row.resolvedBy ?? "not recorded"}
+            {row.resolutionNote ? ` — ${row.resolutionNote}` : ""}
+          </p>
+        ) : (
+          <>
+            {/* ⚠ SAYS WHAT DISMISSING ACTUALLY DOES. The tenant goes green and the sale stays absent
+                from reporting — the honest outcome for a legacy row nobody can reconstruct, and the
+                one thing an operator must not misread as "recovered". */}
+            <p className="small">
+              <strong>Dismissing does not record the sale.</strong> It says the platform is no longer
+              waiting on it: this tenant stops being red, and the sale stays out of reporting.
+            </p>
+            <label className="grow">
+              What was decided, and why
+              <input value={note} onChange={(e) => setNote(e.target.value)}
+                     placeholder="e.g. checked the 2019 till roll — a voided sale, no money taken" />
+            </label>
+            <div className="toolbar">
+              <span className="grow" />
+              <button className="ghost" onClick={onClose}>Cancel</button>
+              <button className="primary" disabled={busy || !note.trim()} onClick={() => void onResolve(note.trim())}>
+                {busy ? "Saving…" : "Dismiss with this note"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
