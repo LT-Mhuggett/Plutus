@@ -109,7 +109,7 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.119.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-23 from HEAD `49ad2cae`**, artefact reads **1.119.0** (`ProductVersion 1.119.0+49ad2cae`). ⚠⚠ **AND THE STALE-STRING CHECK IS NOW A REAL ONE.** The 1.117.0 line here claimed "no stale 1.110.0/1.112.0/1.115.0/1.116.0 string anywhere in it" — that check piped through `strings`, **which is not installed on this box**, so it returned zero matches because the command did not exist. It could not have found a stale version if one were there. Redone by reading all 3,325,952 bytes of the assembly and searching both ASCII and UTF-16: **`1.119.0` appears 3 times; `1.117.0` and `1.118.0` zero times.** ⚠ `bin/Release` and `obj/Release` were deleted before the publish (MSBuild caches the evaluated version). ⚠ **The ONLY build on the box** — 1.118.0 deleted. ⚠ **Launched and ran 25s with no startup crash**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G80, revised for 1.119.0** — the app bar now matches the web till, Reports is TABS not a drop-down, native drop-down lists follow the theme, table columns line up, and **the Bin actually works** (it never did in 1.117.0). §G76–G79 still apply. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.120.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-23 from HEAD `257c95be`**, artefact reads **1.120.0** (`ProductVersion 1.120.0+257c95be`). ⚠⚠ **AND THE STALE-STRING CHECK IS NOW A REAL ONE.** The 1.117.0 line here claimed "no stale 1.110.0/1.112.0/1.115.0/1.116.0 string anywhere in it" — that check piped through `strings`, **which is not installed on this box**, so it returned zero matches because the command did not exist. It could not have found a stale version if one were there. Redone by reading all 3,325,952 bytes of the assembly and searching both ASCII and UTF-16: **`1.120.0` appears 3 times; `1.118.0` and `1.119.0` zero times.** ⚠ `bin/Release` and `obj/Release` were deleted before the publish (MSBuild caches the evaluated version). ⚠ **The ONLY build on the box** — 1.119.0 deleted. ⚠ **Launched and ran 25s with no startup crash**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G80, revised for 1.119.0** — the app bar now matches the web till, Reports is TABS not a drop-down, native drop-down lists follow the theme, table columns line up, and **the Bin actually works** (it never did in 1.117.0). §G76–G79 still apply. |
 | **Deployed** | ✅ **ALL LIVE 2026-08-20** — backend **1.19.0** · portal **1.15.0** · web till **1.28.0**, each verified on the artefact (right host, real byte size, and a string only that change introduced — not a 200). ✅ **§G62–§G66 are all testable now.** ⚠⚠ **But two ordering rules first:** **§G65b** before §G64 (every discount rule has `AutoApply = 0`, so nothing discounts until one is ticked *Apply it automatically* — correct behaviour, not a fault), and **§G66a** before §G66c–h (nothing to scan until a barcode exists). |
 | **Backend 1.19.0 deploy record** | ✅ Verified on four axes: swagger 200 · junk device id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path; a 500 would mean schema and model disagree) · `GET /api/v1/items/barcodes` → **401, not 404** · and the MIGRATION checked as a TABLE, not a history row: `ItemBarcodes` exists with its six columns and **`IX_ItemBarcodes_TenantId_Code` is UNIQUE**. ⚠ **20,474 items before and after** — an additive migration touched nothing. Rollback `~/PLUTUS/backend.pre-1.19.0`; pre-deploy dump `plutus-20260820.sql.gz` verified at **76.5 MB uncompressed, 103 tables** (and confirmed to contain NO `ItemBarcodes` table, so the before/after is real). |
 | **Web till deploy record** | ✅ **1.27.0 live**, verified on the four axes the runbook demands rather than a 200: the right host (`plutus.…`, not `admin.plutus.…`) names `index-BKSYpWKu.js` · the bundle is **377,813 bytes**, not the ~981-byte SPA fallback that answers 200 for anything · the deployed **CSS contains `till-locked`**, a string only this change introduced · the previous bundle now returns **981 bytes**, so it really was replaced. No unsubstituted `__APP_VERSION__`/`__BUILD_TIME__` in the built OR the deployed bundle (the 2026-08-09 blank-portal fault). Rollback: `/srv/apps/PLUTUS/web/current.pre-1.27.0`. |
@@ -4238,7 +4238,7 @@ item"* offer, unchanged.
 
 ### G66d. The MAUI till — the same alias, the same item
 
-⚠ Run `D:\tmp\plutus-till-1.119.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+⚠ Run `D:\tmp\plutus-till-1.120.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
 (the v7 catalogue re-sync above).
 
 Scan `TEST-ALIAS-1`.
@@ -4596,7 +4596,7 @@ break something arbitrarily far from it**, and a sale is the only test that cove
 
 ### G68e. The build folder — what Matt actually asked about
 
-Look at `D:\tmp\plutus-till-1.119.0`.
+Look at `D:\tmp\plutus-till-1.120.0`.
 
 **✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
 
@@ -5930,4 +5930,31 @@ belong to a PERSON, so the platform refused it and the till reported the refusal
 | The ticket list | ✅ Working. |
 
 Raise one, and check it arrives in the portal under **Platform → Tickets**.
+
+
+### G80k. ⚠⚠ The selling screen has room for the basket · *1.120.0 — a REGRESSION FIX*
+
+> **1.119.0 shipped this broken.** Giving the Loyalty lookup its own row pushed everything below it
+> down, the basket list was renumbered and the totals-and-buttons block was not — so both drew on the
+> same row. Matt: *"There is now no space for the items when sold... The till buttons, discount, save
+> transaction are now stuck at the top?"*
+
+**Till tab, on an empty basket.** ✅ Expected, top to bottom:
+
+1. the scan row
+2. **Loyalty customer lookup**
+3. the **QUANTITY / NAME / PRICE / TAX** header, then a **large empty area** — the basket
+4. **Sale Ex. Tax / Sale Inc. Tax**, then **Apply Discounts · Save · Retrieve · Cancel · Checkout**,
+   flat against the **bottom** of the window
+
+⚠⚠ **THE BIG EMPTY SPACE IN THE MIDDLE IS THE TEST.** If the buttons are up near the scan box with a
+blank band underneath them, this is still broken.
+
+**Now sell a lot.** Ring through more items than fit.
+
+**✅ Expected:** the **list scrolls** and **the buttons do not move**. That is the layout contract for
+every till: the buttons are always present, and the item area is the one thing allowed to give up
+height.
+
+⚠ Resize the window shorter and repeat. The buttons stay at the bottom; the basket area shrinks.
 
