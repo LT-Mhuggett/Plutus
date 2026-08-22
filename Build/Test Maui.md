@@ -109,7 +109,7 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.118.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-22 from HEAD `2a2a7e52`**, artefact reads **1.118.0** (`ProductVersion 1.118.0+2a2a7e52`). ⚠⚠ **AND THE STALE-STRING CHECK IS NOW A REAL ONE.** The 1.117.0 line here claimed "no stale 1.110.0/1.112.0/1.115.0/1.116.0 string anywhere in it" — that check piped through `strings`, **which is not installed on this box**, so it returned zero matches because the command did not exist. It could not have found a stale version if one were there. Redone by reading all 3,325,952 bytes of the assembly and searching both ASCII and UTF-16: **`1.118.0` appears 3 times, `1.115.0`/`1.116.0`/`1.117.0` zero times.** ⚠ `bin/Release` and `obj/Release` were deleted before the publish (MSBuild caches the evaluated version). ⚠ **The ONLY build on the box** — 1.117.0 deleted. ⚠ **Launched and ran 25s with no startup crash**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G80** — the app bar now matches the web till, Reports is TABS not a drop-down, native drop-down lists follow the theme, table columns line up, and **the Bin actually works** (it never did in 1.117.0). §G76–G79 still apply. |
+| **Run** | ✅ `D:\tmp\plutus-till-1.119.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-23 from HEAD `49ad2cae`**, artefact reads **1.119.0** (`ProductVersion 1.119.0+49ad2cae`). ⚠⚠ **AND THE STALE-STRING CHECK IS NOW A REAL ONE.** The 1.117.0 line here claimed "no stale 1.110.0/1.112.0/1.115.0/1.116.0 string anywhere in it" — that check piped through `strings`, **which is not installed on this box**, so it returned zero matches because the command did not exist. It could not have found a stale version if one were there. Redone by reading all 3,325,952 bytes of the assembly and searching both ASCII and UTF-16: **`1.119.0` appears 3 times; `1.117.0` and `1.118.0` zero times.** ⚠ `bin/Release` and `obj/Release` were deleted before the publish (MSBuild caches the evaluated version). ⚠ **The ONLY build on the box** — 1.118.0 deleted. ⚠ **Launched and ran 25s with no startup crash**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G80, revised for 1.119.0** — the app bar now matches the web till, Reports is TABS not a drop-down, native drop-down lists follow the theme, table columns line up, and **the Bin actually works** (it never did in 1.117.0). §G76–G79 still apply. |
 | **Deployed** | ✅ **ALL LIVE 2026-08-20** — backend **1.19.0** · portal **1.15.0** · web till **1.28.0**, each verified on the artefact (right host, real byte size, and a string only that change introduced — not a 200). ✅ **§G62–§G66 are all testable now.** ⚠⚠ **But two ordering rules first:** **§G65b** before §G64 (every discount rule has `AutoApply = 0`, so nothing discounts until one is ticked *Apply it automatically* — correct behaviour, not a fault), and **§G66a** before §G66c–h (nothing to scan until a barcode exists). |
 | **Backend 1.19.0 deploy record** | ✅ Verified on four axes: swagger 200 · junk device id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path; a 500 would mean schema and model disagree) · `GET /api/v1/items/barcodes` → **401, not 404** · and the MIGRATION checked as a TABLE, not a history row: `ItemBarcodes` exists with its six columns and **`IX_ItemBarcodes_TenantId_Code` is UNIQUE**. ⚠ **20,474 items before and after** — an additive migration touched nothing. Rollback `~/PLUTUS/backend.pre-1.19.0`; pre-deploy dump `plutus-20260820.sql.gz` verified at **76.5 MB uncompressed, 103 tables** (and confirmed to contain NO `ItemBarcodes` table, so the before/after is real). |
 | **Web till deploy record** | ✅ **1.27.0 live**, verified on the four axes the runbook demands rather than a 200: the right host (`plutus.…`, not `admin.plutus.…`) names `index-BKSYpWKu.js` · the bundle is **377,813 bytes**, not the ~981-byte SPA fallback that answers 200 for anything · the deployed **CSS contains `till-locked`**, a string only this change introduced · the previous bundle now returns **981 bytes**, so it really was replaced. No unsubstituted `__APP_VERSION__`/`__BUILD_TIME__` in the built OR the deployed bundle (the 2026-08-09 blank-portal fault). Rollback: `/srv/apps/PLUTUS/web/current.pre-1.27.0`. |
@@ -4238,7 +4238,7 @@ item"* offer, unchanged.
 
 ### G66d. The MAUI till — the same alias, the same item
 
-⚠ Run `D:\tmp\plutus-till-1.118.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+⚠ Run `D:\tmp\plutus-till-1.119.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
 (the v7 catalogue re-sync above).
 
 Scan `TEST-ALIAS-1`.
@@ -4596,7 +4596,7 @@ break something arbitrarily far from it**, and a sale is the only test that cove
 
 ### G68e. The build folder — what Matt actually asked about
 
-Look at `D:\tmp\plutus-till-1.118.0`.
+Look at `D:\tmp\plutus-till-1.119.0`.
 
 **✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
 
@@ -5772,7 +5772,7 @@ so the report is the valuable part.
 
 ---
 
-## G80. MAUI looks like the web till · *new in 1.118.0*
+## G80. MAUI looks like the web till · *1.118.0, extended in 1.119.0*
 
 > **Matt, 2026-08-22, of 1.117.0:** *"Why does MAUI still look different to the webtill? It is
 > missing the plutus name, Baskets in the top right shouldnt be there. The till name is missing,
@@ -5866,4 +5866,68 @@ server requires, so it could never have worked. If you still see that message, t
 taken and it is worth saying so immediately.
 
 Then follow **§G76** in full — restoring an item and confirming it sells.
+
+
+### G80g. ⚠⚠ The right-hand items are actually on the RIGHT · *1.119.0*
+
+> **Matt, on 1.118.0:** *"On MAUI, the till name, switch to portal, time all need to be on the far
+> right."* 1.118.0 claimed to fix this and did not — the bar was told to fill, but a `Shell.TitleView`
+> is measured with infinite width on Windows, so there was no constraint to fill and everything
+> stayed packed against the brand.
+
+**Till tab.** ✅ Expected, across the top bar:
+
+| Left | | Right |
+|---|---|---|
+| **Plutus** | *(space)* | till name · **Switch to Portal** · clock · ❓ · 👥 |
+
+⚠ **The gap in the middle is the test.** If the clock sits a couple of centimetres from the word
+"Plutus", the fix has not taken.
+
+⚠ **Resize the window — narrow, then wide, then maximise.** The right-hand group must stay on the
+right each time. It is re-measured on every resize; a group that is correct at start-up and wrong
+after a drag is a different bug and worth reporting as such.
+
+### G80h. The scan box is wide, Return is small · *1.119.0*
+
+**✅ Expected on the scan row:** quantity (− 1 +) · **a long scan box** · the bag button(s) ·
+**↩ Return an item**, sized to its own text, hard right.
+
+⚠⚠ **THE SCAN BOX SHOULD DOMINATE THE ROW.** It used to share it equally with Return — a button
+pressed a few times a day taking the same width as the box every item goes through. Compare against
+the web till: the input is long, `Bag £0.10` and `Return Item` are small.
+
+⚠ Scan or type into it and confirm it still adds items. Widening a control is exactly the sort of
+change that can drop a binding.
+
+### G80i. The Loyalty lookup is under the scan box · *1.119.0*
+
+**✅ Expected:** **Loyalty customer lookup** sits directly **below the scan row and above the
+QUANTITY / NAME header**, sized to its text.
+
+⚠ It used to be at the bottom, beside **Sale Ex. Tax** — a checkout region, which made attaching a
+member read as something you do while taking payment. You ask for the card as the customer arrives.
+
+Tap it: ✅ the member search opens, and finding a member still attaches them to the basket. ⚠ Once a
+member IS attached the button hides — that is unchanged, and correct.
+
+### G80j. ⚠⚠ Help works · *1.119.0*
+
+**Tap ❓ in the top right.**
+
+**✅ Expected:** your tickets, with **Raise a new ticket** at the top.
+
+⚠⚠ **"Plutus can't be reached" IS THE BUG, and it is what 1.117.0 and 1.118.0 both did** — on a till
+that was online the whole time. The till was asking with its DEVICE identity, and support tickets
+belong to a PERSON, so the platform refused it and the till reported the refusal as a network fault.
+
+⚠ Three messages are now possible and they mean different things — **say which one you saw**:
+
+| Message | Means |
+|---|---|
+| *"Sign in first — a support ticket is raised as a person, not as a till."* | Nobody is signed in. Correct. |
+| *"Plutus can't be reached, or this account isn't allowed…"* | Genuinely offline, or a permission is missing. |
+| The ticket list | ✅ Working. |
+
+Raise one, and check it arrives in the portal under **Platform → Tickets**.
 
