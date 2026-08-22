@@ -587,7 +587,16 @@ existing figure.
 ⚠ **What remains, if a genuine multi-timezone estate ever appears:** the zone is on `Business`, not on
 `Store`. One VAT return covers the estate, so a per-store clock would let two stores disagree about a
 day the return has to reconcile. That is a bigger question than a column.
-### WP-SIGNUP — a new tenant can sign up · **≈3–4d** · ⚠ NOT A UI JOB
+### WP-SIGNUP — a new tenant can sign up · **≈5–5.5d** · ⚠ NOT A UI JOB
+
+> ⚠⚠ **PLANNED IN FULL: [`Build/To do/WP-signup.md`](To%20do/WP-signup.md)** (2026-08-22). The
+> estimate rose from ≈3–4d because the **DPA** was folded in — Matt: *"is there somewhere that the
+> end user can sign or agree to this? So that I am not 'Ticking it for them?'"* Today the only
+> writer is `PUT /tenants/{id}/compliance`, platform-admin only, so the operator ticks it for the
+> client and the record is evidence of nothing.
+>
+> ⚠ **The plan is blocked on one thing only: the DPA text itself**, which is a legal document Matt
+> supplies. Everything around it is specified.
 
 > *"I need to be able to add a new tennant, I don't think there is anyway to sign up at the moment?"*
 

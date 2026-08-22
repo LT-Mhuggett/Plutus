@@ -16,6 +16,7 @@ the following day."* So:
 |---|---|
 | [`HANDOVER.md`](../HANDOVER.md) | **ONE DAY LONG.** What to do next session, and nothing else. ⚠ Do not let it grow back into a history — rewrite it; the commits are the record |
 | [`To do/MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) **§0** | **The living state** — what is deployed, every one of Matt's rulings, open items, and the lesson about stale status markers |
+| [`To do/WP-signup.md`](To%20do/WP-signup.md) | **WP-SIGNUP** — self-serve tenancy, and the DPA acceptance that must ship with it. ⚠ Plan only; blocked on the DPA text. |
 | [`archive/handover-history-to-2026-08-17.md`](archive/handover-history-to-2026-08-17.md) | The old handover's day-by-day narrative back to 2026-07-28, **verbatim, dropped from nothing**. ⚠ History, not instruction: every "START HERE" in it is superseded and its version numbers were true on their date. Read it for the reasoning — how fourteen faults were found on 2026-08-10, six invisible to every automated test — never for the state |
 
 ⚠⚠ **For the MAUI till there is exactly ONE document:
