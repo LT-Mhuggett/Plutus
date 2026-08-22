@@ -82,6 +82,36 @@ namespace Plutus.Sales
             var receivedAt = DateTime.UtcNow;
             _db.CurrentUser = actingUser;
 
+            // ⚠⚠ ANSWER AN ALREADY-INGESTED SALE WITHOUT ATTEMPTING THE INSERT — added 2026-08-22.
+            //
+            // The catch below already made a duplicate idempotent, so this changes no OUTCOME. What
+            // it changes is the cost of getting there: the old path opened a transaction, built the
+            // whole graph, hit the PK, took a `DbUpdateException`, rolled back, and re-read — and EF
+            // logged that failure at `fail` level with a full stack trace every single time.
+            //
+            // ⚠ FOR THE WEBSTORE THAT IS NOT AN EDGE CASE, IT IS EVERY CYCLE. The reconciler
+            // deliberately re-reads an overlap window so an edited order is picked up, so it re-submits
+            // recent orders by design: one Kapow order produced 94 duplicate-key failures in a single
+            // day, all of them handled, all of them logged as errors. A log that cries wolf 94 times a
+            // day is a log nobody reads on the day it matters.
+            //
+            // ⚠ THE CATCH STAYS AND MUST STAY. This is a check-then-act, so two callers racing the same
+            // saleId can still both pass it; the exception path is what makes that safe. This only
+            // removes the cost from the case we can see coming.
+            //
+            // ⚠⚠ A RECORDED SALE ONLY — **NOT** `ReadExistingOutcomeAsync`, WHICH ALSO ANSWERS FOR
+            // QUARANTINED ONES. That difference is the whole safety of this shortcut. A recorded sale
+            // is terminal: replaying it can never produce a different answer. A QUARANTINED one is the
+            // opposite — `POST /webstores/{id}/retry` re-submits parked sales precisely BECAUSE the
+            // answer may have changed (an operator has since bound the missing SKU), and it is
+            // `IngestAsync` re-running validation that turns one into a recorded sale. Short-circuiting
+            // on quarantine would leave that heal returning 202 for ever, and the retry endpoint marks
+            // `ResolvedAtUtc` on that reply — a sale marked healed that was never actually ingested.
+            var recordedAlready = await _db.SalesV2.IgnoreQueryFilters().AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == req.SaleId);
+            if (recordedAlready != null)
+                return IngestOutcome.Recorded(200, req.SaleId, recordedAlready.ReceivedAtUtc);
+
             // TillId is server-authoritative — derived from the enrolled device (Guid.Empty for
             // operator/web-POS tokens with no device).
             var device = await _db.Devices.FirstOrDefaultAsync(d => d.Id == deviceId);
