@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:Plutus.Frontend.AppClient.Controls"
              xmlns:i18n="clr-namespace:I18N_L10N.Extensions;assembly=I18N_L10N"
              x:Class="Plutus.Frontend.AppClient.Views.MainTill.Reports.ReportsView"
              Title="{Binding Title}"
@@ -31,7 +32,13 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <Picker Grid.Column="0" x:Name="ReportPicker" Title="Report"/>
+            <!-- ⚠⚠ TABS, NOT A DROP-DOWN — 2026-08-22. Matt: *"Instead of the drop down in reports,
+                 can it not be like the webtill? Where they are tabs?"* The web till has always shown
+                 its reports as a `nav.subtabs` row; MAUI hid the same eight behind a Picker, so
+                 WHICH reports exist was invisible until you opened it, and choosing one took two
+                 taps. ⚠ It also removed the till's most-used native popup, which was the white
+                 unthemed list Matt reported in the same breath. -->
+            <controls:SubTabBar Grid.Column="0" x:Name="ReportTabs"/>
             <!-- ⚠⚠ NO "REPRINT A RECEIPT" BUTTON, 2026-08-21. One was added here that morning to
                  rescue a capability the dropped Statistics tab had taken with it. Matt: *"Why is there
                  a button there in MAUI and not in the webtill? Reprinting receipts needs to be done

@@ -253,10 +253,31 @@ namespace Plutus.Frontend.AppClient.Controls
         /// ⚠ A star WEIGHT, never pixels. A till runs windowed, full-screen and on a small terminal,
         /// and a column measured in pixels is right on exactly one of them.
         /// </summary>
+        /// <summary>
+        /// ⚠⚠ NEVER `Auto`, AND THAT IS THE WHOLE FIX — 2026-08-22. Matt: *"The sales report tables
+        /// are not aligned either."*
+        ///
+        /// **Every row is its own `Grid`.** There is no shared-size-group in MAUI, so a column can
+        /// only line up across rows if every row computes the SAME width from the same rule. `Auto`
+        /// cannot: it measures the content of the row it is in. A row reading £13.30 sized that
+        /// column narrow, a row reading £163.81 sized it wide, and the header — a third grid, sizing
+        /// to the word "Total" — matched neither. The columns visibly wandered down the page.
+        ///
+        /// ⚠ IT LOOKED RIGHT ON THE TABLES IT WAS WRITTEN FOR, which is why it survived: with money
+        /// of a similar width on every row the drift is a pixel or two. A day's real sales, from
+        /// £1.00 to £163.81, is where it becomes obvious.
+        ///
+        /// ⚠ A NUMERIC COLUMN STILL GETS LESS ROOM than a text one — money needs a fraction of the
+        /// width of a name — but as a star WEIGHT, which every row and the header resolve identically.
+        /// A pixel width would be right on exactly one window size (this till runs windowed,
+        /// full-screen and on a small terminal).
+        /// </summary>
+        private const double NumericStar = 0.45;
+
         private static GridLength WidthFor(TableColumn<T> column) =>
             column.Width > 0
                 ? new GridLength(column.Width, GridUnitType.Star)
-                : (column.Numeric ? GridLength.Auto : GridLength.Star);
+                : new GridLength(column.Numeric ? NumericStar : 1, GridUnitType.Star);
         private View RowFor(T row)
         {
             var grid = new Grid { ColumnSpacing = 8 };

@@ -121,6 +121,25 @@ namespace Plutus.Frontend.AppClient.Services.Security
         /// the amount authorised is exactly the amount refunded — including quantity, discounts and
         /// price overrides. A separately-written total here would be a second opinion about money.
         /// </summary>
+        /// <summary>
+        /// Has this operator anything to do in the portal?
+        ///
+        /// ⚠⚠ C2 TWIN of `hasPortalAccess` in the web till's `sibling.ts`:
+        /// `scopes.some(s => s.startsWith("portal.") || s === "platform-admin")`. **Two languages, one
+        /// rule** — if the definition of "may use the portal" changes, it changes here too, or the
+        /// two tills disagree about who is shown the door.
+        ///
+        /// ⚠ UI ONLY, and it must stay that way. The portal gates every one of its own endpoints on
+        /// the same permissions regardless, so hiding this button is a courtesy — not showing a
+        /// cashier a door they will be turned away from. It is not security and must never be relied
+        /// on as such.
+        /// </summary>
+        public static bool MayOpenPortal(SignedInOperator? operatorSignedIn) =>
+            operatorSignedIn?.Grants?.Any(g =>
+                g.Code is not null &&
+                (g.Code.StartsWith("portal.", StringComparison.OrdinalIgnoreCase)
+                 || g.Code.Equals("platform-admin", StringComparison.OrdinalIgnoreCase))) == true;
+
         public static long RefundAmountPence(IEnumerable<IBasketRecord> basket)
         {
             var returns = CheckoutCommit.LinesFrom(basket).Where(l => l.IsReturn).ToList();

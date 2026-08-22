@@ -214,33 +214,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             Services.Sync.TillCadence.BasketIsOpen = () => Basket.Count > 0;
 
             #region Events
+            // ⚠⚠ THE "Baskets" TOOLBAR ITEM IS GONE — 2026-08-22. Matt, of the MAUI app bar:
+            // *"Baskets in the top right shouldnt be there."*
+            //
+            // It was a DUPLICATE of the Retrieve button, and this file's own `HasStoredTransactions`
+            // comment says why: the toolbar item was the original way to reach a parked basket, Matt
+            // could not find it (*"I have saved 2, but cant retreive them"*), and it was replaced on
+            // 2026-08-18 by a Retrieve button next to Save — "where the thing it undoes lives". The
+            // button landed; the toolbar item was never removed, so both existed and only one was
+            // discoverable.
+            //
+            // ⚠ It also cost the app bar its right-hand corner: an item inserted at index 0 of the
+            // page toolbar sits exactly where the web till puts the clock, ❓ and 👥.
             StoredTransactions.CollectionChanged += (sender, e) =>
-            {
                 // ⚠ The Retrieve button reads this — MAUI will not work it out on its own.
                 OnPropertyChanged(nameof(HasStoredTransactions));
-                if (StoredTransactions.Count == 0)
-                {
-                    var toolbarItem = Shell.Current.CurrentPage.ToolbarItems.FirstOrDefault(tI => tI.Text.Equals("Baskets".Translate()));
-                    if (toolbarItem == null) return;
-
-                    Shell.Current.CurrentPage.ToolbarItems.Remove(toolbarItem);
-                    App.GetViewModel().ToolbarItemsChanged = true;
-                }
-                else
-                {
-                    if (Shell.Current.CurrentPage.ToolbarItems.Any(tI => tI.Text.Equals("Baskets".Translate()))) return;
-
-                    Shell.Current.CurrentPage.ToolbarItems.Insert(0, new IconToolbarItem
-                    {
-                        Text = "Baskets".Translate(),
-                        IconImageSource = "md-shopping-basket",
-                        IconColor = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeAccentInk", Colors.White),
-                        Command = RetrieveTransactionCommand,
-                        IsVisible = true
-                    });
-                    App.GetViewModel().ToolbarItemsChanged = true;
-                }
-            };
             Basket.CollectionChanged += (sender, e) =>
             {
                 if (e.NewItems != null)

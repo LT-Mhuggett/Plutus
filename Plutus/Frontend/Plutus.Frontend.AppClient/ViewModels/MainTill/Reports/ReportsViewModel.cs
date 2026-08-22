@@ -23,7 +23,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
     /// </summary>
     public class ReportsViewModel : BaseViewModel
     {
-        private readonly Picker _picker;
+        private readonly Controls.SubTabBar _tabs;
         private readonly DatePicker _from;
         private readonly DatePicker _to;
         private readonly Label _totals;
@@ -38,10 +38,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
         private System.Collections.Generic.List<ReportDefinition> _visible;
 
         public ReportsViewModel(
-            Picker picker, DatePicker from, DatePicker to,
+            Controls.SubTabBar tabs, DatePicker from, DatePicker to,
             Label totals, Label note, ContentView tableHost)
         {
-            _picker = picker;
+            _tabs = tabs;
             _from = from;
             _to = to;
             _totals = totals;
@@ -69,13 +69,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             // on a server — and when this till has never had an answer it returns the whole catalogue.
             _visible = BuildVisible();
 
-            foreach (var report in _visible) _picker.Items.Add(report.Title);
+            _tabs.SetTabs(_visible.Select(r => r.Title));
 
             // ⚠ AN OPERATOR MAY BE ALLOWED NONE. `SelectedIndex = 0` on an empty picker throws, and
             // `RefreshAsync` must not then index into nothing — see its own guard.
-            if (_visible.Count > 0) _picker.SelectedIndex = 0;
 
-            _picker.SelectedIndexChanged += (_, _) => Refresh();
+
+            _tabs.Selected += (_, _) => Refresh();
 
             // ⚠ The last 7 days INCLUDING today. A default of "today" on a reporting screen shows an
             // empty table first thing in the morning, which reads as broken rather than as early.
@@ -205,8 +205,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             {
                 if (!await Services.Reporting.PublishedReports.RefreshAsync().ConfigureAwait(false)) return;
 
-                var chosen = _picker.SelectedIndex >= 0 && _picker.SelectedIndex < _visible.Count
-                    ? _visible[_picker.SelectedIndex].Key
+                var chosen = _tabs.SelectedIndex >= 0 && _tabs.SelectedIndex < _visible.Count
+                    ? _visible[_tabs.SelectedIndex].Key
                     : null;
 
                 var rebuilt = BuildVisible();
@@ -214,13 +214,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     _visible = rebuilt;
-                    _picker.Items.Clear();
-                    foreach (var report in _visible) _picker.Items.Add(report.Title);
 
-                    if (_visible.Count == 0) return;
-
+                    // ⚠ THE OPERATOR'S CHOSEN REPORT SURVIVES A REPUBLISH where it still exists —
+                    // redrawing the row would otherwise throw them back to the first tab mid-read.
                     var keep = chosen is null ? -1 : _visible.FindIndex(r => r.Key == chosen);
-                    _picker.SelectedIndex = keep >= 0 ? keep : 0;
+                    _tabs.SetTabs(_visible.Select(r => r.Title), keep >= 0 ? keep : 0);
                 });
             }
             catch (Exception ex)
@@ -289,11 +287,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             // selection has to move before anything is fetched for it.
             await ApplyPublicationAsync();
 
-            // ⚠⚠ INDEXED INTO `_visible`, NEVER INTO `ReportCatalogue.All`. The picker lists only the
-            // reports this operator may read (5b), so position 1 in the picker is not position 1 in the
+            // ⚠⚠ INDEXED INTO `_visible`, NEVER INTO `ReportCatalogue.All`. The tab row lists only the
+            // reports this operator may read (5b), so position 1 in the row is not position 1 in the
             // catalogue — reading from `All` here would run whatever report happened to sit at that
             // index, which for a narrow role means **running a report they are not allowed**.
-            var index = _picker.SelectedIndex;
+            var index = _tabs.SelectedIndex;
             if (index < 0 || index >= _visible.Count)
             {
                 // ⚠ An operator allowed no reports at all lands here. Say so, rather than leaving an

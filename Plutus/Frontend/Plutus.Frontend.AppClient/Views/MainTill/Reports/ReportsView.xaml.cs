@@ -23,7 +23,7 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Reports
         {
             InitializeComponent();
             BindingContext = _vm = new ReportsViewModel(
-                ReportPicker, FromPicker, ToPicker, TotalsLabel, NoteLabel, TableHost);
+                ReportTabs, FromPicker, ToPicker, TotalsLabel, NoteLabel, TableHost);
             _live = new Services.Sync.LiveScreen(this, _vm.Refresh, onCadence: false);
         }
     }

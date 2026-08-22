@@ -141,6 +141,20 @@ namespace Plutus.Frontend.AppClient.Services.Theming
                 _ => AppTheme.Unspecified,   // ⚠ = follow the device, the web till's "light dark"
             };
 
+            // ⚠⚠ AND PUSH IT AT THE NATIVE ROOT TOO, OR THE DROP-DOWNS STAY WHITE. Matt, 2026-08-22:
+            // *"Can you check all of the drop down listrs, they are white and do not follow
+            // themeing."* `UserAppTheme` styles MAUI's own views; a `Picker`'s open list is a WinUI
+            // popup in a separate visual root that never sees a MAUI style and reads `RequestedTheme`
+            // off the WinUI element tree instead. So a dark scheme themed the closed control and left
+            // a white list behind it.
+            //
+            // ⚠ HERE, not at start-up, because the portal can change the scheme while the till is
+            // open — that is what `RefreshAsync` is for, and a root theme set once would leave every
+            // popup on the old mode until somebody restarted the till.
+#if WINDOWS
+            Platforms.Windows.Services.NativePopupTheme.Apply();
+#endif
+
             // ⚠⚠ WHICH STOCK PALETTE THE UNSET SLOTS FALL BACK TO — see `DarkStock`. A scheme that asks
             // for dark and sets only an accent must not leave the surfaces white; that is the live
             // theme's exact shape, and it is why a dark scheme looked like it had done nothing.

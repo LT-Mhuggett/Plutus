@@ -596,11 +596,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 // not merely fail the policy, it 500s before the action runs.
                 var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
 
+                // ⚠⚠ THE LEGACY BUSINESS ID, AND WITHOUT IT THE BIN CANNOT BE READ AT ALL. This was
+                // missing when the Bin shipped in 1.117.0: `/api/Item/Index` binds it `[FromHeader]`
+                // and answers a plain-text 400 without it, which the client saw only as "not
+                // success" and the operator saw as "try again when the till is back online" — on a
+                // till that was online the whole time.
+                var stored = await Services.Storage.TillStoreAccess.UseAsync(
+                    s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.BusinessId));
+                var business = stored is Guid b && b != Guid.Empty ? b : Guid.Empty;
+
                 while (true)
                 {
                     // ⚠ NULL IS "COULD NOT READ", NEVER AN EMPTY BIN — the dialog renders them
                     // differently and the distinction is the whole reason this returns null.
-                    var items = api is null ? null : await api.GetBinnedItemsAsync();
+                    // ⚠ An unknown business is a "could not read" too, and for the same reason: asking
+                    // without the header would answer 400 and look identical to being offline.
+                    var items = api is null || business == Guid.Empty
+                        ? null
+                        : await api.GetBinnedItemsAsync(business);
 
                     var outcome = await Helpers.CustomViews.BinHelper.ShowAsync(items, mayRestore);
 

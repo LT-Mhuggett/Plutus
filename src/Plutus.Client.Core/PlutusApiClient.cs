@@ -826,8 +826,23 @@ public sealed class PlutusApiClient
     /// </summary>
     /// <returns>Null when it could not be read — never an empty list, which would read as "the Bin
     /// is empty".</returns>
+    /// <remarks>
+    /// ⚠⚠ `businessId` TRAVELS AS A HEADER AND IS NOT OPTIONAL — added 2026-08-22 after the Bin
+    /// shipped without it and could not read anything at all. The legacy endpoint is
+    /// `CompositeApiControllerBaseR.Index([FromHeader] TId2 businessId, …)`: with no header it answers
+    /// a plain-text **400 "Business ID not provided"**, which this method saw only as
+    /// `!IsSuccessStatusCode` and reported to the operator as *"the bin couldn't be read... try again
+    /// when the till is back online"* — a connectivity message for a request that never had a hope.
+    ///
+    /// ⚠ THE LESSON WAS ALREADY WRITTEN DOWN AND I STILL MISSED IT. `BinRestoreE2eTests` carries the
+    /// trap in its own comment, because the integration test hit exactly this and had to add the
+    /// header to pass. The test knew; the client did not. Every sibling here — `GetItemAsync`,
+    /// `CreateItemAsync`, `UpdateItemFieldsAsync` — takes a `businessId` and sends the header.
+    ///
+    /// ⚠ It is the LEGACY business id, not the tenant id.
+    /// </remarks>
     public async Task<IReadOnlyList<BinnedItemDto>?> GetBinnedItemsAsync(
-        string? search = null, int page = 1, int pageSize = 100, CancellationToken ct = default)
+        Guid businessId, string? search = null, int page = 1, int pageSize = 100, CancellationToken ct = default)
     {
         var url = $"/api/Item/Index?PageNumber={page}&PageSize={pageSize}&Binned=true"
                 + (string.IsNullOrWhiteSpace(search) ? "" : $"&Search={Uri.EscapeDataString(search.Trim())}");
@@ -835,6 +850,7 @@ public sealed class PlutusApiClient
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Add("businessId", businessId.ToString("D"));
             await AuthoriseAsync(req, ct);
             using var res = await _http.SendAsync(req, ct);
             if (!res.IsSuccessStatusCode) return null;

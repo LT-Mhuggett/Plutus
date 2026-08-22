@@ -1,4 +1,6 @@
 using System;
+using System.Threading.Tasks;
+using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Microsoft.Maui;
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Dispatching;
@@ -53,11 +55,40 @@ namespace Plutus.Frontend.AppClient.Controls
 
         private readonly Action<int> _onUnread;
 
+        /// <summary>The shop's name for THIS till, once the platform has been asked.</summary>
+        private readonly Label _tillName = new()
+        {
+            FontSize = 12,
+            VerticalOptions = LayoutOptions.Center,
+            Margin = new Thickness(0, 0, 8, 0),
+            IsVisible = false,
+        };
+
+        /// <summary>The door to the portal — hidden until we know this operator may open it.</summary>
+        private readonly Button _portal;
+
         public TillAppBar()
         {
             _help = IconButton("❓", "Help & support", OnHelp);
+            _portal = TextButton("Switch to Portal", "Open the management portal", OnPortal);
+            _portal.IsVisible = false;
 
+            // ⚠⚠ FILL, OR THE STAR SPACER GETS NO WIDTH AND EVERYTHING PACKS LEFT — which is exactly
+            // how this shipped in 1.117.0. A `Shell.TitleView` is sized to its content unless the view
+            // asks for the width, so the spacer collapsed to zero and the clock, ❓ and 👥 sat hard
+            // against the left edge while the web till has them on the right. Matt: *"Why does MAUI
+            // still look different to the webtill?"*
+            HorizontalOptions = LayoutOptions.Fill;
+            ColumnSpacing = 0;
+
+            // ⚠ THE WEB TILL'S ORDER, EXACTLY — `App.tsx`'s `header.appbar`: the brand, then the tabs
+            // (the Shell's own, drawn below this), then till name → Switch to Portal → clock → ❓ → 👥
+            // hard right. Parity now includes look and feel, so an operator moving between the two
+            // mid-shift finds the same things in the same corners.
+            ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // Plutus
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Star });   // spacer
+            ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // till name
+            ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // Switch to Portal
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // clock
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // help
             ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });   // users
@@ -66,15 +97,19 @@ namespace Plutus.Frontend.AppClient.Controls
             // background the portal can restyle — a hard-coded colour here is the unreadable-label
             // fault of 1.74.0 waiting to happen on somebody's dark scheme.
             _clock.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
+            _tillName.SetDynamicResource(Label.TextColorProperty, "ThemeInkMuted");
 
             // ⚠ The hover caption names the TIMEZONE, and that is the diagnostic half — `Europe/London`
             // on a till reading an hour out says immediately whether the fault is the PC or the data.
             // That question took a morning on 2026-08-21.
             // ⚠ The caption is set by `Paint`, which knows whether the shop has its own zone.
 
-            this.Add(_clock, 1, 0);
-            this.Add(_help, 2, 0);
-            this.Add(IconButton("👥", "Users", OnUsers), 3, 0);
+            this.Add(Brand(), 0, 0);
+            this.Add(_tillName, 2, 0);
+            this.Add(_portal, 3, 0);
+            this.Add(_clock, 4, 0);
+            this.Add(_help, 5, 0);
+            this.Add(IconButton("👥", "Users", OnUsers), 6, 0);
 
             _onTick = (_, _) => Paint();
             Paint();
@@ -97,6 +132,10 @@ namespace Plutus.Frontend.AppClient.Controls
                 Services.Sync.TillCadence.UnreadSupportChanged += _onUnread;
                 Paint();
                 PaintBadge(Services.Sync.TillCadence.UnreadSupportReplies);
+
+                // ⚠ FIRE-AND-FORGET, from Loaded rather than the constructor: the bar must draw before
+                // anything is asked of the network, and both answers are decoration.
+                _ = FillIdentityAsync();
             };
 
             Unloaded += (_, _) =>
@@ -174,6 +213,90 @@ namespace Plutus.Frontend.AppClient.Controls
         }
 
         /// <summary>
+        /// **Plutus**, top-left — the web till's `&lt;h1&gt;&lt;PlutusMark /&gt;Plutus&lt;/h1&gt;`.
+        ///
+        /// ⚠ MAUI HAD NO PRODUCT NAME ANYWHERE ON THE TILL SCREEN. Matt, 2026-08-22: *"It is missing
+        /// the plutus name."* On the web till it is the first thing in the bar; here the navigation bar
+        /// started with a clock, so the two did not read as the same application at all.
+        ///
+        /// ⚠ THE MARK IS THE LETTER, not an image asset. The web till draws an inline SVG; the till
+        /// has no equivalent asset and adding a PNG would be one more thing to keep in step with a
+        /// vector. A bold `P` in the accent colour is the same idea at the same size, and it cannot go
+        /// missing from a build.
+        /// </summary>
+        private static View Brand()
+        {
+            var row = new HorizontalStackLayout
+            {
+                Spacing = 6,
+                VerticalOptions = LayoutOptions.Center,
+                Margin = new Thickness(4, 0, 14, 0),
+            };
+
+            var mark = new Label
+            {
+                Text = "P",
+                FontSize = 19,
+                FontAttributes = FontAttributes.Bold,
+                VerticalOptions = LayoutOptions.Center,
+            };
+            mark.SetDynamicResource(Label.TextColorProperty, "ThemeAccent");
+
+            var name = new Label
+            {
+                Text = "Plutus",
+                FontSize = 17,
+                FontAttributes = FontAttributes.Bold,
+                VerticalOptions = LayoutOptions.Center,
+            };
+            name.SetDynamicResource(Label.TextColorProperty, "ThemeInk");
+
+            row.Add(mark);
+            row.Add(name);
+            return row;
+        }
+
+        /// <summary>
+        /// Ask the platform what this till is called, and whether this operator may open the portal.
+        ///
+        /// ⚠ NEVER THROWS AND NEVER BLOCKS. It runs fire-and-forget from `Loaded`; both answers are
+        /// decoration, and a till that could not reach the server must still sell.
+        ///
+        /// ⚠ THE NAME IS NOT CACHED HERE. `TillId` is in the local store, so the label appears a beat
+        /// after the bar draws — which is the same order the web till does it in (`fetchTillName` on
+        /// mount) and why both show the bar first and the badge second.
+        /// </summary>
+        private async Task FillIdentityAsync()
+        {
+            try
+            {
+                // ⚠ The PORTAL BUTTON is gated on the permission, not on connectivity — the web till
+                // shows it only for operators with a `portal.*` scope, and showing it to a cashier who
+                // will be refused at the far end is worse than not showing it at all.
+                var op = App.GetViewModel()?.SignedInOperator;
+                _portal.IsVisible = op is not null && Services.Security.TillGate.MayOpenPortal(op);
+
+                var tillId = await Services.Storage.TillStoreAccess.TryUseAsync(
+                    s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.TillId)).ConfigureAwait(true);
+                if (tillId is not Guid id || id == Guid.Empty) return;
+
+                var api = await Services.Connectivity.PlutusApi.GetAsync().ConfigureAwait(true);
+                if (api is null) return;
+
+                var answer = await api.GetTillNameAsync(id).ConfigureAwait(true);
+                var name = answer?.Name;
+                if (string.IsNullOrWhiteSpace(name)) return;
+
+                _tillName.Text = name;
+                _tillName.IsVisible = true;
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("TillAppBar.FillIdentity", ex);
+            }
+        }
+
+        /// <summary>
         /// ⚠ A `Button` WITH A GLYPH, not an `ImageButton` and not a tappable `Label`. A Grid with a
         /// `TapGestureRecognizer` is NOT focusable, and this till is used with a keyboard and a
         /// scanner — the same finding that made `SettingsSection`'s headers real buttons.
@@ -190,6 +313,27 @@ namespace Plutus.Frontend.AppClient.Controls
             };
 
             b.SetDynamicResource(Button.TextColorProperty, "ThemeInk");
+            ToolTipProperties.SetText(b, tip);
+            b.Clicked += (s, e) => onClick(s, e);
+            return b;
+        }
+
+        /// <summary>The same button with words rather than a glyph — the web till's `.switch-app`.</summary>
+        private static Button TextButton(string text, string tip, EventHandler onClick)
+        {
+            var b = new Button
+            {
+                Text = text,
+                FontSize = 12,
+                Padding = new Thickness(10, 2),
+                BackgroundColor = Colors.Transparent,
+                BorderWidth = 1,
+                CornerRadius = 12,
+                Margin = new Thickness(0, 0, 8, 0),
+            };
+
+            b.SetDynamicResource(Button.TextColorProperty, "ThemeInk");
+            b.SetDynamicResource(Button.BorderColorProperty, "ThemeLine");
             ToolTipProperties.SetText(b, tip);
             b.Clicked += (s, e) => onClick(s, e);
             return b;
@@ -220,6 +364,45 @@ namespace Plutus.Frontend.AppClient.Controls
             catch (Exception ex)
             {
                 Services.Analytics.CrashLog.Write("TillAppBar.Users", ex);
+            }
+        }
+
+        /// <summary>
+        /// Open the portal in the operator's browser.
+        ///
+        /// ⚠⚠ A BROWSER, NOT A VIEW INSIDE THE TILL. The web till NAVIGATES (`location.assign`)
+        /// because it is already in a browser; MAUI is not, and embedding the portal would mean a
+        /// WebView with a second session, a second auth implementation and a second place for a token
+        /// to live. Matt asked for *"link to the portal"* and a link is what this is.
+        ///
+        /// ⚠ IT WARNS FIRST IF A BASKET WOULD BE ABANDONED — the same guard the web till applies. The
+        /// till stays open behind the browser, so nothing is actually lost; the warning exists because
+        /// walking away mid-sale is the mistake, not the navigation.
+        /// </summary>
+        private static async void OnPortal(object sender, EventArgs e)
+        {
+            try
+            {
+                var url = await Services.Connectivity.PortalLink.ResolveAsync().ConfigureAwait(true);
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    // ⚠ `ShowAsync<T>` needs a Task<T>; the three-argument DisplayAlert returns a bare
+                    // Task. Returning true is the value nobody reads — it exists to satisfy the gate.
+                    await Services.UIHandeling.Modal.ShowAsync(async () =>
+                    {
+                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
+                            "This till hasn't been told where the portal is yet.", "OK".Translate());
+                        return true;
+                    }).ConfigureAwait(true);
+                    return;
+                }
+
+                await Microsoft.Maui.ApplicationModel.Browser.OpenAsync(
+                    url, Microsoft.Maui.ApplicationModel.BrowserLaunchMode.SystemPreferred);
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("TillAppBar.Portal", ex);
             }
         }
     }
