@@ -109,7 +109,7 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.115.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-21**, artefact reads **1.115.0** — verified IN the assembly, with no stale 1.112.0 or 1.110.0 string anywhere in it (MSBuild caches the evaluated version, so a bump can otherwise re-emit the previous one). ⚠ **The ONLY build on the box** — 1.110.0 deleted, so the folder listing is the truth. ⚠ **Launched and ran 25s with no startup crash and no crash log**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G74** — an item's barcodes and its history (WP10), reached from **Inventory → View all items → tap a row → Barcodes & history…**. It needs a **Supervisor** login for §G74a–f and a **Cashier** for §G74g. ⚠ It also carries §G69's MAUI half (the card-flow hint on checkout) and §G73d (item editing refused for a cashier). ⚠ It carries the **supervisor-and-above item gate**, so **sign out and in** before testing — a login token caches the whole permission set for 12h. ⚠ **Unpackaged, so it shares no data with any MSIX you have installed**: "this till isn't enrolled" on first run is expected, not a bug. ⚠ **What to run, in what order: see START HERE at the top.** |
+| **Run** | ✅ `D:\tmp\plutus-till-1.116.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-22**, artefact reads **1.116.0** — verified IN the assembly, with no stale 1.112.0 or 1.110.0 string anywhere in it (MSBuild caches the evaluated version, so a bump can otherwise re-emit the previous one). ⚠ **The ONLY build on the box** — 1.110.0 deleted, so the folder listing is the truth. ⚠ **Launched and ran 25s with no startup crash and no crash log**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G74** — an item's barcodes and its history (WP10), reached from **Inventory → View all items → tap a row → Barcodes & history…**. It needs a **Supervisor** login for §G74a–f and a **Cashier** for §G74g. ⚠ It also carries §G69's MAUI half (the card-flow hint on checkout) and §G73d (item editing refused for a cashier). ⚠ It carries the **supervisor-and-above item gate**, so **sign out and in** before testing — a login token caches the whole permission set for 12h. ⚠ **Unpackaged, so it shares no data with any MSIX you have installed**: "this till isn't enrolled" on first run is expected, not a bug. ⚠ **What to run, in what order: see START HERE at the top.** |
 | **Deployed** | ✅ **ALL LIVE 2026-08-20** — backend **1.19.0** · portal **1.15.0** · web till **1.28.0**, each verified on the artefact (right host, real byte size, and a string only that change introduced — not a 200). ✅ **§G62–§G66 are all testable now.** ⚠⚠ **But two ordering rules first:** **§G65b** before §G64 (every discount rule has `AutoApply = 0`, so nothing discounts until one is ticked *Apply it automatically* — correct behaviour, not a fault), and **§G66a** before §G66c–h (nothing to scan until a barcode exists). |
 | **Backend 1.19.0 deploy record** | ✅ Verified on four axes: swagger 200 · junk device id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path; a 500 would mean schema and model disagree) · `GET /api/v1/items/barcodes` → **401, not 404** · and the MIGRATION checked as a TABLE, not a history row: `ItemBarcodes` exists with its six columns and **`IX_ItemBarcodes_TenantId_Code` is UNIQUE**. ⚠ **20,474 items before and after** — an additive migration touched nothing. Rollback `~/PLUTUS/backend.pre-1.19.0`; pre-deploy dump `plutus-20260820.sql.gz` verified at **76.5 MB uncompressed, 103 tables** (and confirmed to contain NO `ItemBarcodes` table, so the before/after is real). |
 | **Web till deploy record** | ✅ **1.27.0 live**, verified on the four axes the runbook demands rather than a 200: the right host (`plutus.…`, not `admin.plutus.…`) names `index-BKSYpWKu.js` · the bundle is **377,813 bytes**, not the ~981-byte SPA fallback that answers 200 for anything · the deployed **CSS contains `till-locked`**, a string only this change introduced · the previous bundle now returns **981 bytes**, so it really was replaced. No unsubstituted `__APP_VERSION__`/`__BUILD_TIME__` in the built OR the deployed bundle (the 2026-08-09 blank-portal fault). Rollback: `/srv/apps/PLUTUS/web/current.pre-1.27.0`. |
@@ -4238,7 +4238,7 @@ item"* offer, unchanged.
 
 ### G66d. The MAUI till — the same alias, the same item
 
-⚠ Run `D:\tmp\plutus-till-1.115.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+⚠ Run `D:\tmp\plutus-till-1.116.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
 (the v7 catalogue re-sync above).
 
 Scan `TEST-ALIAS-1`.
@@ -4596,7 +4596,7 @@ break something arbitrarily far from it**, and a sale is the only test that cove
 
 ### G68e. The build folder — what Matt actually asked about
 
-Look at `D:\tmp\plutus-till-1.115.0`.
+Look at `D:\tmp\plutus-till-1.116.0`.
 
 **✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
 
