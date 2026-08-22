@@ -342,7 +342,11 @@
                         </Grid>
                     </ListView.Header>
                 </ListView>
-                <Grid Grid.Row="3">
+                <!-- ⚠ ROW 4, not 3 — the totals and the action buttons. When the Loyalty lookup gained
+                     its own row on 2026-08-23 the ListView moved to row 3 and THIS DID NOT, so the two
+                     drew on top of each other: the basket area collapsed to nothing, the buttons rode up
+                     under the scan box, and row 4 was left as a large empty band. -->
+                <Grid Grid.Row="4">
                     <Grid.RowDefinitions>
                         <!-- ⚠ Row 0 is the CUSTOMER BAR (step 27). Rows below shift by one; every
                              Grid.Row in this grid was renumbered with it. MAUI bindings fail

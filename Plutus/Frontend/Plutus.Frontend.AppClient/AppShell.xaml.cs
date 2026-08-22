@@ -118,7 +118,7 @@ namespace Plutus.Frontend.AppClient
             // and sharing one across seven tabs re-parents it on every tab change (it would appear on
             // whichever tab was opened last and nowhere else). `TillAppBar` is built for that — the
             // clock subscribes to ONE static tick rather than each instance owning a timer.
-            Shell.SetTitleView(page, new Controls.TillAppBar());
+            Shell.SetTitleView(page, new Controls.TillAppBar(page));
 
             return new ShellContent
             {

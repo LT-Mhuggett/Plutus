@@ -67,7 +67,10 @@ namespace Plutus.Frontend.AppClient.Controls
         /// <summary>The door to the portal — hidden until we know this operator may open it.</summary>
         private readonly Button _portal;
 
-        public TillAppBar()
+        /// <summary>The page this bar belongs to — the only reliable source of its width.</summary>
+        private readonly Page _page;
+
+        public TillAppBar(Page page = null)
         {
             _help = IconButton("❓", "Help & support", OnHelp);
             _portal = TextButton("Switch to Portal", "Open the management portal", OnPortal);
@@ -91,20 +94,18 @@ namespace Plutus.Frontend.AppClient.Controls
             // ⚠ So the bar is told how wide it is, from the Shell, and re-told whenever the window
             // changes. A till runs windowed, full-screen and on a small terminal; a width measured
             // once at start-up is right until somebody drags the edge.
-            SizeTo(Shell.Current);
-
-            Loaded += (_, _) =>
+            // ⚠⚠ THE PAGE, NOT `Shell.Current` — THIRD ATTEMPT, 2026-08-23. `Fill` did nothing
+            // (1.118.0) because a TitleView is measured with infinite width, so there was no
+            // constraint to fill. `Shell.Current.Width` did nothing either (1.119.0): at the moment a
+            // tab is built the Shell has not laid out and reports -1, and its `SizeChanged` never
+            // reached a bar that was already parented. The PAGE is handed in by `AppShell.Tab()`, it
+            // is the thing that actually resizes with the window, and it is live from the start.
+            _page = page;
+            if (page is not null)
             {
-                if (Shell.Current is not Shell shell) return;
-                shell.SizeChanged -= OnShellResized;
-                shell.SizeChanged += OnShellResized;
-                SizeTo(shell);
-            };
-
-            Unloaded += (_, _) =>
-            {
-                if (Shell.Current is Shell shell) shell.SizeChanged -= OnShellResized;
-            };
+                page.SizeChanged += (s, _) => SizeTo(s as VisualElement);
+                SizeTo(page);
+            }
 
             // ⚠ THE WEB TILL'S ORDER, EXACTLY — `App.tsx`'s `header.appbar`: the brand, then the tabs
             // (the Shell's own, drawn below this), then till name → Switch to Portal → clock → ❓ → 👥
@@ -160,6 +161,11 @@ namespace Plutus.Frontend.AppClient.Controls
 
                 // ⚠ FIRE-AND-FORGET, from Loaded rather than the constructor: the bar must draw before
                 // anything is asked of the network, and both answers are decoration.
+                // ⚠ RE-APPLIED HERE TOO. A page can be sized before this bar is parented, in which
+                // case its SizeChanged has already been and gone — so the constructor's one-shot read
+                // was the only chance and it may have seen -1.
+                SizeTo(_page);
+
                 _ = FillIdentityAsync();
             };
 
@@ -249,19 +255,19 @@ namespace Plutus.Frontend.AppClient.Controls
         /// vector. A bold `P` in the accent colour is the same idea at the same size, and it cannot go
         /// missing from a build.
         /// </summary>
-        private void OnShellResized(object sender, EventArgs e) => SizeTo(sender as Shell);
+
 
         /// <summary>
-        /// Match the Shell's width, so the star spacer has something to divide.
+        /// Match the page's width, so the star spacer has something to divide.
         ///
         /// ⚠ A SMALL INSET, not zero. The navigation bar has its own chrome either side and a title
         /// view measured to the exact shell width pushes the 👥 under it. ⚠ And never a NEGATIVE
-        /// width — the shell reports -1 before its first layout pass, and `WidthRequest = -1` means
+        /// width — a page reports -1 before its first layout pass, and `WidthRequest = -1` means
         /// "size to content", which is silently the bug this exists to fix.
         /// </summary>
-        private void SizeTo(Shell shell)
+        private void SizeTo(VisualElement host)
         {
-            var width = shell?.Width ?? 0;
+            var width = host?.Width ?? 0;
             WidthRequest = width > 40 ? width - 24 : -1;
         }
 
