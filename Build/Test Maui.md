@@ -109,7 +109,7 @@ soft ✅** — treat it as unknown.
 
 | | |
 |---|---|
-| **Run** | ✅ `D:\tmp\plutus-till-1.116.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-22**, artefact reads **1.116.0** — verified IN the assembly, with no stale 1.112.0 or 1.110.0 string anywhere in it (MSBuild caches the evaluated version, so a bump can otherwise re-emit the previous one). ⚠ **The ONLY build on the box** — 1.110.0 deleted, so the folder listing is the truth. ⚠ **Launched and ran 25s with no startup crash and no crash log**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G74** — an item's barcodes and its history (WP10), reached from **Inventory → View all items → tap a row → Barcodes & history…**. It needs a **Supervisor** login for §G74a–f and a **Cashier** for §G74g. ⚠ It also carries §G69's MAUI half (the card-flow hint on checkout) and §G73d (item editing refused for a cashier). ⚠ It carries the **supervisor-and-above item gate**, so **sign out and in** before testing — a login token caches the whole permission set for 12h. ⚠ **Unpackaged, so it shares no data with any MSIX you have installed**: "this till isn't enrolled" on first run is expected, not a bug. ⚠ **What to run, in what order: see START HERE at the top.** |
+| **Run** | ✅ `D:\tmp\plutus-till-1.117.0\Plutus.Frontend.AppClient.exe` — double-click, nothing to install. **BUILT 2026-08-22 from HEAD `0dfa2f1e`**, artefact reads **1.117.0** — verified in the assembly (`ProductVersion 1.117.0+0dfa2f1e`), with **no stale 1.110.0 / 1.112.0 / 1.115.0 / 1.116.0 string anywhere in it** (MSBuild caches the evaluated version, so a bump can otherwise re-emit the previous one — `bin/Release` and `obj/Release` were deleted before this publish). ⚠ **The ONLY build on the box** — 1.116.0 deleted, so the folder listing is the truth. ⚠ **Launched and ran 25s with no startup crash and no crash log**, which is the most an automated check can say: XAML and resource failures surface **on navigation**, and this repo has no automated coverage of any MAUI screen. ⚠⚠ **NEW IN THIS BUILD: §G76–G79** — the **Bin** and restoring a withdrawn item (WP10 #4, §G76); **online-first sign-in** with a device-local verifier (step 28 till half, §G77 — ⚠ a fresh till now REFUSES a first sign-in offline, deliberately); **Today's sales** on Reports (§G78); and a **hang sweep** (§G79 — nothing new to see, but say so if anything stops working and recovers ~30s later). |
 | **Deployed** | ✅ **ALL LIVE 2026-08-20** — backend **1.19.0** · portal **1.15.0** · web till **1.28.0**, each verified on the artefact (right host, real byte size, and a string only that change introduced — not a 200). ✅ **§G62–§G66 are all testable now.** ⚠⚠ **But two ordering rules first:** **§G65b** before §G64 (every discount rule has `AutoApply = 0`, so nothing discounts until one is ticked *Apply it automatically* — correct behaviour, not a fault), and **§G66a** before §G66c–h (nothing to scan until a barcode exists). |
 | **Backend 1.19.0 deploy record** | ✅ Verified on four axes: swagger 200 · junk device id → **401 "Device not enrolled or revoked."** (the axis that proves the DB path; a 500 would mean schema and model disagree) · `GET /api/v1/items/barcodes` → **401, not 404** · and the MIGRATION checked as a TABLE, not a history row: `ItemBarcodes` exists with its six columns and **`IX_ItemBarcodes_TenantId_Code` is UNIQUE**. ⚠ **20,474 items before and after** — an additive migration touched nothing. Rollback `~/PLUTUS/backend.pre-1.19.0`; pre-deploy dump `plutus-20260820.sql.gz` verified at **76.5 MB uncompressed, 103 tables** (and confirmed to contain NO `ItemBarcodes` table, so the before/after is real). |
 | **Web till deploy record** | ✅ **1.27.0 live**, verified on the four axes the runbook demands rather than a 200: the right host (`plutus.…`, not `admin.plutus.…`) names `index-BKSYpWKu.js` · the bundle is **377,813 bytes**, not the ~981-byte SPA fallback that answers 200 for anything · the deployed **CSS contains `till-locked`**, a string only this change introduced · the previous bundle now returns **981 bytes**, so it really was replaced. No unsubstituted `__APP_VERSION__`/`__BUILD_TIME__` in the built OR the deployed bundle (the 2026-08-09 blank-portal fault). Rollback: `/srv/apps/PLUTUS/web/current.pre-1.27.0`. |
@@ -4238,7 +4238,7 @@ item"* offer, unchanged.
 
 ### G66d. The MAUI till — the same alias, the same item
 
-⚠ Run `D:\tmp\plutus-till-1.116.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
+⚠ Run `D:\tmp\plutus-till-1.117.0\Plutus.Frontend.AppClient.exe` and give it a minute on first launch
 (the v7 catalogue re-sync above).
 
 Scan `TEST-ALIAS-1`.
@@ -4596,7 +4596,7 @@ break something arbitrarily far from it**, and a sale is the only test that cove
 
 ### G68e. The build folder — what Matt actually asked about
 
-Look at `D:\tmp\plutus-till-1.116.0`.
+Look at `D:\tmp\plutus-till-1.117.0`.
 
 **✅ Expected: 169 MB · 268 files in the root · 88 subfolders** (was 264 MB / 299 / 121).
 
@@ -5623,4 +5623,149 @@ never blank — a null answer must not clear the cache, or the next receipt has 
 2. On a till that has **never** connected: **✅ Expected:** *"Unavailable — this till hasn't been told
 its store details yet. It fills in on the next connection."* — and the Store id / Till id rows still
 render, because they come from this machine.
+
+
+---
+
+## G76. The Bin — putting a withdrawn item back · *new in 1.117.0 (WP10 #4)*
+
+> **Why this exists:** the server has always had `BinItemsAsync(ids, bin: false)`. **Nothing called
+> it.** An item withdrawn from sale on MAUI could not be brought back from MAUI at all — you had to
+> go to the portal. This is the missing door.
+
+**Inventory → View all items.** ✅ There is a fourth button on the toolbar: **The Bin**.
+
+### G76a. It shows only withdrawn items
+
+Tap **The Bin**.
+
+**✅ Expected:** a dialog listing the items that have been *withdrawn from sale* — and **nothing
+else**. An item on sale must not appear here.
+
+⚠ If the list is **empty**, that is a legitimate answer and it should say so in words, not show a
+blank box. To make a real test: withdraw an item first (**tap a row → Withdraw from sale**), then
+open the Bin and confirm it appears.
+
+⚠⚠ **IF IT SAYS IT CANNOT READ THE BIN, THAT IS A REAL FAILURE AND NOT AN EMPTY BIN.** The two are
+deliberately different messages — the client returns **null** (not an empty list) when the server
+could not be read, precisely so "nothing is withdrawn" can never be confused with "I could not ask".
+Say which one you saw.
+
+### G76b. Restoring puts it back on sale
+
+Pick an item in the Bin and restore it.
+
+**✅ Expected:** it asks you to confirm first — restoring is a change to what the shop sells, and it
+should not happen on a single mis-tap.
+
+**✅ Then:** the item disappears from the Bin, and **appears again in View all items**, sellable.
+
+⚠ **Scan or search for it on the Till tab and add it to a basket.** That is the real test: the
+catalogue is a local cache, and a restore that updates the list without re-syncing would leave an
+item that *looks* restored and cannot be sold. It should sell.
+
+### G76c. ⚠ It survives a restart
+
+Restore an item, then **close and reopen the app**.
+
+**✅ Expected:** it is still on sale, and still not in the Bin.
+
+⚠ This is here because the restore path syncs the catalogue after the server call. If the sync were
+skipped, the screen would look right until the next launch and then silently revert.
+
+---
+
+## G77. Signing in when the till has never been online · *new in 1.117.0 (step 28, till half)*
+
+> ⚠⚠ **THIS IS A SECURITY CHANGE AND IT CHANGES WHAT A COLD TILL DOES.** Until now, a till could
+> authenticate a member of staff entirely from the roster it had been sent. That means a **stolen
+> till still signs people in**, off a roster that may be weeks old. From 1.117.0 the till mints a
+> **device-local verifier** the first time you sign in *online*, and offline sign-in works only for
+> accounts that have done so on **this machine**.
+>
+> ⚠ **The server half is NOT in this build.** The roster still carries platform hashes, so the
+> stolen-till hole is not yet closed — this is the half that has to ship first, because every till
+> must be minting verifiers *before* the server stops sending hashes, or that deploy locks everyone
+> out. Test what is here; the gap is deliberate and recorded.
+
+### G77a. First sign-in on a fresh till, with no network — refused, and it says why
+
+⚠ Use a till (or an unpackaged build) that has **never** signed this operator in. **Disconnect the
+network**, then try to sign in.
+
+**✅ Expected:** it refuses, and the message tells you to **connect once first** — not "wrong
+password", not a generic failure.
+
+⚠⚠ **"WRONG PASSWORD" HERE WOULD BE THE BUG.** The password may be perfectly correct; the till
+simply has no way to check it yet. A message blaming the operator sends them to reset a password
+that was never wrong.
+
+### G77b. The same account offline, after one online sign-in
+
+Reconnect, sign in **successfully**, then sign out. **Disconnect the network again** and sign in.
+
+**✅ Expected:** it works.
+
+⚠ That is the verifier doing its job: minted on the online sign-in, stored on this device, and used
+when the platform cannot be reached.
+
+### G77c. A leaver is refused
+
+Have the portal **disable** an operator who has signed into this till before.
+
+- **Online:** ✅ refused **immediately**.
+- **Offline:** ✅ refused once the roster's staleness horizon passes — the till trusts a cached
+  roster for a bounded time, deliberately, so a broadband outage does not close the shop.
+
+⚠ Say which of the two you tested. "It let them in offline five minutes after I disabled them" is
+**expected**; "it let them in online" is a fault.
+
+---
+
+## G78. "Today's sales" on the Reports screen · *new in 1.117.0*
+
+> **Matt, 2026-08-22:** *"I need a button before the data pickets that says 'Todays sales'. When you
+> click this is sets the date pickers to todays date. Just to make things easier."* — asked for on
+> the portal and both tills, and all three now carry it in the same place.
+
+**Reports.** ✅ There is a **Today's sales** button **before** the two date pickers.
+
+Tap it. **✅ Expected:** both pickers jump to today, and the report **re-runs by itself** — you
+should not have to press anything else.
+
+⚠ **It must run ONCE, not twice.** Watch for a flicker of one result being replaced by another: a
+date picker fires its changed event on a programmatic write too, and setting both used to mean two
+runs, the first against a half-applied range.
+
+⚠⚠ **AND IT IS THE SHOP'S TODAY.** If you are testing late at night, this matters: between midnight
+and 01:00 BST the UTC date is still *yesterday*. The button must select the date the shop is
+trading on. ⚠ Compare against the web till's Custom report and the portal's — **all three must pick
+the same day**, and that is the actual test.
+
+---
+
+## G79. Nothing hangs for ever · *new in 1.117.0*
+
+> ⚠ **A regression sweep, not a feature.** Seven internal gates serialise access to the local store,
+> the API client, the caches, the operator roster and the dialogs. **Four of the seven waited with no
+> time limit**, so one stuck operation would freeze that whole subsystem *in silence* — no error, no
+> log, nothing on screen. All seven now give up after 30 seconds.
+>
+> There is nothing new to *see* here. It is on the list because a wrong timeout would show up as
+> something intermittently refusing to work, and that is worth knowing to look for.
+
+Use the till normally for a shift — sell, refund, park and recall, open Reports, change a setting,
+sign out and back in.
+
+**✅ Expected:** nothing intermittently stops responding. In particular:
+
+- a **dialog** always opens when you ask for one — confirms, amount entry, payment
+- the **scan box** always answers
+- **sign-in** always reaches a yes or a no
+- Reports and the Cash tab keep refreshing
+
+⚠⚠ **IF SOMETHING STOPS WORKING AND STARTS AGAIN ABOUT 30 SECONDS LATER, SAY SO AND SAY WHAT YOU
+WERE DOING.** That is this change reporting a real hang underneath it — the timeout is working and
+something else is at fault. It would previously have been a permanent freeze with no clue at all,
+so the report is the valuable part.
 
