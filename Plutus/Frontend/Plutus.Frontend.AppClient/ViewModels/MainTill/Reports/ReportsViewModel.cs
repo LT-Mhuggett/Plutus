@@ -83,8 +83,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
             _to.Date = today.ToDateTime(TimeOnly.MinValue);
             _from.Date = today.AddDays(-6).ToDateTime(TimeOnly.MinValue);
 
-            _from.DateSelected += (_, _) => Refresh();
-            _to.DateSelected += (_, _) => Refresh();
+            // ⚠ GUARDED. `DatePicker.DateSelected` fires on a PROGRAMMATIC write too, so
+            // "Today's sales" — which sets both — would otherwise run the report twice, the first
+            // time against a half-applied range (new From, old To). The constructor's own seeding
+            // above is safe only because it happens before these handlers exist.
+            _from.DateSelected += (_, _) => { if (!_settingRange) Refresh(); };
+            _to.DateSelected += (_, _) => { if (!_settingRange) Refresh(); };
 
             // ⚠ The table is built ONCE with placeholder columns and rebuilt per report — see
             // `Rebuild`. A `TillTable` per refresh would drop the operator's sort and page every time
@@ -246,6 +250,35 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Reports
 
         private Command _refreshCommand;
         public Command RefreshCommand => _refreshCommand ??= new Command(Refresh);
+
+        /// <summary>Set while both date pickers are being written at once — see the guarded
+        /// `DateSelected` handlers. Not thread-shared: every write is on the UI thread.</summary>
+        private bool _settingRange;
+
+        Command _todaysSalesCommand;
+        /// <summary>
+        /// Both pickers to today, and run the report — Matt, 2026-08-22.
+        ///
+        /// ⚠ `BusinessDay.Today()`, never `DateTime.Today`: the business day is the shop's, and it is
+        /// the same primitive the sale itself was stamped with, so the filter and the data agree.
+        /// The web surfaces call `businessToday()` in `apiTime.ts` for the same reason.
+        /// </summary>
+        public Command TodaysSalesCommand => _todaysSalesCommand ??= new Command(() =>
+        {
+            var today = SharedKernel.BusinessDay.Today().ToDateTime(TimeOnly.MinValue);
+
+            _settingRange = true;
+            try
+            {
+                // ⚠ `From` first. A DatePicker can carry a MinimumDate/MaximumDate pinned to its
+                // sibling, and writing To below the old From would be rejected outright.
+                _from.Date = today;
+                _to.Date = today;
+            }
+            finally { _settingRange = false; }
+
+            Refresh();
+        });
 
         public void Refresh() => _ = RefreshAsync();
 

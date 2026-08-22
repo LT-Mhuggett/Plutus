@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchSales, gbp, type SaleRow } from "./api.ts";
 import SaleDialog from "./SaleDialog.tsx";
 import DataTable from "./DataTable.tsx";
-import { apiDateTime } from "./apiTime.ts";
+import { apiDateTime, businessToday } from "./apiTime.ts";
 
 // WP3.2 Custom report (portal, net-new): a date-range sales listing with per-sale drill-in (the
 // shared SaleDialog) and a client-side CSV export — the portal equivalent of the till's Statistics
@@ -29,9 +29,12 @@ export default function CustomReport({ day }: { day?: string }) {
   const [error, setError] = useState("");
   const [openSale, setOpenSale] = useState<string | null>(null);
 
-  const load = () => {
+  // ⚠ Takes the range as ARGUMENTS, defaulting to state. "Today's sales" sets both pickers and
+  // loads in one click, and `setFrom`/`setTo` do not update `from`/`to` until the next render —
+  // so a load() reading state here would fetch the range the operator just left.
+  const load = (f: string = from, t: string = to) => {
     setState("loading"); setError("");
-    fetchSales(from, to)
+    fetchSales(f, t)
       .then((data) => { setSales(data); setState("idle"); })
       .catch((e) => { setError(String(e instanceof Error ? e.message : e)); setState("error"); });
   };
@@ -66,9 +69,25 @@ export default function CustomReport({ day }: { day?: string }) {
     URL.revokeObjectURL(url);
   };
 
+  // ⚠ `businessToday`, NOT `iso(new Date())` — that is the UTC day, and Britain is an hour ahead of
+  // it all summer, so between midnight and 01:00 BST it answers YESTERDAY. An empty "today" while a
+  // late shop is still cashing up reads as lost takings.
+  const loadToday = () => {
+    const day = businessToday();
+    setFrom(day); setTo(day);
+    load(day, day);
+  };
+
   return (
     <section className="panel">
       <div className="toolbar">
+        {/* ⚠ BEFORE THE PICKERS, because it REPLACES them for the commonest question a shop asks.
+            Matt, 2026-08-22: *"a button before the data pickets that says Today's sales ... Just to
+            make things easier"*. ⚠ It loads as well as setting the dates — setting two pickers and
+            leaving the operator to find Load is most of the clicks it was meant to save. */}
+        <button className="ghost small" onClick={loadToday} disabled={state === "loading"}>
+          Today&rsquo;s sales
+        </button>
         <label>From <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>To <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} /></label>
         <button className="ghost small" onClick={load} disabled={state === "loading"}>Load</button>

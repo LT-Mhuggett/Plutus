@@ -3,7 +3,7 @@ import { downloadSalesReport, fetchSales, type Sale } from "./api.ts";
 import { gbp } from "./money.ts";
 import SaleDetailDialog from "./reporting/SaleDetailDialog.tsx";
 import DataTable from "./DataTable.tsx";
-import { apiDateTime } from "./apiTime.ts";
+import { apiDateTime, businessToday } from "./apiTime.ts";
 
 const dateInput = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -20,10 +20,13 @@ export default function StatisticsPage() {
   const [downloading, setDownloading] = useState(false);
   const [openSale, setOpenSale] = useState<string | null>(null);
 
-  function load() {
+  // ⚠ Takes the range as ARGUMENTS, defaulting to state — "Today's sales" sets both pickers and
+  // loads in one click, and setFrom/setTo do not update from/to until the next render, so a load()
+  // reading state here would fetch the range the operator just left.
+  function load(f: string = from, t: string = to) {
     setState("loading");
     setError("");
-    fetchSales(new Date(from), new Date(to))
+    fetchSales(new Date(f), new Date(t))
       .then((data) => {
         setSales(data);
         setState("idle");
@@ -51,10 +54,25 @@ export default function StatisticsPage() {
   const totalPence = sales?.reduce((t, s) => t + Math.round(s.total * 100), 0) ?? 0;
   const exTaxPence = sales?.reduce((t, s) => t + Math.round(s.totalExTax * 100), 0) ?? 0;
 
+  // ⚠ `businessToday`, NOT `dateInput(new Date())` — that is the UTC day, and Britain is an hour
+  // ahead of it all summer, so between midnight and 01:00 BST it answers YESTERDAY. On a till that
+  // is exactly when somebody is cashing up and would read an empty screen as lost takings.
+  const loadToday = () => {
+    const day = businessToday();
+    setFrom(day); setTo(day);
+    load(day, day);
+  };
+
   // Content-only: rendered inside ReportingPage's panel as the "Custom" sub-tab.
   return (
     <div>
       <div className="range-row">
+        {/* ⚠ BEFORE THE PICKERS, and identical to the portal's — Matt, 2026-08-22, asked for it on
+            "the portal and tills", and parity now includes look and feel: an operator moving between
+            the two mid-shift must not have to look for it in a different place. */}
+        <button className="ghost" onClick={loadToday} disabled={state === "loading"}>
+          Today&rsquo;s sales
+        </button>
         <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
         <span className="muted">to</span>
         <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />

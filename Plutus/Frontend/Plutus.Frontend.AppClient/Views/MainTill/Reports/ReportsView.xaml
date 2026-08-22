@@ -45,11 +45,18 @@
 
         <Grid Grid.Row="1" ColumnSpacing="6">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <DatePicker Grid.Column="0" x:Name="FromPicker"/>
-            <DatePicker Grid.Column="1" x:Name="ToPicker"/>
+            <!-- ⚠ BEFORE THE PICKERS, matching the portal and the web till exactly. Matt,
+                 2026-08-22: *"a button before the data pickets that says Today's sales ... Just to
+                 make things easier"* — asked for on "the portal and tills", so all three carry it in
+                 the same place. Parity now includes look and feel: an operator moving between tills
+                 mid-shift must not have to hunt for it. -->
+            <Button Grid.Column="0" Text="Today&#39;s sales" Command="{Binding TodaysSalesCommand}"/>
+            <DatePicker Grid.Column="1" x:Name="FromPicker"/>
+            <DatePicker Grid.Column="2" x:Name="ToPicker"/>
         </Grid>
 
         <VerticalStackLayout Grid.Row="2" Spacing="2">

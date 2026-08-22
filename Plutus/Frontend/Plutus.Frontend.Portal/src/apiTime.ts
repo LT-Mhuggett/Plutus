@@ -147,3 +147,29 @@ export const apiTime = (value: string | null | undefined): string =>
  */
 export const apiClock = (value: string | null | undefined): string =>
   apiDate(value)?.toLocaleTimeString("en-GB", zoned()) ?? NOTHING;
+
+/**
+ * ⚠⚠ TODAY AS THE SHOP RECKONS IT — `YYYY-MM-DD`, for a date input or a business-day filter.
+ *
+ * ⚠ NOT `new Date().toISOString().slice(0, 10)`, WHICH IS THE UTC DAY. Britain is an hour ahead of
+ * UTC all summer, so from midnight until 01:00 BST that idiom answers YESTERDAY — and "Today's
+ * sales" showing an empty screen during the one hour a late shop is still cashing up is precisely
+ * when somebody would believe the till had lost the day's takings.
+ *
+ * ⚠ AND NOT THE DEVICE'S DAY EITHER, when a shop zone is set: the portal is opened from anywhere,
+ * so "today" has to mean the shop's today or a manager abroad drills into the wrong date. Falls
+ * back to the device when no shop zone is known, which is what every screen did before WP-TZ.
+ *
+ * ⚠ Assembled from `formatToParts` rather than trusting a locale to emit ISO order. `en-CA` happens
+ * to give `YYYY-MM-DD` in every engine we run on, and that is exactly the kind of happens-to that
+ * turns into a date parsed as month-first on someone else's machine.
+ */
+export function businessToday(at: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    ...zoned(),
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(at);
+
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}

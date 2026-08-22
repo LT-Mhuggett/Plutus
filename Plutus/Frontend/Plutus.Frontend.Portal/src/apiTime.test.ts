@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { apiClock, apiDate, apiDateTime, apiDay, apiMs, apiTime, setDisplayZone, getDisplayZone, readerZoneDiffers } from "./apiTime.ts";
+import { apiClock, apiDate, apiDateTime, apiDay, apiMs, apiTime, businessToday, setDisplayZone, getDisplayZone, readerZoneDiffers } from "./apiTime.ts";
 
 /**
  * The UTC rule — TypeScript half.
@@ -176,5 +176,54 @@ describe("the display zone", () => {
     const before = apiDate(SUMMER)!.getTime();
     setDisplayZone("Asia/Tokyo");
     expect(apiDate(SUMMER)!.getTime()).toBe(before);
+  });
+});
+
+/**
+ * ⚠⚠ "Today" IS THE SHOP'S TODAY, and the whole reason this helper exists is the hour when the two
+ * disagree. Britain runs an hour ahead of UTC all summer, so `toISOString().slice(0, 10)` — the
+ * idiom this replaced — answers YESTERDAY from midnight until 01:00 BST. A "Today's sales" button
+ * that shows an empty screen while a late shop is still cashing up is the worst possible moment to
+ * be wrong by a day.
+ */
+describe("businessToday", () => {
+  afterEach(() => setDisplayZone(null));
+
+  /** 00:30 BST on the 23rd is still 23:30 UTC on the 22nd — the bug, in one assertion. */
+  it("is the shop's day, not the UTC day, in the hour they disagree", () => {
+    const justAfterMidnightInLondon = new Date("2026-08-22T23:30:00Z");
+
+    setDisplayZone("Europe/London");
+    expect(businessToday(justAfterMidnightInLondon)).toBe("2026-08-23");
+
+    // ⚠ What the old idiom would have said, kept as the contrast rather than as a rule.
+    expect(justAfterMidnightInLondon.toISOString().slice(0, 10)).toBe("2026-08-22");
+  });
+
+  /** ⚠ A manager abroad must still drill into the SHOP's day, not their own. */
+  it("follows the shop's zone, not the reader's", () => {
+    const middayUtc = new Date("2026-08-22T12:00:00Z");
+
+    // Kiritimati is UTC+14 — already the 23rd there while London is still on the 22nd.
+    setDisplayZone("Pacific/Kiritimati");
+    expect(businessToday(middayUtc)).toBe("2026-08-23");
+
+    setDisplayZone("Europe/London");
+    expect(businessToday(middayUtc)).toBe("2026-08-22");
+  });
+
+  /** ⚠ No shop zone → the device's own day, which is what every screen did before WP-TZ. */
+  it("falls back to the device when no shop zone is set", () => {
+    setDisplayZone(null);
+    const at = new Date("2026-08-22T12:00:00Z");
+    const expected = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
+    expect(businessToday(at)).toBe(expected);
+  });
+
+  /** ⚠ Zero-padded, always — a date input silently ignores `2026-8-5`. */
+  it("zero-pads month and day", () => {
+    setDisplayZone("Europe/London");
+    expect(businessToday(new Date("2026-01-05T12:00:00Z"))).toBe("2026-01-05");
+    expect(businessToday(new Date("2026-01-05T12:00:00Z"))).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
