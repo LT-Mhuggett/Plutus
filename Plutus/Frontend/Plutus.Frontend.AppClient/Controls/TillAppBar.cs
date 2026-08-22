@@ -81,6 +81,31 @@ namespace Plutus.Frontend.AppClient.Controls
             HorizontalOptions = LayoutOptions.Fill;
             ColumnSpacing = 0;
 
+            // ⚠⚠ AND AN EXPLICIT WIDTH, BECAUSE `Fill` ALONE DID NOT WORK — 2026-08-23. That was the
+            // 1.118.0 fix and Matt reported it again: *"On MAUI, the till name, switch to portal,
+            // time all need to be on the far right."* A `Shell.TitleView` is measured with INFINITE
+            // available width on WinUI, so a star column has nothing to divide and collapses to zero,
+            // and every "right-hand" item packs against the brand. `HorizontalOptions` cannot fix
+            // that — there is no constraint for it to fill.
+            //
+            // ⚠ So the bar is told how wide it is, from the Shell, and re-told whenever the window
+            // changes. A till runs windowed, full-screen and on a small terminal; a width measured
+            // once at start-up is right until somebody drags the edge.
+            SizeTo(Shell.Current);
+
+            Loaded += (_, _) =>
+            {
+                if (Shell.Current is not Shell shell) return;
+                shell.SizeChanged -= OnShellResized;
+                shell.SizeChanged += OnShellResized;
+                SizeTo(shell);
+            };
+
+            Unloaded += (_, _) =>
+            {
+                if (Shell.Current is Shell shell) shell.SizeChanged -= OnShellResized;
+            };
+
             // ⚠ THE WEB TILL'S ORDER, EXACTLY — `App.tsx`'s `header.appbar`: the brand, then the tabs
             // (the Shell's own, drawn below this), then till name → Switch to Portal → clock → ❓ → 👥
             // hard right. Parity now includes look and feel, so an operator moving between the two
@@ -224,6 +249,22 @@ namespace Plutus.Frontend.AppClient.Controls
         /// vector. A bold `P` in the accent colour is the same idea at the same size, and it cannot go
         /// missing from a build.
         /// </summary>
+        private void OnShellResized(object sender, EventArgs e) => SizeTo(sender as Shell);
+
+        /// <summary>
+        /// Match the Shell's width, so the star spacer has something to divide.
+        ///
+        /// ⚠ A SMALL INSET, not zero. The navigation bar has its own chrome either side and a title
+        /// view measured to the exact shell width pushes the 👥 under it. ⚠ And never a NEGATIVE
+        /// width — the shell reports -1 before its first layout pass, and `WidthRequest = -1` means
+        /// "size to content", which is silently the bug this exists to fix.
+        /// </summary>
+        private void SizeTo(Shell shell)
+        {
+            var width = shell?.Width ?? 0;
+            WidthRequest = width > 40 ? width - 24 : -1;
+        }
+
         private static View Brand()
         {
             var row = new HorizontalStackLayout

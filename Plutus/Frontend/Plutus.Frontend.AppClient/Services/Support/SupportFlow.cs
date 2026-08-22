@@ -43,10 +43,21 @@ namespace Plutus.Frontend.AppClient.Services.Support
 
                 if (tickets is null)
                 {
-                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                        "Plutus can't be reached, so a ticket can't be raised or read right now. "
-                        + "Nothing has been sent — try again when the connection is back.",
-                        "OK".Translate());
+                    // ⚠⚠ SAY WHICH FAILURE IT IS. This message used to blame the network for every
+                    // null, including a 403 — so an operator without `support.tickets` was told the
+                    // connection was down and went to check the broadband. Matt hit exactly that:
+                    // *"I still have a Plutus cannot be reached when I select the help button"*, on a
+                    // till that was online and had just fetched its own name from the same server.
+                    //
+                    // ⚠ NOT SIGNED IN is a third answer again, and the commonest of the three on a
+                    // till left on the login screen.
+                    var signedIn = App.GetViewModel()?.SignedInOperator is not null;
+                    var message = !signedIn
+                        ? "Sign in first — a support ticket is raised as a person, not as a till."
+                        : "Plutus can't be reached, or this account isn't allowed to raise tickets. "
+                          + "Nothing has been sent. If the till is online, ask for the support permission.";
+
+                    await Application.Current.MainPage.DisplayAlert("Hmm".Translate(), message, "OK".Translate());
                     return;
                 }
 

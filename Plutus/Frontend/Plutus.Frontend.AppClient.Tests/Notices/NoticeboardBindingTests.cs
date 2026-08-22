@@ -49,9 +49,15 @@ namespace Plutus.Frontend.AppClient.Tests.Notices
             var start = xaml.IndexOf("THE NOTICEBOARD (WP5b)", StringComparison.Ordinal);
             Assert.True(start > 0, "The noticeboard block's marker comment has moved or gone.");
 
-            var end = xaml.IndexOf("Orientation=\"Horizontal\" HorizontalOptions=\"FillAndExpand\"",
-                start, StringComparison.Ordinal);
-            Assert.True(end > start, "Could not find the end of the noticeboard block.");
+            // ⚠ THE NEXT ROW OF THE PAGE, WHICHEVER ELEMENT THAT IS — corrected 2026-08-23. This used
+            // to look for `Orientation="Horizontal" HorizontalOptions="FillAndExpand"`, the scan row's
+            // then-current LAYOUT ATTRIBUTES, and broke the moment that row became a Grid (so the
+            // Return button could stop taking half the width). The noticeboard is row 0 and the scan
+            // row is row 1; that is structure, and it is what this test actually depends on.
+            var end = xaml.IndexOf("Grid.Row=\"1\"", start, StringComparison.Ordinal);
+            Assert.True(end > start,
+                "Could not find the end of the noticeboard block — nothing on row 1 after it. "
+                + "If the page's rows were renumbered, this marker has to follow.");
 
             return xaml[start..end];
         }

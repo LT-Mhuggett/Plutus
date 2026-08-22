@@ -156,7 +156,9 @@
                  basket out without scrolling blind. Row 2 (*) bounds the list so it scrolls INSIDE
                  itself; rows 0/1/3 (Auto) keep the noticeboard, scan row and buttons always visible.
                  The web till got the same rule the same day (.shell.till-locked in index.css). -->
-            <Grid RowDefinitions="Auto,Auto,*,Auto">
+            <!-- ⚠ Row 2 is the Loyalty lookup, added 2026-08-23 — see below. The star row (the basket
+                 list) moved from 2 to 3 with it. -->
+            <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
                 <!-- ⚠⚠ THE NOTICEBOARD (WP5b) — pick-from-floor notes and platform announcements.
                      The web till has had this since Phase 6; MAUI had the shared rules
                      (`Client.Core.NoticesClient`, 23 tests) and no caller and no banner.
@@ -204,7 +206,19 @@
                            Text="⚠ Plutus can't be reached — these notices may be out of date."/>
                 </StackLayout>
 
-                <StackLayout Grid.Row="1" Orientation="Horizontal" HorizontalOptions="FillAndExpand">
+                <!-- ⚠⚠ A GRID, NOT A HORIZONTAL StackLayout — 2026-08-23. Matt: *"Return an item needs
+                     to be much smaller and over to the right, so the search bar occupies much more of
+                     the screen."*
+
+                     A StackLayout gives every `FillAndExpand` child an EQUAL share, and both the scan
+                     box and the Return button asked for one — so the button that is pressed a few
+                     times a day took the same width as the box every single item goes through. The
+                     web till sizes its Bag and Return buttons to their text and gives the input all
+                     the rest; a Grid is the only way to say that.
+
+                     ⚠ ONE star column, the scan box. Everything else is `Auto` and therefore as small
+                     as its own label. -->
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
                     <!-- ⚠ THE QUANTITY BOX, NO LONGER SYNCFUSION. Matt, 2026-08-10: *"I am not
                          going to renew Syncfusion, it seems like it can be replaced."* This was an
                          `SfNumericEntry` and it was the ONLY licensed control on the selling path —
@@ -219,7 +233,7 @@
                          ⚠ Explicit − and + buttons because the Syncfusion spinner had them and a
                          touch till needs them: `Keyboard="Numeric"` shows no keypad on desktop
                          Windows, so without these there is no way to change quantity except typing. -->
-                    <Grid ColumnDefinitions="Auto,80,Auto" ColumnSpacing="0">
+                    <Grid Grid.Column="0" ColumnDefinitions="Auto,80,Auto" ColumnSpacing="0">
                         <Button Grid.Column="0" Text="−" WidthRequest="44" Padding="0"
                                 Command="{Binding QuantityDownCommand}"/>
                         <Entry Grid.Column="1" x:Name="QuantityEntry"
@@ -232,9 +246,9 @@
                         <Button Grid.Column="2" Text="+" WidthRequest="44" Padding="0"
                                 Command="{Binding QuantityUpCommand}"/>
                     </Grid>
-                    <Button HorizontalOptions="FillAndExpand" Text="{i18n:Translate Scan}" Command="{Binding AutoScanCommand}"
+                    <Button Grid.Column="1" Text="{i18n:Translate Scan}" Command="{Binding AutoScanCommand}"
                             IsVisible="{Binding IsDesktop, Mode=OneWay, Converter={StaticResource InverseBool}}"/>
-                    <Entry HorizontalOptions="FillAndExpand" Text="{Binding ItemId}"
+                    <Entry Grid.Column="1" Text="{Binding ItemId}"
                            ReturnCommand="{Binding ManualAddCommand}" FontSize="Medium"
                            IsVisible="{Binding IsDesktop, Mode=OneWay}"/>
                     <!-- ⚠⚠ THE BAG BUTTONS MOVED UP HERE, 2026-08-21. Matt: *"Can the bag button in
@@ -261,7 +275,7 @@
                          ⚠ MATCHES THE WEB TILL'S LABEL exactly ("Bag £0.10").
                          ⚠ A HorizontalStackLayout, not grid cells: the number of bags is the shop's
                          decision and a fixed grid cannot hold an unknown count. -->
-                    <HorizontalStackLayout Spacing="4"
+                    <HorizontalStackLayout Grid.Column="2" Spacing="4"
                                            BindableLayout.ItemsSource="{Binding CarrierBags}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate>
@@ -279,9 +293,25 @@
                          touch till is a feature that does not exist, and this one hands money back.
                          ⚠ Beside the scan box on purpose: that is where the web till's is, and where an
                          operator is already looking when a customer puts something on the counter. -->
-                    <Button Text="↩ Return an item" Command="{Binding ReturnSelectedCommand}"
-                            HorizontalOptions="FillAndExpand"/>
-                </StackLayout>
+                    <!-- ⚠ SIZED TO ITS OWN TEXT, hard right — the web till's "Return Item". It used to
+                         ask for `FillAndExpand`, which is what made it half the row. -->
+                    <Button Grid.Column="3" Text="↩ Return an item" Padding="14,0"
+                            Command="{Binding ReturnSelectedCommand}"/>
+                </Grid>
+
+                <!-- ⚠⚠ THE LOYALTY LOOKUP LIVES HERE NOW — 2026-08-23. Matt: *"The Loyalty lookup need
+                     to be under the search bar, above above the quatinity and name."* It was down in
+                     the totals block beside Sale Ex. Tax, which is a CHECKOUT region — so attaching a
+                     member read as something you do when taking payment. It is not: you ask for the
+                     card as the customer arrives, before anything is rung through, which is exactly
+                     where the web till puts it and exactly where an operator is already looking.
+
+                     ⚠ Sized to its text, left-aligned — the web till's is a small button, not a bar
+                     across the screen. -->
+                <Button Grid.Row="2" Text="Loyalty customer lookup" Margin="0,6,0,0"
+                        HorizontalOptions="Start" Padding="14,0"
+                        IsVisible="{Binding HasNoAttachedCustomer}"
+                        Command="{Binding AttachCustomerCommand}"/>
                 <!-- ⚠ Grid.Row="2" is the star row — the ONLY thing on this screen allowed to give
                      up height. The list scrolls; the buttons below never move.
 
@@ -293,7 +323,7 @@
                      and Matt asked for "a scroll bar" on BOTH tills. Under the 2026-08-19 look-and-feel
                      ruling an operator swapping tills mid-shift must not have to learn that one of them
                      hides the thing that says "there is more". -->
-                <ListView x:Name="TillList" Grid.Row="2" HasUnevenRows="True"
+                <ListView x:Name="TillList" Grid.Row="3" HasUnevenRows="True"
                           VerticalScrollBarVisibility="Always"
                           ItemsSource="{Binding Basket}" ItemTemplate="{StaticResource BasketDataTemplateSelector}"
                           SelectedItem="{Binding SelectedBasketRecord}" ItemTapped="TillList_ItemTapped">
@@ -372,10 +402,10 @@
                          there; this one only FINDS an existing member, which is what the label now
                          says. `ExecuteAttachCustomer` already searched by name, phone, email OR member
                          number — it was never rebuilt, only unbound. -->
-                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
-                            Text="Loyalty customer lookup"
-                            IsVisible="{Binding HasNoAttachedCustomer}"
-                            Command="{Binding AttachCustomerCommand}"/>
+                    <!-- ⚠ The Loyalty lookup MOVED to under the scan box (2026-08-23) — see the comment
+                         there. This row is left empty rather than re-flowed: the totals below are
+                         positioned by explicit Grid.Row and renumbering them all to reclaim a few
+                         pixels is a lot of risk for no gain. -->
 
                     <Label  Grid.Row="1" Grid.Column="0" Text="{i18n:Translate SaleExTax}"/>
                     <Label  Grid.Row="1" Grid.Column="1" Text="{Binding SaleExTax, StringFormat='{0:C2}'}"/>

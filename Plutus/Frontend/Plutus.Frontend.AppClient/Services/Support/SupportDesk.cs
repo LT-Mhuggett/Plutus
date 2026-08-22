@@ -97,7 +97,15 @@ namespace Plutus.Frontend.AppClient.Services.Support
         /// <summary>This tenant's tickets, or null when the platform could not be asked.</summary>
         public static async Task<IReadOnlyList<SupportTicketDto>> LoadAsync(CancellationToken ct = default)
         {
-            var api = await Storage.TillPlacement.TryCreateApiAsync(ct).ConfigureAwait(false);
+            // ⚠⚠ THE OPERATOR'S CLIENT, NOT THE DEVICE'S — fixed 2026-08-23. Every support endpoint
+            // is `[Authorize(perm:support.tickets)]`, and a DEVICE token carries no operator
+            // permissions at all: the platform answered 403, this returned null, and the till told the
+            // operator *"Plutus can't be reached"*. Matt saw that on a till whose app bar was showing
+            // a till name it had just fetched from the same server.
+            //
+            // ⚠ The same trap as the Bin, one day apart: the endpoint needs a person, the caller
+            // handed it a machine, and the failure was reported as a network fault.
+            var api = await Connectivity.PlutusApi.GetOperatorAsync(ct).ConfigureAwait(false);
             if (api is null) return null;
 
             var tickets = await api.GetSupportTicketsAsync(ct).ConfigureAwait(false);
@@ -108,7 +116,15 @@ namespace Plutus.Frontend.AppClient.Services.Support
         public static async Task<IReadOnlyList<SupportMessageDto>> ThreadAsync(
             Guid ticketId, CancellationToken ct = default)
         {
-            var api = await Storage.TillPlacement.TryCreateApiAsync(ct).ConfigureAwait(false);
+            // ⚠⚠ THE OPERATOR'S CLIENT, NOT THE DEVICE'S — fixed 2026-08-23. Every support endpoint
+            // is `[Authorize(perm:support.tickets)]`, and a DEVICE token carries no operator
+            // permissions at all: the platform answered 403, this returned null, and the till told the
+            // operator *"Plutus can't be reached"*. Matt saw that on a till whose app bar was showing
+            // a till name it had just fetched from the same server.
+            //
+            // ⚠ The same trap as the Bin, one day apart: the endpoint needs a person, the caller
+            // handed it a machine, and the failure was reported as a network fault.
+            var api = await Connectivity.PlutusApi.GetOperatorAsync(ct).ConfigureAwait(false);
             if (api is null) return null;
 
             return await api.GetSupportThreadAsync(ticketId, ct).ConfigureAwait(false);
@@ -126,7 +142,15 @@ namespace Plutus.Frontend.AppClient.Services.Support
         {
             if (!CanRaise(subject, body)) return false;
 
-            var api = await Storage.TillPlacement.TryCreateApiAsync(ct).ConfigureAwait(false);
+            // ⚠⚠ THE OPERATOR'S CLIENT, NOT THE DEVICE'S — fixed 2026-08-23. Every support endpoint
+            // is `[Authorize(perm:support.tickets)]`, and a DEVICE token carries no operator
+            // permissions at all: the platform answered 403, this returned null, and the till told the
+            // operator *"Plutus can't be reached"*. Matt saw that on a till whose app bar was showing
+            // a till name it had just fetched from the same server.
+            //
+            // ⚠ The same trap as the Bin, one day apart: the endpoint needs a person, the caller
+            // handed it a machine, and the failure was reported as a network fault.
+            var api = await Connectivity.PlutusApi.GetOperatorAsync(ct).ConfigureAwait(false);
             if (api is null) return false;
 
             return await api.RaiseSupportTicketAsync(
@@ -140,7 +164,15 @@ namespace Plutus.Frontend.AppClient.Services.Support
         {
             if (string.IsNullOrWhiteSpace(body)) return false;
 
-            var api = await Storage.TillPlacement.TryCreateApiAsync(ct).ConfigureAwait(false);
+            // ⚠⚠ THE OPERATOR'S CLIENT, NOT THE DEVICE'S — fixed 2026-08-23. Every support endpoint
+            // is `[Authorize(perm:support.tickets)]`, and a DEVICE token carries no operator
+            // permissions at all: the platform answered 403, this returned null, and the till told the
+            // operator *"Plutus can't be reached"*. Matt saw that on a till whose app bar was showing
+            // a till name it had just fetched from the same server.
+            //
+            // ⚠ The same trap as the Bin, one day apart: the endpoint needs a person, the caller
+            // handed it a machine, and the failure was reported as a network fault.
+            var api = await Connectivity.PlutusApi.GetOperatorAsync(ct).ConfigureAwait(false);
             if (api is null) return false;
 
             return await api.ReplyToSupportTicketAsync(ticketId, body.Trim(), ct).ConfigureAwait(false);
