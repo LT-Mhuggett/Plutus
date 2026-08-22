@@ -97,7 +97,21 @@ export function stopImpersonation(): void {
   window.location.reload();
 }
 
+/**
+ * End the session and put the user back on the login screen.
+ *
+ * ⚠⚠ IT RELOADS THE PAGE, WHICH IS WHY THE GUARD BELOW EXISTS — added 2026-08-22 after this
+ * function took the whole portal down. `api.ts` calls `signOut()` on ANY 401, so a single authed
+ * call made before sign-in becomes: login screen → 401 → reload → login screen, for ever. It was a
+ * boot-time `fetchVatPeriods()` that did it, but ANY authed call on the login screen would.
+ *
+ * ⚠ SIGNING OUT OF NOTHING IS NOT A SIGN-OUT. If there is no session, the user is already where a
+ * sign-out would send them, so the reload achieves nothing and costs everything. Clear and return.
+ * This is the belt to the App-side braces: the fix there stops today's loop, this stops the next.
+ */
 export function signOut(): void {
+  // ⚠ No session → nothing to sign out of, and reloading would only re-run whatever 401'd.
+  if (!getSession() && !isOidcSession()) { clearSession(); return; }
   if (isOidcSession()) {
     void oidcLogout(); // redirects to the IdP end-session endpoint
     return;

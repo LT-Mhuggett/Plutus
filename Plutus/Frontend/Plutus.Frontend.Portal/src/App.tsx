@@ -137,11 +137,6 @@ export default function App() {
    * mean "render on the reader's device", which is exactly what the portal did before this existed.
    */
   const [shopZone, setShopZone] = useState<string | null>(null);
-  useEffect(() => {
-    void fetchVatPeriods()
-      .then((v) => { if (v.timeZoneId && v.timeZoneKnown && setDisplayZone(v.timeZoneId)) setShopZone(v.timeZoneId); })
-      .catch(() => undefined);
-  }, []);
 
   // Navigate to a tab (from a nav button or a pill/link elsewhere). Mirrors into the URL hash so
   // reload + deep-links work; `focus` is an optional hint the target page may consume.
@@ -186,6 +181,29 @@ export default function App() {
       }
     })();
   }, []);
+
+  /**
+   * ⚠⚠ WP-TZ, AND IT MUST NOT RUN BEFORE SIGN-IN — fixed 2026-08-22.
+   *
+   * This effect used to fire on mount with `[]`, which LOCKED EVERY USER OUT OF THE PORTAL:
+   * `/api/v1/companies/vat-periods` is `[Authorize(perm:portal.company.manage)]`, so on the login
+   * screen it answered 401 — and `api.ts`'s 401 handler calls `signOut()`, which calls
+   * `window.location.reload()`. Login screen → 401 → reload → login screen, for ever, with the
+   * console errors flashing past too fast to read.
+   *
+   * ⚠ THE `.catch()` DID NOT SAVE IT, and that is the part worth remembering: `signOut()` runs
+   * INSIDE the api layer before the rejection is ever handed back, so catching the error here
+   * swallows the message and keeps the reload.
+   *
+   * ⚠ Gated on `name`, not on `booting` — an unauthenticated visitor must reach the login screen
+   * without a single authed call being attempted on their behalf.
+   */
+  useEffect(() => {
+    if (!name) return;
+    void fetchVatPeriods()
+      .then((v) => { if (v.timeZoneId && v.timeZoneKnown && setDisplayZone(v.timeZoneId)) setShopZone(v.timeZoneId); })
+      .catch(() => undefined);
+  }, [name]);
 
   if (booting || error) {
     return (
