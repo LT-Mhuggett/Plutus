@@ -394,6 +394,16 @@ public static class MetaKeys
     public const string OperatorRoster = "operatorRoster";
 
     /// <summary>
+    /// Step 28 — the device-local password verifiers minted by an ONLINE sign-in.
+    ///
+    /// ⚠⚠ SEPARATE FROM <see cref="OperatorRoster"/> ON PURPOSE. The roster is a cache replaced
+    /// wholesale on every sync; a verifier is EARNED by an online sign-in and must outlive every
+    /// roster pull. Storing them together would have a routine refresh silently re-impose
+    /// "connect once" on everybody, mid-shift, with no way to tell why.
+    /// </summary>
+    public const string DeviceVerifiers = "deviceVerifiers";
+
+    /// <summary>
     /// The store's receipt layout as the portal set it — the raw `receiptTemplateJson` blob.
     ///
     /// ⚠ CACHED SO A RECEIPT PRINTS THE SAME WITH THE LINE DOWN. The template decides what a

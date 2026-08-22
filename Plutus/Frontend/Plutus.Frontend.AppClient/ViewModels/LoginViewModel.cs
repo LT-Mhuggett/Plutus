@@ -284,9 +284,83 @@ namespace Plutus.Frontend.AppClient.ViewModels
             });
         }
 
+        /// <summary>
+        /// Ask the PLATFORM whether this password is right — step 28.
+        /// </summary>
+        /// <returns>
+        /// ⚠⚠ `true` yes, `false` no, and **`null` COULD NOT ASK**. The three are not
+        /// interchangeable: `false` is a wrong password, `null` routes to *connect once*. Returning
+        /// `false` for an unreachable server would tell an operator with a perfectly good password
+        /// that it is wrong, every time the shop's broadband hiccups — and mint nothing, so it would
+        /// never recover on its own.
+        /// </returns>
+        /// <remarks>
+        /// ⚠ THIS IS THE SAME CALL `TryFetchOperatorTokenInBackground` MAKES, and that is deliberate
+        /// rather than duplication: one is fire-and-forget for the reports tab, this one decides
+        /// whether somebody gets in. Sharing the endpoint means there is one definition of "the
+        /// platform accepted this password". ⚠ If they ever diverge, this is the one that matters.
+        ///
+        /// ⚠ A THROW IS `null`, NOT `false` — a DNS failure, a timeout and a TLS error are all
+        /// "could not ask".
+        /// </remarks>
+        private static async Task<bool?> VerifyPasswordOnlineAsync(
+            string emailOrId, string password, System.Threading.CancellationToken ct)
+        {
+            try
+            {
+                var http = Services.Connectivity.PlutusHttp.TryFor(new Settings().ServerUrlSetting);
+                if (http is null) return null;
+
+                var (status, session) = await new Plutus.Client.Core.PlutusApiClient(http)
+                    .LoginAsync(emailOrId, password, ct);
+
+                // ⚠⚠ THE STATUS DECIDES, NOT THE NULL SESSION — `LoginAsync`'s own header says so:
+                // *"Returns null for a wrong password, a deactivated account, a suspended tenant, or
+                // no network — the CALLER must not treat those alike, so it also hands back the
+                // status."* Reading only the session would collapse "unreachable" into "wrong
+                // password", which is the exact conflation step 28 exists to avoid.
+                //
+                // ⚠ 401 IS THE ONLY DEFINITE NO. A deactivated account and a suspended tenant also
+                // answer 401, and refusing those is correct: this till must not mint a verifier for
+                // somebody the platform has just turned off.
+                if (status == System.Net.HttpStatusCode.Unauthorized) return false;
+
+                // ⚠ A session is the only definite yes.
+                if (session is not null) return true;
+
+                // ⚠⚠ EVERYTHING ELSE IS "COULD NOT ASK" — 503 from the catch above, a 5xx, a proxy
+                // page, a 200 with a body this build cannot read. None of them is evidence about the
+                // password, and treating them as one would lock out a shop whose server is having a
+                // bad minute.
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Services.Analytics.CrashLog.Write("LoginViewModel.VerifyPasswordOnline", ex);
+                return null;
+            }
+        }
+
         private async Task<bool> TrySignInFromRosterAsync()
         {
-            var login = new Plutus.Client.Core.OperatorLogin(new Services.Connectivity.DbOperatorStore());
+            // ⚠⚠ STEP 28 — ONLINE-FIRST. Three things are handed to `OperatorLogin` that were not
+            // before, and each is load-bearing:
+            //
+            //   · the DEVICE VERIFIER STORE, so a password proved online once works offline for ever
+            //     after — without ever holding this shop's PLATFORM credentials to do it;
+            //   · an ONLINE CHECK, so an account this till has never seen can still sign in when the
+            //     line is up, and mint its verifier while it does;
+            //   · nothing else. The roster, the horizons and the grants are untouched.
+            //
+            // ⚠ `OfflineCredentials`' header is the reason: *"A stolen till holds hashes at
+            // PBKDF2-SHA1/101,010 … those are the operators' PLATFORM passwords, and they work on
+            // the web till too."* This is what stops a till accumulating them for staff who have
+            // never used it.
+            var login = new Plutus.Client.Core.OperatorLogin(
+                new Services.Connectivity.DbOperatorStore(),
+                verifiers: new Services.Connectivity.DbDeviceVerifierStore(),
+                verifyOnline: VerifyPasswordOnlineAsync);
+
             var result = await login.SignInAsync(_email_UserId ?? string.Empty, _password ?? string.Empty);
 
             // No roster at all → let the legacy local database have a go. Every other failure is a

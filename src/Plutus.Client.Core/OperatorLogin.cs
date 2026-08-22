@@ -45,6 +45,38 @@ public enum LoginFailure
     NoCredential,
     /// <summary>The roster is older than the sell horizon — this till must reconnect.</summary>
     CredentialsTooStale,
+
+    /// <summary>
+    /// ⚠⚠ STEP 28 — this account has never signed in on THIS till, and the till cannot reach the
+    /// platform to check the password. It is not a wrong password and it is not an unknown account:
+    /// it is "connect once, then this works offline for ever".
+    ///
+    /// ⚠ IT MUST NOT COLLAPSE INTO `WrongPassword`. An operator who typed correctly and is told
+    /// they got their password wrong will try three more times and then phone somebody.
+    /// </summary>
+    NeedsOnlineFirstSignIn,
+}
+
+/// <summary>
+/// Where this till keeps the device-local verifiers minted by an online sign-in (step 28).
+///
+/// ⚠ SEPARATE FROM <see cref="IOperatorStore"/> ON PURPOSE. The roster is a CACHE — it is replaced
+/// wholesale on every sync, and anything living in it would be destroyed by a routine refresh. A
+/// verifier is earned by an online sign-in and must outlive every roster pull.
+/// </summary>
+public interface IDeviceVerifierStore
+{
+    /// <summary>This till's verifier for that operator, or null. ⚠ Never throws — a corrupt or
+    /// unreadable store is "no verifier", which routes to "connect once".</summary>
+    Task<DeviceVerifier.Record?> GetAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>Store a freshly minted verifier. ⚠ Overwrites — a password change online must
+    /// replace what this till holds, or the old password keeps working offline for ever.</summary>
+    Task SaveAsync(DeviceVerifier.Record record, CancellationToken ct = default);
+
+    /// <summary>Forget one. ⚠ The only lever a till has over a credential it already holds: after
+    /// this, that account needs a connection again.</summary>
+    Task ForgetAsync(Guid userId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -100,11 +132,35 @@ public sealed class OperatorLogin
     private readonly OfflineCredentialPolicy _policy;
     private readonly Func<DateTime> _utcNow;
 
-    public OperatorLogin(IOperatorStore store, OfflineCredentialPolicy? policy = null, Func<DateTime>? utcNow = null)
+    /// <summary>
+    /// ⚠ STEP 28. Null keeps the pre-step-28 behaviour exactly — verify against the platform hash the
+    /// roster shipped. That is what every caller that has not been wired up yet still gets, and it is
+    /// why this landed without a flag day.
+    /// </summary>
+    private readonly IDeviceVerifierStore? _verifiers;
+
+    /// <summary>
+    /// Proves a password against the PLATFORM, or null when this till cannot ask.
+    ///
+    /// ⚠⚠ RETURNING null MEANS "COULD NOT ASK", NOT "NO". Offline, a dead server and a timeout must
+    /// all route to *connect once*; only an actual answer of `false` is a wrong password. Conflating
+    /// them tells somebody with a perfectly good password that it is wrong, every time their
+    /// broadband hiccups.
+    /// </summary>
+    private readonly Func<string, string, CancellationToken, Task<bool?>>? _verifyOnline;
+
+    public OperatorLogin(
+        IOperatorStore store,
+        OfflineCredentialPolicy? policy = null,
+        Func<DateTime>? utcNow = null,
+        IDeviceVerifierStore? verifiers = null,
+        Func<string, string, CancellationToken, Task<bool?>>? verifyOnline = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _policy = policy ?? OfflineCredentialPolicy.Default;
         _utcNow = utcNow ?? (() => DateTime.UtcNow);
+        _verifiers = verifiers;
+        _verifyOnline = verifyOnline;
     }
 
     /// <param name="emailOrId">What was typed. Matched on email (case-insensitive) or user id, the
@@ -124,25 +180,41 @@ public sealed class OperatorLogin
         if (op is null)
             return LoginResult.Failed(LoginFailure.UnknownOperator, "No account on this till matches that.");
 
-        if (string.IsNullOrEmpty(op.CredentialHashBase64) || string.IsNullOrEmpty(op.CredentialSaltBase64))
+        // ⚠⚠ "NO SHIPPED HASH" STOPPED MEANING "NO PASSWORD" AT STEP 28. This guard used to refuse
+        // outright, and it has to move: once a till holds a device verifier — or can ask the
+        // platform — an operator whose hash the roster no longer carries signs in perfectly well.
+        // Leaving it here would refuse every sign-in on the day the server stops shipping hashes.
+        //
+        // ⚠ THE HONEST `NoCredential` CASE SURVIVES, in `ProvePasswordAsync`'s fall-through: a
+        // pre-step-28 login (no verifier store, no online check) with no shipped hash is still an
+        // account that was never given a web login, and still says so in those words.
+        if (_verifiers is null && _verifyOnline is null
+            && (string.IsNullOrEmpty(op.CredentialHashBase64) || string.IsNullOrEmpty(op.CredentialSaltBase64)))
             return LoginResult.Failed(LoginFailure.NoCredential,
                 $"{op.DisplayName} doesn't have a Plutus password yet — an administrator sets one in the portal.");
 
-        byte[] hash, salt;
-        try
-        {
-            hash = Convert.FromBase64String(op.CredentialHashBase64);
-            salt = Convert.FromBase64String(op.CredentialSaltBase64);
-        }
-        catch (FormatException)
-        {
-            // A corrupt cache entry must not read as a wrong password — that is a support call
-            // about a typo nobody made.
+        // ── how the password is proved ────────────────────────────────────────────────────────
+        //
+        // ⚠⚠ STEP 28. Before this, the ONLY check was the platform hash the roster shipped, which
+        // is why `OfflineCredentials`' header calls a stolen till "a bag of platform passwords".
+        // Now: this till's OWN verifier if it has one, the PLATFORM if it can reach it, and a
+        // refusal that says "connect once" if it has neither.
+        //
+        // ⚠ THE ORDER IS DELIBERATE — LOCAL FIRST. A till with a verifier must not need the network
+        // to sign somebody in; that is the whole point of having one, and asking the server first
+        // would make every sign-in wait on a timeout during an outage.
+        var proved = await ProvePasswordAsync(op, password ?? string.Empty, ct);
+
+        if (proved == PasswordProof.NeedsOnline)
+            return LoginResult.Failed(LoginFailure.NeedsOnlineFirstSignIn,
+                $"{op.DisplayName} hasn't signed in on this till yet. Connect it to Plutus once and "
+                + "sign in — after that it works offline.");
+
+        if (proved == PasswordProof.Corrupt)
             return LoginResult.Failed(LoginFailure.NoCredential,
                 "This till's copy of that account is damaged. Sync it again from the Plutus tab.");
-        }
 
-        if (!Pbkdf2.Verify(password ?? string.Empty, salt, hash))
+        if (proved == PasswordProof.Wrong)
             return LoginResult.Failed(LoginFailure.WrongPassword, "Wrong password.");
 
         // ⚠ Staleness is judged AFTER the password, deliberately. Telling someone their till is out
@@ -224,6 +296,100 @@ public sealed class OperatorLogin
                 permission, amountPence, _utcNow()),
             OverrideFailure.None,
             $"Authorised by {authoriser.DisplayName}.");
+    }
+
+    /// <summary>What proving the password concluded.</summary>
+    private enum PasswordProof
+    {
+        Ok,
+        Wrong,
+        /// <summary>⚠ Nothing on this till can check it, and the platform could not be asked.</summary>
+        NeedsOnline,
+
+        /// <summary>⚠⚠ A DAMAGED CACHE ENTRY IS NOT A NEW ACCOUNT. Pre-step-28 this answered
+        /// `NoCredential` with "this till's copy of that account is damaged — sync it again", and
+        /// that message is MORE actionable than "connect once": it says the data is bad rather
+        /// than that the person is new here. Collapsing the two would have lost that, so it did
+        /// not.</summary>
+        Corrupt,
+    }
+
+    /// <summary>
+    /// Prove a password — step 28.
+    ///
+    /// ⚠⚠ THE THREE ROUTES, IN THIS ORDER, AND THE ORDER IS THE DESIGN:
+    ///
+    /// 1. **This till's own verifier**, if it has one. No network, and the reason a till that has
+    ///    seen somebody before keeps working through an outage.
+    /// 2. **The platform**, if it can be reached. On success this MINTS the verifier, so step 1
+    ///    answers next time. This is the "online-first" of default 16.
+    /// 3. **The platform hash the roster shipped** — the pre-step-28 behaviour, kept because the
+    ///    server still ships hashes and will until a separate flagged change stops it. ⚠ When it
+    ///    does, this branch becomes the one that returns `NeedsOnline`, and nothing else moves.
+    ///
+    /// ⚠⚠ A NULL FROM `_verifyOnline` IS "COULD NOT ASK", NOT "NO". Offline, a timeout and a dead
+    /// server must route to *connect once*; only `false` is a wrong password. Getting this backwards
+    /// tells an operator with a correct password that it is wrong every time the line drops.
+    /// </summary>
+    private async Task<PasswordProof> ProvePasswordAsync(
+        TillOperatorDto op, string password, CancellationToken ct)
+    {
+        // 1 ── this device's verifier
+        if (_verifiers is not null)
+        {
+            DeviceVerifier.Record? local = null;
+            try { local = await _verifiers.GetAsync(op.UserId, ct); }
+            catch { /* ⚠ An unreadable store is "no verifier", never a failed sign-in. */ }
+
+            if (DeviceVerifier.CanVerify(local))
+                return DeviceVerifier.Verify(local, password) ? PasswordProof.Ok : PasswordProof.Wrong;
+        }
+
+        // 2 ── the platform, which also earns this till a verifier
+        if (_verifyOnline is not null)
+        {
+            bool? answer = null;
+            try { answer = await _verifyOnline(op.Email ?? op.UserId.ToString(), password, ct); }
+            catch { /* ⚠ A throw is "could not ask", same as null. */ }
+
+            if (answer == false) return PasswordProof.Wrong;
+
+            if (answer == true)
+            {
+                // ⚠⚠ MINTED ONLY AFTER THE SERVER SAID YES. Minting from an unproved password would
+                // let anyone at an offline till enrol their own password against somebody else's
+                // account — step 28's door, installed backwards.
+                if (_verifiers is not null)
+                {
+                    try { await _verifiers.SaveAsync(DeviceVerifier.Mint(op.UserId, password, _utcNow()), ct); }
+                    catch { /* ⚠ A failed mint costs a reconnection next time, never this sign-in. */ }
+                }
+
+                return PasswordProof.Ok;
+            }
+        }
+
+        // 3 ── the platform hash the roster shipped (pre-step-28, still the server's behaviour)
+        if (!string.IsNullOrEmpty(op.CredentialHashBase64) && !string.IsNullOrEmpty(op.CredentialSaltBase64))
+        {
+            byte[] hash, salt;
+            try
+            {
+                hash = Convert.FromBase64String(op.CredentialHashBase64);
+                salt = Convert.FromBase64String(op.CredentialSaltBase64);
+            }
+            catch (FormatException)
+            {
+                // ⚠ A corrupt cache entry must not read as a wrong password — that is a support call
+                // about a typo nobody made. It reads as "this till needs to talk to Plutus".
+                return PasswordProof.Corrupt;
+            }
+
+            return Pbkdf2.Verify(password, salt, hash) ? PasswordProof.Ok : PasswordProof.Wrong;
+        }
+
+        // ⚠ Nothing local, nothing shipped, and the platform unreachable.
+        return PasswordProof.NeedsOnline;
     }
 }
 
