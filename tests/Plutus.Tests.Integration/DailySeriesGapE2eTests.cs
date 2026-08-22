@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Plutus.Entities;
 using Plutus.Entities.Enums;
@@ -44,15 +45,37 @@ public class DailySeriesGapE2eTests : IClassFixture<PlutusAppFactory>
     private static readonly DateOnly Empty = new(2018, 3, 13);
     private static readonly DateOnly Last = new(2018, 3, 14);
 
+    /// <summary>
+    /// Put one sale on a day — **idempotently**.
+    ///
+    /// ⚠⚠ IT GUARDS, AND THE GUARD IS THE WHOLE POINT. Every test in this class calls this, and they
+    /// share one fixture database — so an unguarded `Add` accumulates, and
+    /// `Padding_the_series_does_not_change_the_totals` (which asserts EXACTLY £36.00 and 2 orders)
+    /// passed only because it happened to run first. **It was a test that passed by luck**, and it
+    /// would have failed the day xUnit reordered the class or somebody added a fourth test.
+    ///
+    /// ⚠ Found on 2026-08-22 by asking the question of a class that had already shipped, and proved
+    /// by seeding twice: the assertion fails immediately. Same fault as the WP-FY and Bin suites —
+    /// **a shared fixture rewards seeds that are idempotent about STATE, not just about existence.**
+    ///
+    /// ⚠ A DETERMINISTIC ID IS WHAT MAKES IT IDEMPOTENT. `Uuid7.New()` per call is exactly what made
+    /// the rows pile up; keying the sale on (day, gross) means a second call finds it and does
+    /// nothing.
+    /// </summary>
     private async Task SeedAsync(DateOnly day, long grossPence, long vatPence)
     {
         using var scope = _f.Services.CreateScope();
         var db = (MySqlDbContext)scope.ServiceProvider.GetRequiredService<RepositoryContext>();
         db.CurrentUser = "daily-series-e2e-seed";
 
+        // ⚠ Stable across calls and unlikely to collide with anything else seeded into this window.
+        var id = DeterministicGuid.ForName("daily-series-e2e", $"{day:yyyy-MM-dd}", grossPence.ToString());
+
+        if (await db.SalesV2.IgnoreQueryFilters().AnyAsync(s => s.Id == id)) return;
+
         db.SalesV2.Add(new SaleV2
         {
-            Id = Uuid7.New(), TenantId = Kapow, TillId = Uuid7.New(), DeviceId = Uuid7.New(), DeviceSeq = 1,
+            Id = id, TenantId = Kapow, TillId = Uuid7.New(), DeviceId = Uuid7.New(), DeviceSeq = 1,
             Channel = SaleChannel.Till, BusinessDay = day,
             OccurredAtUtc = day.ToDateTime(TimeOnly.MinValue), ReceivedAtUtc = day.ToDateTime(TimeOnly.MinValue),
             GrossPence = grossPence, VatPence = vatPence,

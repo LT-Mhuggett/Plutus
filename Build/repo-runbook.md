@@ -600,6 +600,38 @@ anything *uses* it. `OutboxPusher.DrainAsync`, the catalogue browse and `TillSto
 each fully built and tested while the screen in front of them looked broken. When a screen misbehaves,
 grep for callers of the thing that should be doing the work before debugging the thing itself.
 
+
+24. ⚠⚠ **AN INTEGRATION TEST THAT SEEDS WITH `Add` PASSES BY LUCK — THE FIXTURE DATABASE IS SHARED.**
+    Hit **three times in two days** (WP-FY, WP10 #4's Bin, and WP-ZERO's daily series), so it is a
+    pattern rather than three mistakes.
+
+    Every test in a class calls the seed, and they all run against **one** `PlutusAppFactory`
+    database. Two shapes go wrong:
+
+    - **The seed ACCUMULATES.** `db.X.Add(new X { Id = Uuid7.New(), … })` adds a row per call, so a
+      test asserting an exact total (`Assert.Equal(36.00m, …)`) passes only if it happens to run
+      first. WP-ZERO's suite shipped like this and **was green** — it failed the moment a second
+      seed call was added, which is how it was found.
+    - **A SIBLING TEST MUTATES THE SEEDED STATE.** The Bin suite has a test that RESTORES the binned
+      item; the seed short-circuited on "does the row exist", so every later test saw an empty Bin.
+      It read as *"the Bin view is broken"*.
+
+    ✅ **SEED IDEMPOTENTLY ABOUT STATE, NOT JUST ABOUT EXISTENCE.** A deterministic id
+    (`DeterministicGuid.ForName`) makes a repeat insert a no-op; and where a sibling can change the
+    row, **re-assert the field the test depends on** rather than returning early:
+
+    ```csharp
+    var existing = await db.Items.IgnoreQueryFilters().FirstOrDefaultAsync(i => i.IdOne == Binned);
+    if (existing is not null) { existing.BinnedAtUtc = When; await db.SaveChangesAsync(); return; }
+    ```
+
+    ✅ **OR ASSERT RELATIVELY** — `before - 1` rather than `0`, `>= 1` rather than `== 1`. The
+    support-desk suite does this deliberately and is immune by construction.
+
+    ⚠⚠ **AND PROVE IT: call the seed TWICE and re-run.** Green means idempotent; red means the suite
+    was passing on ordering. It is a ten-second check and it is the only one that actually answers
+    the question — all three of these were green in CI while broken.
+
 ## Exemplar files (copy these shapes, don't invent)
 
 | Shape | File |
