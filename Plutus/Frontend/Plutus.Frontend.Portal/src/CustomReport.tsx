@@ -90,7 +90,7 @@ export default function CustomReport({ day }: { day?: string }) {
         </button>
         <label>From <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>To <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} /></label>
-        <button className="ghost small" onClick={load} disabled={state === "loading"}>Load</button>
+        <button className="ghost small" onClick={() => load()} disabled={state === "loading"}>Load</button>
         <span className="grow" />
         <button className="ghost btn" onClick={downloadCsv} disabled={!sales || sales.length === 0}>Export CSV</button>
       </div>

@@ -76,7 +76,7 @@ export default function StatisticsPage() {
         <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
         <span className="muted">to</span>
         <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
-        <button className="ghost" onClick={load} disabled={state === "loading"}>
+        <button className="ghost" onClick={() => load()} disabled={state === "loading"}>
           Load
         </button>
         <button className="ghost" onClick={download} disabled={downloading}>
