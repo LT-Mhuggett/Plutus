@@ -2512,7 +2512,7 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 > | ⏸ | **Step 21 — delete `LoginViewModel.EnsureStoreAsync`** | — | ⚠⚠ **NOT BLOCKED BY WORKING CODE — corrected 2026-08-21.** Both remaining `Store.Id` dereferences are in **UNREACHABLE** code, which this row never said: `AddEditViewModel:337` sits in a view **hidden on 2026-08-10**, and `ViewAllViewModel:1385` is in `ExecuteUpdateItemStock`, whose `UpdateItemStockCommandArg` is **bound to nothing** (both verified in §0.3b). It waits on no build — **it rides with L2/L3's deletions, which are Matt's call.** ⚠ Reading it as "blocked" invites somebody to unblock it by rewriting dead code |
 > | ✅ | **[WP10](#wp10--the-item-editors-four-remaining-increments--1½2½d--matt-ruled-it-in-2026-08-21) — the item editor's four remaining increments** | **≈1½–2½d** | ⚠ **Matt ruled it IN, 2026-08-21** (*"cost it as a work package"*), and costing it found the justification was wrong: **"MAUI has no item editor at all" conflated two code paths.** `ExecuteOpenAddItem`/`AddEditView` is dead; `ViewAllViewModel`'s tap-menu — Add to basket · **Edit item** · Adjust stock… · Move to the Bin… — is alive, and A0 has said so two tables up all along. **Two of the four rows were not gaps**: MAUI's add is already one screen (nine fields in one dialog → marker corrected to 🟡), and restore-from-Bin already exists server-side. What is real is a **barcode section** (~1d) and a **change-history list** (~½d) on an editor that exists, plus ~½d to wire restore. ⚠ The decision that remains is narrower and sharper: **may a till change an item's IDENTITY**, not whether it may edit one |
 > | ➖ | **~~Remote lock of a lost or stolen till~~ → MOVED OUT, 2026-08-21** | — | ⚠ **Matt: *"Make it a platform work package."*** Now **`plutus-platform-architecture.md` §12b — WP-SL**, ≈1½–2d, because it is ⬜ on the **web till and MAUI both** and sitting in a MAUI parity document is why nobody picked it up for twelve days. ⚠⚠ Its three open questions are answered there, and the load-bearing one is **what a locked till does with unsynced sales**: it must still drain its outbox, so enforcement has to refuse a token for SELLING without killing the drain. ⚠ **`Revoked` is still the real incident tool today** |
-> | ⏸ | **L1–L10 legacy removal** | — | Matt actions last. **L4 closed 2026-08-20** with the Syncfusion removal |
+> | ⏸ | **L1–L16 legacy removal** | — | Matt actions last. **The sweep he asked for ran 2026-08-22** — L11–L16 are its findings, all verified both directions. **L4 closed 2026-08-20** with the Syncfusion removal |
 >
 > ⚠ **So: not finished, but nothing like a two-month job.** ~~Roughly **10–15 days**~~ → ~~≈7–9 days~~ → ~~≈5–7 days~~ → ~~≈3–5 days~~ → **≈2–4 days** (11b, the till half of 28, and WP10 all closed 2026-08-22)
 > after 2026-08-21, and the shape has changed as much as the number: the 🔴 at the top was **already
@@ -2674,7 +2674,7 @@ all."*
 shipped, but is either unreachable from the UI or reachable only in a way that cannot affect the
 platform.
 
-> ### ⚠ A REMOVAL SWEEP IS OWED, AND IT IS NOT THE SAME AS THIS REGISTER
+> ### ✅ A REMOVAL SWEEP WAS OWED — RUN 2026-08-22, findings at L11–L16
 >
 > **Matt, 2026-08-16:** *"I think we need to go through at one point and check what can be removed
 > from MAUI."*
@@ -2717,6 +2717,27 @@ platform.
 > shop's pre-cutover sales history and **there is no server copy** (default 3: archive, never delete).
 > Removing the *code* that reads it is safe; removing the *file* is not.
 
+
+### ✅ THE SWEEP WAS RUN — 2026-08-22, findings packaged as L11–L16 below
+
+> Matt: *"Can you do the sweep of MAUI now please. Let me know what is no longer used and package it
+> up with L1-10. I can then action that."*
+>
+> ⚠ **Run exactly as this register prescribed**, and its two warnings both earned their place:
+>
+> - **The by-name trap fired.** `OpenViewAllItemsCommand` greps as unbound XAML-wise — it is bound by
+>   a **string name** in `InventoryViewModel`'s code-built button loop
+>   (`SetBinding(Button.CommandProperty, "OpenViewAllItemsCommand")`). A grep-verdict would have
+>   deleted a live button.
+> - **The `var` trap fired eight times.** `CommitOutcome`, `GateDecision`, `OutboxPushOutcome`,
+>   `CatalogueSyncOutcome`, `ReturnResolution`, `EditItemResult`, `ParkedRecord` and `HintSpan` all
+>   show **zero references outside their own file** — because every caller receives them through
+>   `var` and never names the type. All eight verified alive through their producing METHODS.
+>
+> ⚠ Also verified alive, so the next sweep does not re-flag them: `ForEach` (its one caller's
+> receiver is `IList<T>`, which has no instance ForEach, so the extension resolves); the
+> MessagingCenter `"AddToBasket"` Subscribe/Send pair; the five Settings commands bound via
+> `nameof(...)` in `BuildSections`.
 | Key | Meaning |
 |---|---|
 | 🙈 **Hidden** | No longer reachable from the UI. Code still ships. Safe to delete when its turn comes |
@@ -3008,6 +3029,98 @@ The second MAUI frontend. **Step 22 ports its `Colors.xaml`/`Styles.xaml` into t
 FIRST** — the theming port must land before the project is dropped, or the till loses its colour
 scheme.
 
+
+### L11 — The slider cluster · **5 files, one dead island**
+
+**Code:** `Views/CustomViews/SliderAlert.xaml` + `.cs`; `Helpers/CustomViews/SliderAlertHelper.cs`;
+`Controls/SteppedSlider.cs`; `Controls/SteppedSliderWithLabels.xaml` + `.cs`.
+
+⚠ **Zero references outside the island** — the helper is the only door onto the alert, nothing calls
+the helper, and the two Stepped controls are used only by the alert. D4's own audit already sentenced
+the root: *"`SliderAlert` has no ✕ and did not get one: it is dead code (zero references). Delete it
+or wire it up."* This is the delete.
+
+**Order:** free-standing — deletable any time, nothing depends on it.
+
+### L12 — The Copper / third-party-transfer chain · **orphaned by L8's deletion**
+
+**Code:** `Platforms/Windows/Implementations/Services/CopperTransferPlatform.cs`;
+`Services/ThirdPartyTransfer/ICopperTransfer.cs` + `IThirdPartyTransfer.cs`;
+`Helpers/FileIO/ParsingCSV.cs`; the `ICopperTransfer` registration in `MauiProgram.cs` (`#if WINDOWS`
+block); the `CopperTransfer` doubles in `TestBootstrap.cs` / `TestServices.cs`; `FileIOTests.cs`'s
+`ParsingCSV` coverage.
+
+⚠ **The consumer was `TransferThirdPartyViewModel`, deleted under L8** — since then the chain is
+registered in DI and resolved by nothing. `ParsingCSV`'s only production caller is
+`CopperTransferPlatform` itself. ⚠ **It is still TESTED** (`FileIOTests`), which is the shape that
+makes dead code look maintained — the tests go with it.
+
+⚠ **This is NOT the NatApp translation agent** (`Build/To do/NatApp data translation agent…`) — that
+is server-side tooling. This is the till's own in-app import UI, whose screen is already gone.
+
+**Order:** free-standing.
+
+### L13 — Dead command wrappers in LIVE viewmodels · **5 properties + 1 commented block**
+
+**Code:** `ViewAllViewModel` — `AddToBasketCommandArg` (:408), `LoadMoreItemsCommand` (:391),
+`SearchItemsCommand` (:382); `TillViewModel` — `ManualAddCommandArg` (:349), `AlterTransactionCommand`
+(:414, superseded by `AlterTransactionSelectorCommand`; its only other mention is a comment);
+`SettingsViewModel` — the already-commented `ChangeBarcodeTypeCommand` + `ExecuteChangeBarcodeType`
+block (~:684 and :1130–1195).
+
+⚠ Each verified three ways: no XAML binding, no `nameof(...)`, no string-name `SetBinding`, no test
+reference. These are declaration-only `Command` properties whose screens moved on.
+
+⚠⚠ **`BarcodeSymbologySetting` STAYS.** The commented block was its only writer, but
+`PosPrinterManager:314` READS it at receipt-print time — the barcode on every receipt, which the
+refund flow scans. Deleting the setting would change what prints; deleting the commented UI does not.
+
+**Order:** free-standing.
+
+### L14 — Dead extension and enum leaf files
+
+**Code:** `Helpers/Extensions/DecimalExtensions.cs` (whole file — `Normalize`, 0 callers);
+`Helpers/Extensions/DateTimeExtensions.cs` (whole file — `StartOfWeek`, 0 callers);
+`Helpers/Enums/DocumentForceCreateType.cs` (0 references anywhere); and INSIDE
+`IEnumerableExtensions.cs`: `ForEachLazy` and **both** `ToDataTable` overloads.
+
+⚠ The `ToDataTable` pair was orphaned **this session** — its consumer was `ExcelHandling.cs`, deleted
+2026-08-21. Removing them also drops the file's `System.Data` dependency.
+
+⚠⚠ **`IEnumerableExtensions.ForEach` STAYS** — `FilePlatform.cs:155` calls it on an `IList<T>`, which
+has no instance `ForEach`, so the extension is what resolves. The file shrinks; it does not go.
+
+**Order:** free-standing.
+
+### L15 — Converters kept alive only by their own tests
+
+**Code:** `Helpers/Extensions/XAML/` — `BoolANDGateConverter.cs`, `ByteArrayToImageSourceConverter.cs`,
+`PickerIndexToDBIdConverter.cs`; plus their test classes in `ConvertersTests.cs` / `MiscTests.cs`.
+
+⚠ **Zero XAML usage and zero production C# usage — every reference is a unit test.** The same
+tested-dead-code shape as L12's `ParsingCSV`: green tests that verify code nothing runs. The tests
+are deleted WITH the converters, or the suite count silently protects a corpse.
+
+**Order:** free-standing.
+
+### L16 — The reprint PICKER path · ⚠ orphaned 2026-08-21, rides the Statistics deletion
+
+**Code:** `ReceiptReprint.PickAndReprintAsync`, `PickPlatformSaleAsync`, the `AnotherTill` constant.
+
+⚠ When reprint moved onto `SaleDetailAlert` (Matt: *"Reprinting receipts needs to be done from
+reports and looking at the specific sales in a day"*), the toolbar button went — and the picker's
+**sole remaining caller is the hidden `StatisticsViewModel`**, a screen no operator can open. The
+capability is not lost: `ReprintAsync` (which the picker fed) is alive on the sale-detail dialog.
+
+🔒 **Order: rides L4's Statistics-screen deletion** — deleting the picker first breaks the hidden
+screen's compile; deleting them together is one diff.
+
+### ⚠ One consolidation note, outside MAUI
+
+`Client.Core.GetItemBarcodesAsync` and `GetAllItemBarcodesAsync` both `GET /api/v1/items/barcodes` —
+the register's "one endpoint two ways" shape, introduced with WP10 on 2026-08-20. Both have callers,
+so neither is dead; the per-item one should filter through the all-items one. Small, and it lives in
+`Client.Core`, not the till — noted here so the finding is not lost, not numbered as an L row.
 ### What was deleted rather than listed
 
 So nobody hunts for them.
