@@ -41,7 +41,7 @@ public class WebstoreRefundTests
     {
         private readonly MySqlDbContext _db; private readonly WebstoreConnectionContext _ctx;
         public IngestSink(MySqlDbContext db, WebstoreConnectionContext ctx) { _db = db; _ctx = ctx; }
-        public async Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
+        public async Task<SaleSinkOutcome> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
         {
             var req = new IngestSaleRequest
             {
@@ -59,7 +59,9 @@ public class WebstoreRefundTests
                     TenderType = (byte)t.TenderType, AmountPence = t.AmountPence, ChangePence = t.ChangePence, ProviderRef = t.ProviderRef,
                 }).ToList(),
             };
-            return (await new SalesIngestService(_db).IngestAsync(req, _ctx.TenantId, _ctx.DeviceId, "t")).Status == 201;
+            var status = (await new SalesIngestService(_db).IngestAsync(req, _ctx.TenantId, _ctx.DeviceId, "t")).Status;
+            // ⚠ Mirrors the real sink — 202 is NotRecorded, never AlreadyRecorded.
+            return status == 201 ? SaleSinkOutcome.Recorded : status == 200 ? SaleSinkOutcome.AlreadyRecorded : SaleSinkOutcome.NotRecorded;
         }
     }
 

@@ -238,7 +238,7 @@ public class WebstoreOutboundTests
 
     private sealed class NullSink : IWebstoreSaleSink
     {
-        public Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default) => Task.FromResult(true);
+        public Task<SaleSinkOutcome> SubmitAsync(SaleV2 sale, CancellationToken ct = default) => Task.FromResult(SaleSinkOutcome.Recorded);
     }
 
     private sealed class ProductsEmptyHandler : HttpMessageHandler

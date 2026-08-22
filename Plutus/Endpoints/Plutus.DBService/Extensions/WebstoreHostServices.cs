@@ -20,7 +20,7 @@ namespace Plutus.DBService.Extensions
         private readonly WebstoreConnectionContext _ctx;
         public WebstoreIngestSink(MySqlDbContext db, WebstoreConnectionContext ctx) { _db = db; _ctx = ctx; }
 
-        public async Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
+        public async Task<SaleSinkOutcome> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
         {
             var req = new IngestSaleRequest
             {
@@ -40,7 +40,21 @@ namespace Plutus.DBService.Extensions
             };
             var outcome = await new SalesIngestService(_db).IngestAsync(
                 req, _ctx.TenantId, _ctx.DeviceId, $"webstore:{_ctx.WebStoreId:D}");
-            return outcome.Status == 201;   // 201 new; 200 = idempotent duplicate
+
+            // ⚠⚠ 200 AND 202 ARE NOT THE SAME ANSWER, and returning `outcome.Status == 201` made
+            // them so. 200 means the sale is already in SalesV2; 202 means the ingest QUARANTINED it
+            // — it is not in, and re-parking it is the whole point. Collapsing both to `false` is
+            // what let the retry endpoint mark a still-broken sale as healed.
+            //
+            // ⚠ Anything else (400 on a malformed request, and any future status) is NotRecorded by
+            // default. The safe direction is "did not get in": a wrong NotRecorded leaves a row on
+            // the quarantine list for a human, a wrong Recorded loses the sale silently.
+            return outcome.Status switch
+            {
+                201 => SaleSinkOutcome.Recorded,
+                200 => SaleSinkOutcome.AlreadyRecorded,
+                _ => SaleSinkOutcome.NotRecorded,
+            };
         }
     }
 

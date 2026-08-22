@@ -49,7 +49,7 @@ public class WebstoreWebhookHandlerTests
         private readonly WebstoreConnectionContext _ctx;
         public IngestSink(MySqlDbContext db, WebstoreConnectionContext ctx) { _db = db; _ctx = ctx; }
 
-        public async Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
+        public async Task<SaleSinkOutcome> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
         {
             var req = new IngestSaleRequest
             {
@@ -68,7 +68,9 @@ public class WebstoreWebhookHandlerTests
                 }).ToList(),
             };
             var outcome = await new SalesIngestService(_db).IngestAsync(req, _ctx.TenantId, _ctx.DeviceId, "webstore");
-            return outcome.Status == 201;
+            // ⚠ MIRRORS THE REAL SINK. 202 is QUARANTINED — not in — and a double that called that
+            // "recorded" would hide the bug this three-way answer exists to prevent.
+            return outcome.Status == 201 ? SaleSinkOutcome.Recorded : outcome.Status == 200 ? SaleSinkOutcome.AlreadyRecorded : SaleSinkOutcome.NotRecorded;
         }
     }
 

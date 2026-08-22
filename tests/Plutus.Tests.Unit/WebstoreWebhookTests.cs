@@ -33,8 +33,17 @@ public class WebstoreWebhookTests
     {
         public readonly List<SaleV2> Submitted = new();
         public bool NextIsDuplicate;
-        public Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
-        { Submitted.Add(sale); return Task.FromResult(!NextIsDuplicate); }
+        /// <summary>⚠ Set to make the sink answer "the platform refused it AGAIN" — the case that
+        /// used to be indistinguishable from a duplicate and got still-broken rows marked healed.</summary>
+        public bool NextIsNotRecorded;
+        public Task<SaleSinkOutcome> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
+        {
+            Submitted.Add(sale);
+            return Task.FromResult(
+                NextIsNotRecorded ? SaleSinkOutcome.NotRecorded
+                : NextIsDuplicate ? SaleSinkOutcome.AlreadyRecorded
+                : SaleSinkOutcome.Recorded);
+        }
     }
     private sealed class FakeQueue : IWebstoreSkuMapQueue
     {
@@ -83,6 +92,28 @@ public class WebstoreWebhookTests
         var proc = new WebstoreWebhookProcessor(sink, new FakeQueue());
         var r = await proc.ProcessOrderWebhookAsync(body, WooWebhookVerifier.Sign(body, Secret), Secret, Ctx, new OkResolver());
         Assert.Equal(WebstoreInboundStatus.Duplicate, r.Status);
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE REFUSED-AGAIN CASE, WHICH USED TO LOOK EXACTLY LIKE A DUPLICATE.
+    ///
+    /// The sink answered a bare `bool`, so "already in SalesV2" and "the ingest refused it again and
+    /// re-parked it" both came back `false` and both became `Duplicate`. That mattered because
+    /// `POST /webstores/{id}/retry` stamps `ResolvedAtUtc` on Recorded-or-Duplicate: a sale that was
+    /// still broken got marked healed, dropped off the quarantine list, and stayed out of every
+    /// report. Quarantined is the honest answer, and it is what keeps the row on the list.
+    /// </summary>
+    [Fact]
+    public async Task A_sale_the_platform_refuses_again_is_quarantined_not_reported_as_a_duplicate()
+    {
+        var body = Body("order-7127.json");
+        var sink = new FakeSink { NextIsNotRecorded = true };
+        var proc = new WebstoreWebhookProcessor(sink, new FakeQueue());
+
+        var r = await proc.ProcessOrderWebhookAsync(body, WooWebhookVerifier.Sign(body, Secret), Secret, Ctx, new OkResolver());
+
+        Assert.Equal(WebstoreInboundStatus.Quarantined, r.Status);
+        Assert.NotEqual(WebstoreInboundStatus.Duplicate, r.Status);
     }
 
     [Fact]

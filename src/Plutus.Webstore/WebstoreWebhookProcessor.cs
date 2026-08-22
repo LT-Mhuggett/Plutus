@@ -7,13 +7,33 @@ using Plutus.Entities.Models;
 
 namespace Plutus.Webstore
 {
+    /// <summary>
+    /// Did the sale get IN? — the only question the connector actually has.
+    ///
+    /// ⚠⚠ THIS WAS A `bool` UNTIL 2026-08-22, AND THE MISSING THIRD ANSWER WAS A REAL BUG. `false`
+    /// meant both "already recorded" and "the ingest refused it again and re-parked it", which are
+    /// opposite outcomes: one means the sale is safely in, the other means it is still nowhere. The
+    /// retry endpoint treated both as success and stamped `ResolvedAtUtc` — so a still-broken sale
+    /// was marked healed, disappeared off the quarantine list, and stayed out of every report.
+    /// </summary>
+    public enum SaleSinkOutcome
+    {
+        /// <summary>Newly written to SalesV2 (ingest 201).</summary>
+        Recorded,
+        /// <summary>Already in SalesV2 — a duplicate delivery, deduped on the deterministic saleId
+        /// (ingest 200). ⚠ Still a success: the sale IS in.</summary>
+        AlreadyRecorded,
+        /// <summary>⚠ NOT in SalesV2 — quarantined, rejected, or refused. Whatever the caller does
+        /// next, it must not be to record this as dealt with.</summary>
+        NotRecorded,
+    }
+
     /// <summary>Idempotently persists a mapped webstore sale — the connector's port over the
     /// platform's sale ingest (implemented in the host against <c>SalesIngestService</c>, so the
-    /// connector never references the Sales module). Returns whether the sale was newly recorded
-    /// (false = a duplicate delivery that deduped on the deterministic saleId).</summary>
+    /// connector never references the Sales module).</summary>
     public interface IWebstoreSaleSink
     {
-        Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default);
+        Task<SaleSinkOutcome> SubmitAsync(SaleV2 sale, CancellationToken ct = default);
     }
 
     /// <summary>Parks an order whose line SKUs aren't in the catalogue into the WP6.2 review queue
@@ -119,10 +139,16 @@ namespace Plutus.Webstore
             }
             else
             {
-                var wasNew = await _sink.SubmitAsync(mapped.Sale!, ct);
-                result = wasNew
-                    ? WebstoreInboundResult.Recorded(mapped.Sale!.Id, order.Id)
-                    : WebstoreInboundResult.Duplicate(mapped.Sale!.Id, order.Id);
+                // ⚠ THREE ANSWERS. `NotRecorded` used to arrive here as `Duplicate` — see
+                // `SaleSinkOutcome`. A sale the ingest refused a second time is Quarantined, and
+                // saying so is what stops the retry endpoint marking it resolved.
+                result = await _sink.SubmitAsync(mapped.Sale!, ct) switch
+                {
+                    SaleSinkOutcome.Recorded => WebstoreInboundResult.Recorded(mapped.Sale!.Id, order.Id),
+                    SaleSinkOutcome.AlreadyRecorded => WebstoreInboundResult.Duplicate(mapped.Sale!.Id, order.Id),
+                    _ => WebstoreInboundResult.Quarantined(
+                        "The platform refused this order again — it is still not recorded.", order.Id),
+                };
             }
             result.Order = order;
             return result;

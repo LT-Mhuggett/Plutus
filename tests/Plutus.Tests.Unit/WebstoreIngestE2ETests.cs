@@ -47,7 +47,7 @@ public class WebstoreIngestE2ETests
     {
         private readonly SqliteConnection _conn;
         public IngestSink(SqliteConnection conn) => _conn = conn;
-        public async Task<bool> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
+        public async Task<SaleSinkOutcome> SubmitAsync(SaleV2 sale, CancellationToken ct = default)
         {
             await using var db = NewCtx(_conn);
             var req = new IngestSaleRequest
@@ -67,7 +67,9 @@ public class WebstoreIngestE2ETests
                 }).ToList(),
             };
             var outcome = await new SalesIngestService(db).IngestAsync(req, Tenant, sale.DeviceId, "webstore");
-            return outcome.Status == 201;   // 201 new, 200 duplicate
+            // ⚠ MIRRORS THE REAL SINK. 202 is QUARANTINED — not in — and a double that called that
+            // "recorded" would hide the bug this three-way answer exists to prevent.
+            return outcome.Status == 201 ? SaleSinkOutcome.Recorded : outcome.Status == 200 ? SaleSinkOutcome.AlreadyRecorded : SaleSinkOutcome.NotRecorded;
         }
     }
 

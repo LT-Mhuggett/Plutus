@@ -252,8 +252,21 @@ namespace Plutus.Webstore.Controllers
             return Ok(new { status = "created", barcode = row.Sku, name, pricePence });
         }
 
-        /// <summary>Re-process this connection's parked orders (needs-mapping / quarantined) after
-        /// SKUs were bound or items created. Resolved ones record + stamp ResolvedAtUtc; the rest stay.</summary>
+        /// <summary>
+        /// Re-process this connection's parked orders (needs-mapping / quarantined) after SKUs were
+        /// bound or items created.
+        ///
+        /// ⚠⚠ ONLY A SALE THAT IS ACTUALLY IN `SalesV2` IS RESOLVED — fixed 2026-08-22. This used to
+        /// stamp `ResolvedAtUtc` on `Recorded or Duplicate`, and `Duplicate` was ALSO what came back
+        /// when the ingest refused the order a second time and re-parked it, because the sale sink
+        /// answered a bare `bool` that could not tell "already recorded" from "still not recorded".
+        /// So a still-broken sale was marked healed, vanished off the quarantine list, and stayed out
+        /// of every report — the quietest possible way to lose one.
+        ///
+        /// ⚠ AND IT NOW RECORDS WHO AND WHY. A row cleared with no trace is the one somebody asks
+        /// about at year end; the operator-facing quarantine screen requires a note for the same
+        /// reason, and this path should not be the way round it.
+        /// </summary>
         [HttpPost("{id:guid}/retry")]
         [Authorize(Policy = "perm:portal.stock.adjust")]
         public async Task<IActionResult> Retry(Guid id, CancellationToken ct)
@@ -276,16 +289,28 @@ namespace Plutus.Webstore.Controllers
                 if (order is null || WooOrderMapper.SaleIdFor(ctx.DeviceId, order.Id) != q.SaleId) { notOurs++; continue; }
 
                 var r = await pipeline.Processor.RouteOrderAsync(order, ctx, pipeline.Resolver, ct);
-                if (r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate)
+
+                // ⚠⚠ CONFIRMED AGAINST `SalesV2`, NOT INFERRED FROM THE STATUS. The status is now
+                // honest (see `SaleSinkOutcome`), but this row is about to be marked dealt-with for
+                // ever, so it is worth the one indexed read to be certain the sale is really there.
+                var isIn = r.Status is WebstoreInboundStatus.Recorded or WebstoreInboundStatus.Duplicate
+                    && await pipeline.Db.SalesV2.IgnoreQueryFilters().AsNoTracking()
+                        .AnyAsync(s => s.Id == q.SaleId, ct);
+
+                if (isIn)
                 {
                     if (r.Status == WebstoreInboundStatus.Recorded && r.Order is not null)
                         await WebstoreNotifications.CreateForRecordedAsync(pipeline.Db, ctx, r.Order, ws.StoreId, ct);
                     var live = await pipeline.Db.SaleQuarantine.FirstAsync(x => x.Id == q.Id, ct);
                     live.ResolvedAtUtc = DateTime.UtcNow;
+                    live.ResolvedBy = $"webstore-retry:{Actor:D}";
+                    live.ResolutionNote = r.Status == WebstoreInboundStatus.Recorded
+                        ? "Replayed from the webstore connector and recorded."
+                        : "Already present in SalesV2 when replayed from the webstore connector.";
                     await pipeline.Db.SaveChangesAsync(ct);
                     recorded++;
                 }
-                else still++;
+                else still++;   // ⚠ STILL PARKED, and the count says so.
             }
             _db.Audit(_tenant.TenantId, Actor, "webstore.retry", nameof(WebStoreDetails), id.ToString(),
                 new { recorded, still, notOurs });
