@@ -224,7 +224,21 @@ restoring it. ⚠ It lives in .NET rather than vitest because the web till has n
 ⚠ **The general lesson, recorded in C2:** four of those five twins had nothing but a *"keep these in
 sync"* comment for months. **Where a twin can be compared mechanically, compare it mechanically.**
 
-### 0.3c ⚠ WP-T1 — the theming remainder (2026-08-19 audit, after Matt's white-pill diagnosis)
+### 0.3c ✅ WP-T1 — CLOSED IN FULL 2026-08-19 (till 1.107.0 + web till 1.26.0)
+
+> ⚠⚠ **THIS HEADING SAID "the theming remainder" WITH A ⚠ UNTIL 2026-08-22, AND IT COST A WRONG
+> ANSWER.** Asked what was left on the retrofit, I read this heading, saw a warning triangle under a
+> section called *"Open, and not tracked anywhere else"*, and reported WP-T1 as outstanding — while
+> the body three lines down said **CLOSED IN FULL** with all four rows ✅.
+>
+> ⚠ **§0.3d GOT THIS RIGHT AND THIS ONE DID NOT**: *"0.3d ✅ WP-T2 — CLOSED"*. A closed item
+> keeping an open item's heading is the same stale-prose fault this document warns about in ⚠ §0.4,
+> committed by the document itself.
+>
+> ⚠ **RE-VERIFIED 2026-08-22 rather than taken on trust**: `ThemeLiteralTests` is green, `Backlog` is
+> genuinely empty, and — the part worth checking — **the guard still catches a literal in a file added
+> since it was written**. A `Colors.HotPink` dropped into `BinAlert.cs` (created that morning) fails
+> it. The ratchet covers new code, not just the code it was built against.
 
 > Matt, testing 1.99.0: *"In inventory, is each line a white pill? … I do not think its the themeing, I
 > think its what was already there that is causing problems?"* — **and he was right.** The applier was
