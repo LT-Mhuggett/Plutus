@@ -25,12 +25,12 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
             TestServices.Logger = new Mock<Plutus.Frontend.AppClient.Services.Analytics.ILogger>().Object;
         }
 
-        private static ItemModel MakeItem() => new ItemModel
+        private static Plutus.Frontend.AppClient.Models.TillItem MakeItem() => new Plutus.Frontend.AppClient.Models.TillItem
         {
             Id = "1",
             Name = "Widget",
             Price = 10m,
-            Vat = new TaxModel { Name = "Standard", Rate = 0.2 }
+            VatName = "Standard"
         };
 
         // ⚠⚠ FOUR `Employees`/`EmployeeId` TESTS WENT WITH THE PROPERTIES — L9, 2026-08-23.

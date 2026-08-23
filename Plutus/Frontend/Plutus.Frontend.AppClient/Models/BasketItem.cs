@@ -19,7 +19,10 @@ namespace Plutus.Frontend.AppClient.Models
         #endregion
         #region Properties
         #region Public
-        public ItemModel Item { get; }
+        /// <summary>⚠ A `TillItem`, not the legacy `ItemModel` — L5/L6, 2026-08-23. See `TillItem`:
+        /// the basket only ever read five of that entity's fields, and the data feeding it was already
+        /// v2. </summary>
+        public TillItem Item { get; }
 
         public int Quantity
         {
@@ -90,7 +93,9 @@ namespace Plutus.Frontend.AppClient.Models
             set => PriceExTaxPence = Plutus.SharedKernel.Pence.FromDecimal(value);
         }
 
-        public string Tax => Item.Vat.Name;
+        /// <summary>⚠ `VatName` now, where this was `Item.Vat.Name` — the band's NAME was the only
+        /// thing ever read off the `TaxModel` navigation property.</summary>
+        public string Tax => Item.VatName;
 
         private bool _adjusted;
 
@@ -235,7 +240,7 @@ namespace Plutus.Frontend.AppClient.Models
         #endregion
 
 
-        public BasketItem(ItemModel item, int quantity = 1)
+        public BasketItem(TillItem item, int quantity = 1)
         {
             Item = item;
             Quantity = quantity;

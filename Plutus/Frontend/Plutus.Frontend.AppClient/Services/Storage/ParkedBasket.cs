@@ -68,7 +68,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                             Kind = r.IsReturn ? ParkedRecord.KindReturn : ParkedRecord.KindItem,
                             IdOne = r.Item?.Id, Name = r.Item?.Name,
                             IncPence = Pence.FromDecimal(r.Price), ExPence = Pence.FromDecimal(r.PriceExTax),
-                            Qty = r.Quantity, VatBand = r.Item?.Vat?.Name,
+                            Qty = r.Quantity, VatBand = r.Item?.VatName,
                             Reason = r.Reason, OriginSaleId = r.ReturnSaleId,
                         });
                         break;
@@ -119,13 +119,17 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                     continue;
                 }
 
-                var item = new ItemModel
+                // ⚠⚠ THE PARKED WIRE FORMAT IS UNCHANGED BY L5/L6, AND THAT IS THE POINT. A
+                // `ParkedRecord` is flat primitives — idOne, name, incPence, exPence, qty, vatBand —
+                // never a serialised item entity. So a basket parked by an older build restores here
+                // exactly as it always did; only the shape it is rehydrated INTO has changed.
+                var item = new Models.TillItem
                 {
                     Id = r.IdOne,
                     Name = r.Name,
                     Price = r.IncPence / 100m,
                     ExPrice = r.ExPence / 100m,
-                    Vat = new TaxModel { Name = r.VatBand ?? string.Empty },
+                    VatName = r.VatBand ?? string.Empty,
                 };
 
                 if (string.Equals(r.Kind, ParkedRecord.KindReturn, StringComparison.OrdinalIgnoreCase))

@@ -38,22 +38,22 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         private static readonly MemberStanding Gold = new(true, false, 0.10m, "Gold");
 
         private static BasketItem Item(string idOne, decimal price, decimal exPrice, int qty = 1, Guid? cat = null) =>
-            new(new ItemModel
+            new(new Plutus.Frontend.AppClient.Models.TillItem
             {
                 Id = idOne,
                 Name = "Item " + idOne,
                 Price = price,
                 ExPrice = exPrice,
-                Vat = new TaxModel { Name = "Standard" },
+                VatName = "Standard",
             }, qty)
             { CategoryId = cat };
 
         private static BasketItem Returned(string idOne, decimal price)
         {
-            var line = new BasketItem(new ItemModel
+            var line = new BasketItem(new Plutus.Frontend.AppClient.Models.TillItem
             {
                 Id = idOne, Name = "Returned " + idOne, Price = price, ExPrice = price,
-                Vat = new TaxModel { Name = "Standard" },
+                VatName = "Standard",
             }, 1);
 
             // ⚠⚠ MARKED, NOT SUBCLASSED (step 11b, 2026-08-22). This helper returned a

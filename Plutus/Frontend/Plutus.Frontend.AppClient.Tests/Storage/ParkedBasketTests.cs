@@ -20,12 +20,12 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
     public class ParkedBasketTests
     {
         private static BasketItem Item(string idOne, decimal price, decimal ex, int qty = 1, string band = "Standard") =>
-            new(new ItemModel { Id = idOne, Name = "Item " + idOne, Price = price, ExPrice = ex, Vat = new TaxModel { Name = band } }, qty);
+            new(new Plutus.Frontend.AppClient.Models.TillItem { Id = idOne, Name = "Item " + idOne, Price = price, ExPrice = ex, VatName = band }, qty);
 
         private static BasketItem Return(string idOne, decimal price, decimal ex, string reason, string origin)
         {
             var r = new BasketItem(
-                new ItemModel { Id = idOne, Name = "Item " + idOne, Price = price, ExPrice = ex, Vat = new TaxModel { Name = "Standard" } }, 1);
+                new Plutus.Frontend.AppClient.Models.TillItem { Id = idOne, Name = "Item " + idOne, Price = price, ExPrice = ex, VatName = "Standard" }, 1);
             r.MarkAsReturn(reason, origin);
             return r;
         }
@@ -55,7 +55,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             Assert.Equal(14.99m, item.Price);
             Assert.Equal(12.49m, item.PriceExTax);
             Assert.Equal(3, item.Quantity);
-            Assert.Equal("Standard", item.Item.Vat.Name);
+            Assert.Equal("Standard", item.Item.VatName);
         }
 
         /// <summary>

@@ -5,13 +5,13 @@ namespace Plutus.Frontend.AppClient.Tests.Models
 {
     public class BasketModelsTests
     {
-        private static ItemModel MakeItem(decimal price = 10m, decimal exPrice = 8m) => new ItemModel
+        private static Plutus.Frontend.AppClient.Models.TillItem MakeItem(decimal price = 10m, decimal exPrice = 8m) => new Plutus.Frontend.AppClient.Models.TillItem
         {
             Id = "1",
             Name = "Widget",
             Price = price,
             ExPrice = exPrice,
-            Vat = new TaxModel { Name = "Standard", Rate = 0.2 }
+            VatName = "Standard"
         };
 
         [Fact]

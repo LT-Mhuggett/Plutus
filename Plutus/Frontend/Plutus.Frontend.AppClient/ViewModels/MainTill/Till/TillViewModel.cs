@@ -826,7 +826,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// rule's questions and nothing more. ⚠ Keep it that way - a condition added HERE is a
         /// condition the other till does not have, which is how the two got out of step to begin with.
         /// </summary>
-        private static bool Mergeable(BasketItem line, Database.Models.ItemModel item) =>
+        private static bool Mergeable(BasketItem line, Models.TillItem item) =>
             Plutus.SharedKernel.BasketMerge.CanMerge(
                 sameItem: line.Item.Id.Equals(item.Id),
                 lineIsReturn: line.IsReturn,
@@ -3654,7 +3654,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// item's own (multi-barcode, 2026-08-20). A snapshot for the day a supplier's barcode
         /// migration goes wrong — never an identity. Null on every ordinary lookup.</param>
         private sealed record ItemLookup(
-            ItemModel Item, bool Cancelled, Guid? CategoryId = null, string ScannedBarcode = null)
+            // ⚠ `TillItem` since L5/L6 (2026-08-23) — this lookup already read the v2 store; only
+            // the shape it hands back has changed.
+            Models.TillItem Item, bool Cancelled, Guid? CategoryId = null, string ScannedBarcode = null)
         {
             public static readonly ItemLookup NotFound = new(null, false);
             public static readonly ItemLookup Abandoned = new(null, true);
@@ -3708,19 +3710,24 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // blank rather than being guessed at.
                 var bandName = await Services.Storage.VatBands.DisplayNameForItemAsync(found.Id);
 
-                return new ItemLookup(new ItemModel
+                // ⚠⚠ THIS WAS THE WHOLE REASON THE BASKET STILL SPOKE LEGACY. Everything above reads
+                // the **v2 store**; this line then packed the answer into a `Database.Models.ItemModel`
+                // purely because `BasketItem` demanded one. The legacy entity was a costume v2 data
+                // wore, and it pinned `Helpers/Database` and the 55-file `Plutus/Data/Database`
+                // project (L5, L6) behind a basket that never actually read either.
+                return new ItemLookup(new Models.TillItem
                 {
-                    // ⚠ IdOne, not the GUID: every legacy screen and the basket key on this string,
-                    // and it IS the barcode.
+                    // ⚠ IdOne, not the GUID: every screen and the basket key on this string, and it
+                    // IS the barcode.
                     Id = found.IdOne,
                     Name = found.Name,
-                    // ⚠ Pence → decimal pounds ONLY because the legacy model is decimal. Deliberately
+                    // ⚠ Pence → decimal pounds only because the carrier is decimal. Deliberately
                     // inline rather than a SharedKernel helper: money is integer pence end-to-end
                     // (architecture §4.1) and a shared pence→decimal converter would legitimise the
-                    // conversion everywhere instead of confining it to this scaffolding.
+                    // conversion everywhere instead of confining it to this one seam.
                     Price = price.IncPence / 100m,
                     ExPrice = price.ExPence / 100m,
-                    Vat = new TaxModel { Name = bandName ?? string.Empty },
+                    VatName = bandName ?? string.Empty,
                     // ⚠ The v2 catalogue's category rides alongside, not on this model — see
                     // `ItemLookup.CategoryId` for why it cannot go on `CatId`.
                     //

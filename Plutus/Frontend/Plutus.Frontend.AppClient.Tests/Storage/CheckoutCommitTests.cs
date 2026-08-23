@@ -19,13 +19,13 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
     public class CheckoutCommitTests
     {
         private static BasketItem Item(string idOne, decimal price, decimal exPrice, int qty = 1) =>
-            new(new ItemModel
+            new(new Plutus.Frontend.AppClient.Models.TillItem
             {
                 Id = idOne,
                 Name = "Item " + idOne,
                 Price = price,
                 ExPrice = exPrice,
-                Vat = new TaxModel { Name = "Standard" },
+                VatName = "Standard",
             }, qty);
 
         /// <summary>
@@ -304,9 +304,9 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         [Fact]
         public void A_refund_only_basket_attracts_no_fee()
         {
-            var returned = new BasketItem(new ItemModel
+            var returned = new BasketItem(new Plutus.Frontend.AppClient.Models.TillItem
             {
-                Id = "A", Name = "A", Price = 10m, ExPrice = 10m, Vat = new TaxModel { Name = "" },
+                Id = "A", Name = "A", Price = 10m, ExPrice = 10m, VatName = "",
             }, 1);
 
             // ⚠ MARKED, NOT SUBCLASSED (step 11b) — without this it is a SALE line.
@@ -537,10 +537,10 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         [Fact]
         public void Basket_items_and_returns_never_appear_as_notes()
         {
-            var returned = new BasketItem(new ItemModel
+            var returned = new BasketItem(new Plutus.Frontend.AppClient.Models.TillItem
             {
                 Id = "R", Name = "Returned", Price = 10m, ExPrice = 10m,
-                Vat = new TaxModel { Name = "Standard" },
+                VatName = "Standard",
             }, 1);
 
             // ⚠ MARKED, NOT SUBCLASSED (step 11b) — without this it is a SALE line, and
@@ -728,10 +728,10 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         [Fact]
         public void A_discount_that_lands_on_no_line_records_no_attribution()
         {
-            var returned = new BasketItem(new ItemModel
+            var returned = new BasketItem(new Plutus.Frontend.AppClient.Models.TillItem
             {
                 Id = "R", Name = "Returned", Price = 10m, ExPrice = 10m,
-                Vat = new TaxModel { Name = "Standard" },
+                VatName = "Standard",
             }, 1);
 
             // ⚠ MARKED, NOT SUBCLASSED (step 11b) — without this it is a SALE line, and

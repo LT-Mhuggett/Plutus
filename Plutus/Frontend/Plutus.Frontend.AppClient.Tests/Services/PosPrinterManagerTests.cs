@@ -20,19 +20,19 @@ namespace Plutus.Frontend.AppClient.Tests.Services
         /// <summary>⚠ A return line. Step 11b collapsed `BasketReturnItem` into a flag, so this is
         /// a `BasketItem` that has been MARKED — constructing one without the mark would make
         /// the receipt print a sale where the test says return.</summary>
-        private static BasketItem Returned(ItemModel item)
+        private static BasketItem Returned(Plutus.Frontend.AppClient.Models.TillItem item)
         {
             var line = new BasketItem(item);
             line.MarkAsReturn();
             return line;
         }
 
-        private static ItemModel MakeItem(string id, decimal price) => new ItemModel
+        private static Plutus.Frontend.AppClient.Models.TillItem MakeItem(string id, decimal price) => new Plutus.Frontend.AppClient.Models.TillItem
         {
             Id = id,
             Name = $"Item {id}",
             Price = price,
-            Vat = new TaxModel { Name = "Standard", Rate = 0.2 }
+            VatName = "Standard"
         };
 
         /// <summary>A committed sale as the receipt now receives it (cutover step 14) — money in

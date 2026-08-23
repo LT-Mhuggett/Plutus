@@ -90,13 +90,13 @@ namespace Plutus.Frontend.AppClient.Tests.Till
             }
         }
 
-        private static global::Database.Models.ItemModel AnItem() => new()
+        private static global::Plutus.Frontend.AppClient.Models.TillItem AnItem() => new()
         {
             Id = "1",
             Name = "Widget",
             Price = 10m,
             ExPrice = 8m,
-            Vat = new global::Database.Models.TaxModel { Name = "Standard", Rate = 0.2 },
+            VatName = "Standard",
         };
 
         /// <summary>

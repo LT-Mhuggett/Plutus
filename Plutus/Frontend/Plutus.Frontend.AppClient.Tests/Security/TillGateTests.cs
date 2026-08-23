@@ -25,11 +25,11 @@ namespace Plutus.Frontend.AppClient.Tests.Security
             new(code, maxPence, null, null, null, null, null);
 
         private static BasketItem Item(string idOne, decimal price, int qty = 1) =>
-            new(new ItemModel { Id = idOne, Name = idOne, Price = price, ExPrice = price, Vat = new TaxModel { Name = "" } }, qty);
+            new(new Plutus.Frontend.AppClient.Models.TillItem { Id = idOne, Name = idOne, Price = price, ExPrice = price, VatName = "" }, qty);
 
         private static BasketItem Return(string idOne, decimal price, int qty = 1)
         {
-            var line = new BasketItem(new ItemModel { Id = idOne, Name = idOne, Price = price, ExPrice = price, Vat = new TaxModel { Name = "" } },
+            var line = new BasketItem(new Plutus.Frontend.AppClient.Models.TillItem { Id = idOne, Name = idOne, Price = price, ExPrice = price, VatName = "" },
                 qty);
 
             // ⚠⚠ MARKED, NOT SUBCLASSED (step 11b, 2026-08-22). This helper returned a

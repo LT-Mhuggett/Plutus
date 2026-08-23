@@ -261,14 +261,15 @@ namespace Plutus.Frontend.AppClient.Services.Storage
 
             var (inc, ex) = CardSurchargeVat.PairFor(fee, totals.GrossPence, totals.ExPence);
 
-            // Pence ÷ 100 into the legacy decimal model is lossless; LinesFrom multiplies back.
-            return new BasketItem(new Database.Models.ItemModel
+            // ⚠ Pence ÷ 100 into the decimal carrier is lossless; LinesFrom multiplies back.
+            return new BasketItem(new Models.TillItem
             {
                 Id = CardSurchargeVat.ItemIdOne,
                 Name = "Card surcharge",
                 Price = inc / 100m,
                 ExPrice = ex / 100m,
-                Vat = new Database.Models.TaxModel { Name = "" },
+                // ⚠ Empty, as before: this line carries its VAT in the pence pair, not a band name.
+                VatName = "",
             }, quantity: 1);
         }
 
@@ -320,14 +321,15 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         {
             var (inc, ex) = GiftCardVat.PairFor(loadedPence, treatment, standardRateBp);
 
-            // Pence ÷ 100 into the legacy decimal model is lossless; LinesFrom multiplies back.
-            return new BasketItem(new Database.Models.ItemModel
+            // ⚠ Pence ÷ 100 into the decimal carrier is lossless; LinesFrom multiplies back.
+            return new BasketItem(new Models.TillItem
             {
                 Id = GiftCards.ItemIdOne,
                 Name = "Gift card",
                 Price = inc / 100m,
                 ExPrice = ex / 100m,
-                Vat = new Database.Models.TaxModel { Name = "" },
+                // ⚠ Empty, as before: this line carries its VAT in the pence pair, not a band name.
+                VatName = "",
             }, quantity: 1)
             {
                 GiftCardCode = code,

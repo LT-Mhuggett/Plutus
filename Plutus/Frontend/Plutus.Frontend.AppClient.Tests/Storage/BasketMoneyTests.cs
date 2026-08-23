@@ -34,24 +34,24 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
     public class BasketMoneyTests
     {
         private static BasketItem Item(decimal price, decimal exPrice, int qty = 1) =>
-            new(new ItemModel
+            new(new Plutus.Frontend.AppClient.Models.TillItem
             {
                 Id = "ITEM",
                 Name = "Item",
                 Price = price,
                 ExPrice = exPrice,
-                Vat = new TaxModel { Name = "Standard" },
+                VatName = "Standard",
             }, qty);
 
         private static BasketItem Return(decimal price, decimal exPrice, int qty = 1)
         {
-            var line = new BasketItem(new ItemModel
+            var line = new BasketItem(new Plutus.Frontend.AppClient.Models.TillItem
             {
                 Id = "ITEM",
                 Name = "Item",
                 Price = price,
                 ExPrice = exPrice,
-                Vat = new TaxModel { Name = "Standard" },
+                VatName = "Standard",
             }, qty);
 
             // ⚠⚠ MARKED, NOT SUBCLASSED (step 11b, 2026-08-22). This helper returned a
