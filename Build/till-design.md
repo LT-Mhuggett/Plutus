@@ -897,9 +897,10 @@ writing a title label by hand, that is the smell.
   whitespace validator ran after them) and `ViewAllViewModel.ExecuteUpdateItemStock`, where
   `Any(…)` over an empty dictionary is **false** and the cancel path fell through to
   `int.Parse(null)` **after** `db.Add(stock)` had already written a row.
-  - ⬜ **What remains is 4 unguarded sites in `CopperTransferPlatform`, all UNREACHABLE** —
-    `ICopperTransfer` is registered in `MauiProgram` and nothing resolves it. Left alone on the same
-    reasoning as `SliderAlert` below: **delete the tool or wire it up.**
+  - ✅ **CLOSED 2026-08-23 — the tool was deleted, which was one of the two options this line offered.**
+    The 4 unguarded sites were in `CopperTransferPlatform`, whose `ICopperTransfer` was registered in
+    `MauiProgram` with nothing resolving it. **L12 removed the whole Copper chain**, so the sites went
+    with it. ⚠ Same for `SliderAlert`, deleted as **L11**.
   - ⚠ **The lesson is the one this page keeps re-learning**: a count written in prose goes stale
     silently while the code it describes moves on. This line said 17 for three days after the number
     became 0, and it sat at the top of a do-first list the whole time.
