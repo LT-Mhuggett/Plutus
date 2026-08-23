@@ -2985,7 +2985,7 @@ and **MAUI bindings fail silently**, so swapping the bound type blanks the rows 
 the build. **These go when the basket is reshaped (step 11b), not before.** ⚠ Money on these models
 is `decimal`; the platform is integer pence end-to-end — recorded in till-design **C2**.
 
-### L7 — `LoginViewModel.EnsureStoreAsync`
+### L7 — `LoginViewModel.EnsureStoreAsync` — ✅ **DONE 2026-08-23, as cutover step 21**
 
 **Code:** `ViewModels/LoginViewModel.cs` — `EnsureStoreAsync` and its two legacy `Database` blocks.
 ⚠️ **Still called on every sign-in** (`LoginViewModel.cs:301`). **Order:** ⚠ **NOT step 21 — it is
@@ -3043,7 +3043,7 @@ buttons crashed rather than refused. ✅ **Step 21 made null a normal answer** (
 comment records it), so it now refuses instead of crashing — **the deletion is still owed.**
 **Nothing new may use it.**
 
-### L10 — `Plutus.Frontend.ClientUI`
+### L10 — `Plutus.Frontend.ClientUI` — ✅ **DONE 2026-08-23**
 
 **Code:** `Plutus/Frontend/Plutus.Frontend.ClientUI/` and its entry in `Plutus.slnx`.
 🔒 **Order:** step 22 removes it from the solution, keeping the directory.
@@ -3053,7 +3053,7 @@ FIRST** — the theming port must land before the project is dropped, or the til
 scheme.
 
 
-### L11 — The slider cluster · **5 files, one dead island**
+### L11 — The slider cluster · **5 files, one dead island** — ✅ **DONE 2026-08-23**
 
 **Code:** `Views/CustomViews/SliderAlert.xaml` + `.cs`; `Helpers/CustomViews/SliderAlertHelper.cs`;
 `Controls/SteppedSlider.cs`; `Controls/SteppedSliderWithLabels.xaml` + `.cs`.
@@ -3065,7 +3065,7 @@ or wire it up."* This is the delete.
 
 **Order:** free-standing — deletable any time, nothing depends on it.
 
-### L12 — The Copper / third-party-transfer chain · **orphaned by L8's deletion**
+### L12 — The Copper / third-party-transfer chain · **orphaned by L8's deletion** — ✅ **DONE 2026-08-23**
 
 **Code:** `Platforms/Windows/Implementations/Services/CopperTransferPlatform.cs`;
 `Services/ThirdPartyTransfer/ICopperTransfer.cs` + `IThirdPartyTransfer.cs`;
@@ -3083,7 +3083,7 @@ is server-side tooling. This is the till's own in-app import UI, whose screen is
 
 **Order:** free-standing.
 
-### L13 — Dead command wrappers in LIVE viewmodels · **5 properties + 1 commented block**
+### L13 — Dead command wrappers in LIVE viewmodels · **5 properties + 1 commented block** — ✅ **DONE 2026-08-23**
 
 **Code:** `ViewAllViewModel` — `AddToBasketCommandArg` (:408), `LoadMoreItemsCommand` (:391),
 `SearchItemsCommand` (:382); `TillViewModel` — `ManualAddCommandArg` (:349), `AlterTransactionCommand`
@@ -3100,7 +3100,7 @@ refund flow scans. Deleting the setting would change what prints; deleting the c
 
 **Order:** free-standing.
 
-### L14 — Dead extension and enum leaf files
+### L14 — Dead extension and enum leaf files — ✅ **DONE 2026-08-23**
 
 **Code:** `Helpers/Extensions/DecimalExtensions.cs` (whole file — `Normalize`, 0 callers);
 `Helpers/Extensions/DateTimeExtensions.cs` (whole file — `StartOfWeek`, 0 callers);
@@ -3115,7 +3115,7 @@ has no instance `ForEach`, so the extension is what resolves. The file shrinks; 
 
 **Order:** free-standing.
 
-### L15 — Converters kept alive only by their own tests
+### L15 — Converters kept alive only by their own tests — ✅ **DONE 2026-08-23**
 
 **Code:** `Helpers/Extensions/XAML/` — `BoolANDGateConverter.cs`, `ByteArrayToImageSourceConverter.cs`,
 `PickerIndexToDBIdConverter.cs`; plus their test classes in `ConvertersTests.cs` / `MiscTests.cs`.
@@ -3126,7 +3126,21 @@ are deleted WITH the converters, or the suite count silently protects a corpse.
 
 **Order:** free-standing.
 
-### L16 — The reprint PICKER path · ⚠ orphaned 2026-08-21, rides the Statistics deletion
+### L16 — The reprint PICKER path · 🟠 **BLOCKED ON A DECISION, not on code — 2026-08-23**
+
+> ⚠⚠ **ITS STATED BLOCKER TURNED OUT NOT TO EXIST.** This row said the picker "rides L4's
+> Statistics-screen deletion". **L4 does not delete that screen** — its own entry says
+> `StatisticsViewModel` and `StatisticsView` **stay**, because that is the "what has this till
+> taken today" screen from step 26 and it reads the platform, not SQLite.
+>
+> **So the real question is one nobody has answered:** the Statistics screen is commented out of
+> the tab bar (`AppShell.xaml.cs:65`) and therefore unreachable, while **Reports → Takings**
+> shows takings by day from the same source. Either the screen should be back in the tab bar —
+> in which case the picker stays with it — or it is genuinely superseded and both go.
+>
+> ⚠ **NOT ANSWERED HERE, deliberately.** `AppShell.xaml.cs` says in place: *"do not answer it
+> here by quietly deleting the files."* Deleting a screen a shop might want is not a legacy
+> sweep, it is a product decision — Matt's.
 
 **Code:** `ReceiptReprint.PickAndReprintAsync`, `PickPlatformSaleAsync`, the `AnotherTill` constant.
 
