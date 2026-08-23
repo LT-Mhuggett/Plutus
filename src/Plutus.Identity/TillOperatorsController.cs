@@ -59,6 +59,22 @@ namespace Plutus.Identity
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> Get([FromRoute] Guid tillId)
         {
+            // ⚠⚠ STEP 28'S SERVER HALF. The till names the operators it can ALREADY verify offline
+            // (it minted a device-local verifier when they last signed in online here), and this reply
+            // omits their platform password hash. That hash is the operator's real platform password —
+            // it works on the web till and the portal — and shipping it to every till for every member
+            // of staff is what makes a stolen till worth stealing.
+            //
+            // ⚠⚠ NO CUTOVER DATE, AND THAT IS THE DESIGN. The ordering could not be reversed: stop
+            // sending hashes before a till is minting verifiers and every operator who has not signed
+            // in since is locked out — during exactly the outage that made them need the till. Letting
+            // each till say what it holds makes the change self-sequencing: one (till, operator) pair
+            // at a time, the sync after that operator first signs in online there.
+            //
+            // ⚠ EVERY FAILURE DIRECTION SHIPS THE HASH. No header, an empty header, an unparseable id,
+            // an older till: all mean "holds nothing", and the roster is exactly what it always was.
+            var covered = ReadHaveVerifiers();
+
             var till = await _db.Till.AsNoTracking().FirstOrDefaultAsync(t => t.Id == tillId);
             if (till == null) return NotFound(new { detail = "Till not found." });
 
@@ -145,8 +161,10 @@ namespace Plutus.Identity
                     Email: e.Email,
                     // Null = staff with no web login yet. Listed so the till can show who exists;
                     // they simply cannot sign in.
-                    CredentialHashBase64: cred?.HashedPassword,
-                    CredentialSaltBase64: cred?.Salt,
+                    // ⚠ THE SALT GOES WITH IT. A salt on its own is useless, and leaving it behind
+                    // would let a reader tell which accounts had been withheld.
+                    CredentialHashBase64: covered.Contains(e.Id) ? null : cred?.HashedPassword,
+                    CredentialSaltBase64: covered.Contains(e.Id) ? null : cred?.Salt,
                     Grants: grants));
             }
 
@@ -154,6 +172,33 @@ namespace Plutus.Identity
             // till with a drifted clock would otherwise think its roster was fresh for ever, or
             // expire it the moment it arrived.
             return Ok(new TillOperatorsResult(tillId, DateTime.UtcNow, operators.ToArray()));
+        }
+
+        /// <summary>
+        /// The operators the CALLING till says it can already verify offline.
+        ///
+        /// ⚠ TOLERANT BY DESIGN. Anything unparseable is skipped rather than rejected: a malformed
+        /// header must not fail a roster fetch, because the roster is how a shop signs in. The worst a
+        /// bad value can do is leave a hash in the reply that could have been left out.
+        ///
+        /// ⚠ The claim is made by an AUTHENTICATED DEVICE about ITSELF, and it can only ever REMOVE
+        /// credentials from the response. A till that lied would receive less than it needs and
+        /// inconvenience only itself.
+        /// </summary>
+        private HashSet<Guid> ReadHaveVerifiers()
+        {
+            var covered = new HashSet<Guid>();
+
+            if (!Request.Headers.TryGetValue("X-Plutus-Have-Verifiers", out var values)) return covered;
+
+            foreach (var raw in values)
+            {
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+                foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    if (Guid.TryParse(part, out var id) && id != Guid.Empty) covered.Add(id);
+            }
+
+            return covered;
         }
     }
 }

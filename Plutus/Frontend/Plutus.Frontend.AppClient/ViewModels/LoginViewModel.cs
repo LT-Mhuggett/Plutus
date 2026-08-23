@@ -236,8 +236,11 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 if (await Services.Storage.TillPlacement.TillIdAsync(api) is not Guid till)
                     return new RosterRefresh(true, null);
 
+                // ⚠ The verifier store is passed — step 28's server half. See `OperatorSync`.
                 var count = await new Plutus.Client.Core.OperatorSync(
-                    api, new Services.Connectivity.DbOperatorStore()).RefreshAsync(till);
+                    api,
+                    new Services.Connectivity.DbOperatorStore(),
+                    new Services.Connectivity.DbDeviceVerifierStore()).RefreshAsync(till);
 
                 return new RosterRefresh(true, count);
             }

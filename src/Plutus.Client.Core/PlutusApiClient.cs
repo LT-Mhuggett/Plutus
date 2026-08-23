@@ -241,10 +241,36 @@ public sealed class PlutusApiClient
         return GetAsync<CatalogueChangesResult>(url, ct);
     }
 
-    /// <summary>WP8: the roster of operators who may sign in at this till, with their credential
-    /// hashes and raw permission windows. Cached locally so sign-in works with the network off.</summary>
-    public Task<TillOperatorsResult?> GetTillOperatorsAsync(Guid tillId, CancellationToken ct = default) =>
-        GetAsync<TillOperatorsResult>($"/api/v1/tills/{tillId}/operators", ct);
+    /// <summary>The header a till uses to say which operators it can already verify offline.</summary>
+    public const string HaveVerifiersHeader = "X-Plutus-Have-Verifiers";
+
+    /// <summary>
+    /// WP8: the roster of operators who may sign in at this till, with their credential hashes and raw
+    /// permission windows. Cached locally so sign-in works with the network off.
+    ///
+    /// ⚠⚠ `haveVerifiersFor` IS STEP 28'S SERVER HALF. Name the operators this till can already
+    /// verify offline and the server omits THEIR platform password hashes from the reply — so a
+    /// stolen till yields nothing for them. Omit it, or send an empty list, and the roster arrives
+    /// exactly as it always has: no cutover date, no estate-wide switch, and no window in which an
+    /// operator who has not signed in recently is locked out.
+    ///
+    /// ⚠ A HEADER, NOT A QUERY STRING. Ids in a URL end up in access logs and proxy caches, and this
+    /// list says who has used this machine.
+    ///
+    /// ⚠ CAPPED. A very large roster would otherwise build a header long enough for a proxy to
+    /// refuse — and a refused roster fetch is a till that cannot sign anyone in. Past the cap the
+    /// remainder simply keeps its hash, which is the same safe direction as sending nothing.
+    /// </summary>
+    public Task<TillOperatorsResult?> GetTillOperatorsAsync(
+        Guid tillId, IReadOnlyList<Guid>? haveVerifiersFor = null, CancellationToken ct = default)
+    {
+        var url = $"/api/v1/tills/{tillId}/operators";
+        if (haveVerifiersFor is null || haveVerifiersFor.Count == 0) return GetAsync<TillOperatorsResult>(url, ct);
+
+        const int cap = 200;
+        var ids = string.Join(",", haveVerifiersFor.Take(cap).Select(x => x.ToString("D")));
+        return GetAsync<TillOperatorsResult>(url, ct, (HaveVerifiersHeader, ids));
+    }
 
     public Task<TillNameResult?> GetTillNameAsync(Guid tillId, CancellationToken ct = default) =>
         GetAsync<TillNameResult>($"/api/v1/tills/{tillId}/name", ct);
@@ -2120,9 +2146,12 @@ public sealed class PlutusApiClient
         public string? By { get; set; }
     }
 
-    private async Task<T?> GetAsync<T>(string url, CancellationToken ct)
+    /// <summary>⚠ `extraHeaders` is optional and additive — every existing caller is unchanged.</summary>
+    private async Task<T?> GetAsync<T>(string url, CancellationToken ct, params (string Name, string Value)[] extraHeaders)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        foreach (var (name, value) in extraHeaders ?? Array.Empty<(string, string)>())
+            if (!string.IsNullOrEmpty(value)) req.Headers.TryAddWithoutValidation(name, value);
         await AuthoriseAsync(req, ct);
         using var res = await _http.SendAsync(req, ct);
         if (!res.IsSuccessStatusCode) return default;

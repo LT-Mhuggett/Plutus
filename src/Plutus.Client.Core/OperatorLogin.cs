@@ -70,6 +70,31 @@ public interface IDeviceVerifierStore
     /// unreadable store is "no verifier", which routes to "connect once".</summary>
     Task<DeviceVerifier.Record?> GetAsync(Guid userId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Which operators this device can verify offline **right now** — step 28's server half.
+    ///
+    /// ⚠⚠ THIS IS WHAT LETS THE SERVER STOP SHIPPING PASSWORD HASHES WITHOUT A CUTOVER DATE. The
+    /// roster carries `CredentialHashBase64` — an operator's PLATFORM password hash, which works on
+    /// the web till and the portal — for every member of staff, to every till, for ever. Removing it
+    /// is the change that actually empties a stolen till, and the ordering could not be reversed: stop
+    /// sending hashes before a till is minting verifiers and every operator who has not signed in
+    /// since is locked out, during exactly the outage that made them need the till.
+    ///
+    /// ⚠ So the till TELLS the server what it already holds, and the server omits only those. No date,
+    /// no switch, no estate-wide moment: each (till, operator) pair stops shipping a hash the sync
+    /// after that operator first signs in online on that till.
+    ///
+    /// ⚠⚠ EVERY FAILURE DIRECTION IS SAFE. An empty answer — a corrupt store, a wiped PC, an older
+    /// build that does not send it — means the server ships hashes as it always did, and offline
+    /// sign-in keeps working. The list can only ever REMOVE the fallback for accounts that provably
+    /// no longer need it.
+    ///
+    /// ⚠ ONLY VERIFIERS THIS BUILD CAN ACTUALLY READ (`DeviceVerifier.CanVerify`). A record stored by
+    /// a future algorithm is not a verifier this till can use, and claiming it would surrender the
+    /// hash for an account that then cannot sign in offline at all.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> UsableVerifierUserIdsAsync(CancellationToken ct = default);
+
     /// <summary>Store a freshly minted verifier. ⚠ Overwrites — a password change online must
     /// replace what this till holds, or the old password keeps working offline for ever.</summary>
     Task SaveAsync(DeviceVerifier.Record record, CancellationToken ct = default);
@@ -434,10 +459,19 @@ public sealed class OperatorSync
     private readonly PlutusApiClient _api;
     private readonly IOperatorStore _store;
 
-    public OperatorSync(PlutusApiClient api, IOperatorStore store)
+    /// <summary>
+    /// ⚠ OPTIONAL, and step 28's server half depends on it being passed. With it, the roster fetch
+    /// names the operators this till can already verify offline and the server omits their platform
+    /// password hashes. Without it — an older caller, a test, a till whose store will not open — the
+    /// roster arrives exactly as it always has, which is the safe direction.
+    /// </summary>
+    private readonly IDeviceVerifierStore? _verifiers;
+
+    public OperatorSync(PlutusApiClient api, IOperatorStore store, IDeviceVerifierStore? verifiers = null)
     {
         _api = api ?? throw new ArgumentNullException(nameof(api));
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _verifiers = verifiers;
     }
 
     /// <summary>
@@ -463,7 +497,21 @@ public sealed class OperatorSync
     /// </summary>
     public async Task<TillOperatorsResult?> RefreshRosterAsync(Guid tillId, CancellationToken ct = default)
     {
-        var roster = await _api.GetTillOperatorsAsync(tillId, ct);
+        // ⚠⚠ TELL THE SERVER WHAT THIS TILL ALREADY HOLDS — step 28's server half. The reply then
+        // omits the platform password hash for those operators, so a stolen till yields nothing for
+        // anyone who has signed in on it. See `IDeviceVerifierStore.UsableVerifierUserIdsAsync`.
+        //
+        // ⚠ NEVER LETS A FAILURE HERE STOP THE ROSTER. An unreadable verifier store means "I hold
+        // nothing", the server ships every hash exactly as before, and sign-in is unaffected. The
+        // roster is how a shop signs in; it must not become conditional on a hardening feature.
+        IReadOnlyList<Guid>? have = null;
+        if (_verifiers is not null)
+        {
+            try { have = await _verifiers.UsableVerifierUserIdsAsync(ct); }
+            catch (Exception) { have = null; }
+        }
+
+        var roster = await _api.GetTillOperatorsAsync(tillId, have, ct);
         if (roster is null) return null;
 
         await _store.SaveAsync(roster, ct);

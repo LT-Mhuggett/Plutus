@@ -572,7 +572,13 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                     return;
                 }
 
-                var count = await new OperatorSync(api, new DbOperatorStore()).RefreshAsync(till);
+                // ⚠ THE VERIFIER STORE IS PASSED, and step 28's server half depends on it: the roster fetch
+                // names the operators this till can already verify offline, and the server then omits
+                // their platform password hashes. Without it the roster arrives with every hash, as
+                // before — safe, but the hardening never takes effect.
+                var count = await new OperatorSync(
+                        api, new DbOperatorStore(), new Services.Connectivity.DbDeviceVerifierStore())
+                    .RefreshAsync(till);
                 LastAction = count is int n
                     ? n == 0
                         ? "Synced, but no staff are assigned to this till yet. Check their roles in the portal."

@@ -486,7 +486,10 @@ namespace Plutus.Frontend.AppClient.Services.Sync
             {
                 if (await TillPlacement.TillIdAsync(api).ConfigureAwait(false) is Guid rosterTill)
                 {
-                    var roster = await new Plutus.Client.Core.OperatorSync(api, new DbOperatorStore())
+                                        // ⚠ The verifier store is passed so step 28's server half applies to the CADENCE
+                    // refresh too — this is the one that runs all day with nobody watching.
+                    var roster = await new Plutus.Client.Core.OperatorSync(
+                            api, new DbOperatorStore(), new Connectivity.DbDeviceVerifierStore())
                         .RefreshRosterAsync(rosterTill, ct).ConfigureAwait(false);
 
                     if (Plutus.Client.Core.OperatorRevocation.Check(SignedInOperatorId?.Invoke(), roster)

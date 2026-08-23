@@ -49,6 +49,31 @@ namespace Plutus.Frontend.AppClient.Services.Connectivity
             await WriteAsync(all, ct).ConfigureAwait(false);
         }
 
+        /// <summary>
+        /// The operators this till can verify offline right now — see `IDeviceVerifierStore`.
+        ///
+        /// ⚠ FILTERED BY `CanVerify`, not merely "a record exists". A record written by an algorithm
+        /// this build does not implement is not something this till can check a password against, and
+        /// claiming it would make the server withhold the hash for an account that then cannot sign in
+        /// offline at all.
+        ///
+        /// ⚠ NEVER THROWS. `ReadAsync` already answers an empty map for a corrupt store, and empty is
+        /// the safe answer: the server keeps shipping hashes.
+        /// </summary>
+        public async Task<IReadOnlyList<Guid>> UsableVerifierUserIdsAsync(CancellationToken ct = default)
+        {
+            var all = await ReadAsync(ct).ConfigureAwait(false);
+
+            var ids = new List<Guid>(all.Count);
+            foreach (var record in all.Values)
+            {
+                if (record is null || !DeviceVerifier.CanVerify(record)) continue;
+                if (record.UserId != Guid.Empty) ids.Add(record.UserId);
+            }
+
+            return ids;
+        }
+
         public async Task ForgetAsync(Guid userId, CancellationToken ct = default)
         {
             var all = await ReadAsync(ct).ConfigureAwait(false);

@@ -54,6 +54,21 @@ public class OnlineFirstSignInTests
             return Task.CompletedTask;
         }
 
+        /// <summary>⚠ Mirrors the real store: only records this build can actually VERIFY count.
+        /// A fake that claimed everything would let the server withhold a hash the till cannot
+        /// replace, which is the one way step 28's server half can lock somebody out.</summary>
+        public Task<IReadOnlyList<Guid>> UsableVerifierUserIdsAsync(CancellationToken ct = default)
+        {
+            if (ThrowOnGet) throw new InvalidOperationException("unreadable store");
+
+            IReadOnlyList<Guid> ids = Saved.Values
+                .Where(DeviceVerifier.CanVerify)
+                .Select(r => r.UserId)
+                .ToList();
+
+            return Task.FromResult(ids);
+        }
+
         public Task ForgetAsync(Guid userId, CancellationToken ct = default)
         {
             Saved.Remove(userId);

@@ -1735,7 +1735,7 @@ scans again on both tills.
 
 ⚠ **Increment 3 is already done, so do 4 first** — it is half a day, it completes the Bin round trip
 that already exists on both tills, and it needs no identity ruling.
-### Step 28 — online-first login · ✅ **THE TILL HALF DONE 2026-08-22** · ⚠ the server half is deliberately separate
+### Step 28 — online-first login · ✅ **COMPLETE 2026-08-23 — BOTH HALVES**
 
 Default 16: the **first sign-in of any account on a device must be ONLINE**. That first online login
 mints a **device-local verifier** (fresh salt) in the v2 store; offline sign-in verifies against the
@@ -1769,21 +1769,44 @@ copy of that account is damaged, sync it again"* — is MORE actionable than "co
 the data is bad rather than that the person is new here. A test pinned that, and collapsing the two
 would have quietly lost it.
 
-#### ⚠⚠ The server half, and why it is NOT here
+#### ✅ The server half — landed 2026-08-23, and it needed no cutover after all
 
-The roster still ships `CredentialHashBase64`. **That is what actually removes the credentials from a
-stolen till, and it is a separate flagged change** — because the order cannot be reversed:
+The roster no longer ships `CredentialHashBase64` for an operator the calling till can **already**
+verify offline. That hash is the operator's PLATFORM password — it works on the web till and the
+portal — so shipping it for every member of staff to every till, for ever, is what made a stolen
+till worth stealing.
 
-> **Every till must be minting verifiers BEFORE the server stops sending hashes.** Deploy it the other
-> way round and the change locks out every operator who has not signed in since — during, say, an
-> outage, which is exactly when they need the till most.
+⚠⚠ **THE ORDERING PROBLEM WAS DESIGNED AWAY RATHER THAN SCHEDULED.** This section previously said the
+change was blocked because *"every till must be minting verifiers BEFORE the server stops sending
+hashes"* — deploy it the other way round and every operator who has not signed in since is locked
+out, during exactly the outage that made them need the till. A flag with a date has that risk on the
+day somebody flips it.
 
-Until then step 28 reduces what a **new** theft yields: a till holds verifiers only for people who
-have actually used it, rather than the whole staff list the moment it syncs. Two tests hold the
-interim honest — `A_shipped_platform_hash_still_works_offline_for_now`, and
-`A_login_built_the_old_way_behaves_exactly_as_before` for callers not yet wired up.
+**So the till says what it holds and the server omits only that.** One `(till, operator)` pair at a
+time, the sync after that operator first signs in online there. No date, no switch, no estate-wide
+moment, and nothing for anybody to time correctly.
 
-⚠ `till-design.md` C2 carries both rows: the rule, and the half that has not shipped.
+| Piece | Where |
+|---|---|
+| "Which operators can I verify offline right now" | `IDeviceVerifierStore.UsableVerifierUserIdsAsync` — ⚠ filtered by `DeviceVerifier.CanVerify`, not merely "a record exists" |
+| The wire | `X-Plutus-Have-Verifiers` — a **header**, not a query string: ids in a URL end up in access logs, and this list says who has used this machine |
+| Sending it | `OperatorSync.RefreshRosterAsync`, wired at all three roster call sites (login, the Plutus tab, and the **cadence** — the one that runs all day unwatched) |
+| Withholding | `TillOperatorsController.ReadHaveVerifiers` — ⚠ the **salt goes with the hash**, or a reader could tell which accounts had been withheld |
+
+⚠⚠ **EVERY FAILURE DIRECTION SHIPS THE HASH.** No header, an empty one, a malformed id, an older
+till, an unreadable verifier store: all mean "holds nothing", and the roster is exactly what it
+always was. The roster is how a shop signs in — a hardening feature must never be why it cannot.
+
+⚠ **A `Corrupt` verifier is NOT claimed.** `CanVerify` gates the list, so a record written by an
+algorithm this build cannot read leaves the hash in place rather than surrendering a fallback the
+till cannot replace. That is the one way this change could have locked somebody out.
+
+⚠ **The client half is pinned separately, and it had to be.** With the send deleted, all twelve
+existing step-28 tests still passed and the server tests still passed — they send the header
+themselves. `RosterVerifierHeaderTests` (4) is the suite that fails; without it the whole change
+could silently become a no-op.
+
+⚠ `till-design.md` C2 carries the rule and now records both halves as shipped.
 
 *VERIFY:* a first-ever login offline is refused with "connect once" wording; after one online login
 the same account signs in offline; a leaver deactivated in the portal is refused online immediately
@@ -2507,7 +2530,7 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 > | ✅ | **~~Step 11b — reshape the basket~~ — DONE 2026-08-22** | ~~4d~~ **0** | ⚠⚠ **THE "~200-LINE `async void` WITH NO TEST COVERAGE AT ALL" WAS THE STALEST CLAIM ON THIS PAGE.** 243 lines **of which ~45 execute**; the rest is commentary. Its money was already covered three ways — `TenderSettlement` (mutation-checked, C2-twinned), `CheckoutHelper.Settle` (11), `CheckoutCommit` (36). ✅ **The ORCHESTRATION, which genuinely had nothing, was closed 2026-08-21**: the till derived its own basket total **four times in `decimal` pounds** — one of them `Pence.FromDecimal(sale.Total)`, rounding the sum instead of the lines, feeding **the figure the operator tenders against** while `CheckoutCommit` reconciled the payload against a per-record pence sum. Latent only because `Price` is an exact projection of `PricePence`, and nothing held that. Now one derivation + `IsRefundOnly` lifted out with its predicate **unchanged**; `BasketMoneyTests`, 12 cases, 3 mutants killed, and the one it cannot kill is written into its own header. ⬜ **What is left is the SEAM** — the wiring between the dialogs and the commit, which finding U broke with `TenderLoop`'s 19 tests all green. Only a hand-run (§G58) reaches it |
 > | ✅ | **~~WP14 — payment-gateway awareness on the checkout XAML~~ — DONE 2026-08-21** | ~~1–2d~~ **½d** | The one row on this list that was accurately ⬜. `CheckoutAlert` now carries the card sentence in the web till's exact words, above the tender rows where the web till puts it; the display comes off the **same** `GET /api/v1/payments/gateway/active` the checkout already made (`GatewaySurcharge` → `GatewaySettings`, which kept two of that answer's five fields and threw away the three WP14 needed). ⚠ The composer returns plain `HintSpan` records, not a `FormattedString`: that type derives from `Element` and throws a `COMException` outside a UI host, so the first cut was untestable — on the one screen whose whole family of defects shipped for exactly that reason. 7 tests; MAUI suite **628**; build 0 errors. ⚠ **The web till's half was ✅ and had drifted anyway** — its three cases were an inline ternary, now `till/cardPayment.ts` with vectors mirroring `PaymentGatewayTests.cs`. See C2 |
 > | ✅ | **~~WP16 — connectivity states on the login screen~~ — DONE 2026-08-21, ON THE SIDE THAT WAS ACTUALLY MISSING** | ~~1–2d~~ **½d** | ⚠⚠ **"0 references on `LoginView`/`LoginViewModel`" WAS WRONG**, and wrong in a way worth keeping: the grep was for `ConnectivityProbe`, and MAUI reaches it through `Services.Connectivity.TillConnectionCheck`. **A grep for a shared type is not a check for a capability when a wrapper sits between them.** MAUI has had the badge all along — four bound properties, `RefreshConnectionAsync`, tap-to-refresh and the clock-skew line (`LoginView.xaml` 72–97) — and 16b is done too (`OperatorLogin` → `OfflineCredentials.Assess`). ⚠⚠ **The gap was the WEB till's login screen: 111 lines, no indicator at all**, so a dead backend was indistinguishable from a wrong password. ✅ Closed with `connectionCheck.ts` — the C2 twin of the probe, same four states and sentences, `verifyIdentity: false` on both tills, 13 vitest cases mirroring `ConnectivityProbeTests.cs`. ⚠ **Part B stays 🟡/🟡**: MAUI's has never been hand-run, and the web till's APP-WIDE badge (`App.tsx:64`) is still `navigator.onLine`. ⚠⚠ **NOT TYPECHECKED HERE** — there is no node on this box; `tsc --noEmit`, vitest and eslint must run on the Mac before this ships |
-> | 🔄 | **Step 28 — online-first login** | ~~2–3d~~ **the TILL half done 2026-08-22** | ⚠ The server still ships platform hashes; stopping that is a separate FLAGGED change, and the order cannot be reversed — every till must mint verifiers first or the deploy locks out anyone who has not signed in since. |
+> | ✅ | **~~Step 28 — online-first login~~ — COMPLETE 2026-08-23, BOTH HALVES** | ~~2–3d~~ **0** | ⚠ The server still ships platform hashes; stopping that is a separate FLAGGED change, and the order cannot be reversed — every till must mint verifiers first or the deploy locks out anyone who has not signed in since. |
 > | ✅ | **~~Step 24 — the roster move~~ — COMPLETE 2026-08-17 (till 1.72.0)** | ~~1d~~ **0** | ⚠ Phantom. The step's own body says `✅ STEP 24 IS COMPLETE`; only its heading and this row said otherwise |
 > | ⏸ | **Step 21 — delete `LoginViewModel.EnsureStoreAsync`** | — | ⚠⚠ **NOT BLOCKED BY WORKING CODE — corrected 2026-08-21.** Both remaining `Store.Id` dereferences are in **UNREACHABLE** code, which this row never said: `AddEditViewModel:337` sits in a view **hidden on 2026-08-10**, and `ViewAllViewModel:1385` is in `ExecuteUpdateItemStock`, whose `UpdateItemStockCommandArg` is **bound to nothing** (both verified in §0.3b). It waits on no build — **it rides with L2/L3's deletions, which are Matt's call.** ⚠ Reading it as "blocked" invites somebody to unblock it by rewriting dead code |
 > | ✅ | **[WP10](#wp10--the-item-editors-four-remaining-increments--1½2½d--matt-ruled-it-in-2026-08-21) — the item editor's four remaining increments** | **≈1½–2½d** | ⚠ **Matt ruled it IN, 2026-08-21** (*"cost it as a work package"*), and costing it found the justification was wrong: **"MAUI has no item editor at all" conflated two code paths.** `ExecuteOpenAddItem`/`AddEditView` is dead; `ViewAllViewModel`'s tap-menu — Add to basket · **Edit item** · Adjust stock… · Move to the Bin… — is alive, and A0 has said so two tables up all along. **Two of the four rows were not gaps**: MAUI's add is already one screen (nine fields in one dialog → marker corrected to 🟡), and restore-from-Bin already exists server-side. What is real is a **barcode section** (~1d) and a **change-history list** (~½d) on an editor that exists, plus ~½d to wire restore. ⚠ The decision that remains is narrower and sharper: **may a till change an item's IDENTITY**, not whether it may edit one |

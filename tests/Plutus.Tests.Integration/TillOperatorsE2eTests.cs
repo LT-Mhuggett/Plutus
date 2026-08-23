@@ -315,4 +315,101 @@ public class TillOperatorsE2eTests : IClassFixture<PlutusAppFactory>
         public Task SaveAsync(TillOperatorsResult roster, System.Threading.CancellationToken ct = default) { _roster = roster; return Task.CompletedTask; }
         public Task ClearAsync(System.Threading.CancellationToken ct = default) { _roster = null; return Task.CompletedTask; }
     }
+
+    // ── step 28's SERVER HALF: the roster stops shipping a hash the till no longer needs ──────────
+    //
+    // ⚠⚠ WHAT THIS PREVENTS. `CredentialHashBase64` is an operator's PLATFORM password hash — the one
+    // that works on the web till and the portal, not a till-local artefact. It shipped for every
+    // member of staff to every till, for ever, so a stolen till was a copy of the shop's credentials
+    // at PBKDF2-SHA1/101,010 — which `OfflineCredentials` itself calls "roughly 13× below current
+    // OWASP guidance" and cannot raise, because the legacy till shares the format.
+    //
+    // ⚠⚠ AND WHY IT IS SELF-SEQUENCING RATHER THAN A CUTOVER. The ordering could not be reversed:
+    // stop sending hashes before a till is minting verifiers and every operator who has not signed in
+    // since is locked out — during exactly the outage that made them need the till. So the till NAMES
+    // what it already holds and the server omits only those: one (till, operator) pair at a time, the
+    // sync after that operator first signs in online there. No date, no switch, no estate-wide moment.
+
+    private async Task<TillOperatorsResult> RosterAsync(Tenant t, string haveVerifiers)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/tills/{t.TillId}/operators");
+        req.Headers.Authorization = new("Bearer", t.DeviceToken);
+        if (haveVerifiers is not null) req.Headers.TryAddWithoutValidation("X-Plutus-Have-Verifiers", haveVerifiers);
+        var res = await t.Http.SendAsync(req);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        return (await res.Content.ReadFromJsonAsync<TillOperatorsResult>(PlutusApiClient.Json))!;
+    }
+
+    /// <summary>⚠ THE POINT OF THE WHOLE CHANGE.</summary>
+    [Fact]
+    public async Task An_operator_this_till_can_already_verify_gets_no_hash()
+    {
+        var t = await ProvisionAsync("ops-withhold@acme.test");
+        var userId = await SeedOperatorAsync(t, "held@acme.test", "S3cret!", t.StoreId,
+            PermissionCatalogue.PosSell, RbacScopeType.Store, t.StoreId.ToString());
+
+        var before = (await RosterAsync(t)).Operators.Single(o => o.UserId == userId);
+        Assert.False(string.IsNullOrEmpty(before.CredentialHashBase64), "seed did not produce a hash");
+
+        var after = (await RosterAsync(t, userId.ToString("D"))).Operators.Single(o => o.UserId == userId);
+
+        Assert.Null(after.CredentialHashBase64);
+
+        // ⚠ THE SALT GOES WITH IT. A salt alone is useless, and leaving it behind would let a reader
+        // tell which accounts had been withheld — a map of who uses which till.
+        Assert.Null(after.CredentialSaltBase64);
+    }
+
+    /// <summary>⚠ AND ONLY THAT OPERATOR — withholding the roster would lock everyone else out.</summary>
+    [Fact]
+    public async Task Everyone_else_still_gets_their_hash()
+    {
+        var t = await ProvisionAsync("ops-withhold-one@acme.test");
+        var held = await SeedOperatorAsync(t, "held2@acme.test", "S3cret!", t.StoreId,
+            PermissionCatalogue.PosSell, RbacScopeType.Store, t.StoreId.ToString());
+        var other = await SeedOperatorAsync(t, "other2@acme.test", "S3cret!", t.StoreId,
+            PermissionCatalogue.PosSell, RbacScopeType.Store, t.StoreId.ToString());
+
+        var roster = await RosterAsync(t, held.ToString("D"));
+
+        Assert.Null(roster.Operators.Single(o => o.UserId == held).CredentialHashBase64);
+        Assert.False(string.IsNullOrEmpty(roster.Operators.Single(o => o.UserId == other).CredentialHashBase64));
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE SAFETY DIRECTIONS, AND THEY MATTER MORE THAN THE FEATURE. An older till sends no
+    /// header; a fresh one holds nothing; a damaged one could send anything. All must ship the hash —
+    /// the roster is how a shop signs in, and a hardening feature must never be why it cannot.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]                                   // an older till — no header at all
+    [InlineData("")]                                     // enrolled, nobody has signed in online yet
+    [InlineData("   ")]
+    [InlineData("not-a-guid")]                           // damaged
+    [InlineData("00000000-0000-0000-0000-000000000000")] // Guid.Empty is not an operator
+    [InlineData(",,,")]
+    public async Task Anything_but_a_real_id_still_ships_the_hash(string header)
+    {
+        var t = await ProvisionAsync($"ops-safe-{Math.Abs(header?.GetHashCode() ?? 0)}@acme.test");
+        var userId = await SeedOperatorAsync(t, $"safe-{Math.Abs(header?.GetHashCode() ?? 0)}@acme.test",
+            "S3cret!", t.StoreId, PermissionCatalogue.PosSell, RbacScopeType.Store, t.StoreId.ToString());
+
+        var roster = await RosterAsync(t, header);
+
+        Assert.False(string.IsNullOrEmpty(roster.Operators.Single(o => o.UserId == userId).CredentialHashBase64));
+    }
+
+    /// <summary>⚠ Tolerant parsing, not all-or-nothing: one bad id must not save the good one's hash
+    /// from being withheld, or a single stray character would silently undo the whole change.</summary>
+    [Fact]
+    public async Task A_bad_id_beside_a_good_one_still_withholds_the_good_one()
+    {
+        var t = await ProvisionAsync("ops-mixed@acme.test");
+        var userId = await SeedOperatorAsync(t, "mixed@acme.test", "S3cret!", t.StoreId,
+            PermissionCatalogue.PosSell, RbacScopeType.Store, t.StoreId.ToString());
+
+        var roster = await RosterAsync(t, $"rubbish,{userId:D}, ,also-rubbish");
+
+        Assert.Null(roster.Operators.Single(o => o.UserId == userId).CredentialHashBase64);
+    }
 }
