@@ -331,10 +331,32 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                 Item.Stock = null;
             else if (Item.Stock == null)
             {
+                // ⚠⚠ GUARDED BECAUSE `EnsureStoreAsync` IS GONE — cutover step 21, 2026-08-23. The
+                // legacy store row is no longer created at sign-in, so `.Store` is null on every
+                // modern till and this was the last place that dereferenced it unguarded.
+                //
+                // ⚠ REFUSES, IT DOES NOT DEFAULT. The register is explicit: *"Do NOT unblock this by
+                // null-coalescing to 0 — that writes stock rows against store 0, a silent data change
+                // wearing a null-fix disguise."* No store means no stock row, which is recoverable;
+                // a row against the wrong store is not.
+                //
+                // ⚠ THIS SCREEN IS UNREACHABLE (hidden 2026-08-10, L2) and the guard exists so that
+                // stays TRUE OF A CRASH TOO. It must not become a reason to keep the file: L2 deletes
+                // it, and this goes with it.
+                var legacyStore = App.GetViewModel()?.Store;
+                if (legacyStore is null)
+                {
+                    Services.Analytics.CrashLog.Write("AddEditViewModel.Stock",
+                        new InvalidOperationException(
+                            "No legacy store on this till, so a stock row cannot be written. Stock is the "
+                            + "portal's to set (step 25)."));
+                    return;
+                }
+
                 Item.Stock = new StockModel()
                 {
                     Quantity = _stock,
-                    StoreId = App.GetViewModel().Store.Id
+                    StoreId = legacyStore.Id
                 };
             }
             else

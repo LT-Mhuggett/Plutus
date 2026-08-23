@@ -1785,7 +1785,21 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                             var stock = db.Get<StockModel>().Where(s => s.ItemId.Equals(itemId)).FirstOrDefault();
                             if (stock == default(StockModel))
                             {
-                                stock = new StockModel { ItemId = itemId, StoreId = App.GetViewModel().Store.Id };
+                                // ⚠⚠ GUARDED — step 21, 2026-08-23. See `AddEditViewModel` for the
+                                // reasoning: `EnsureStoreAsync` no longer creates the legacy store, and
+                                // defaulting the id to 0 would write stock against the wrong store.
+                                // ⚠ `ExecuteUpdateItemStock` is unreachable (its command arg binds to
+                                // nothing — L13); the guard makes that true of the crash as well.
+                                var legacyStore = App.GetViewModel()?.Store;
+                                if (legacyStore is null)
+                                {
+                                    Services.Analytics.CrashLog.Write("ViewAllViewModel.UpdateItemStock",
+                                        new InvalidOperationException(
+                                            "No legacy store on this till, so a stock row cannot be created."));
+                                    return;
+                                }
+
+                                stock = new StockModel { ItemId = itemId, StoreId = legacyStore.Id };
                                 db.Add(stock);
                             }
                             data.TryGetValue(2, out var quatityText);

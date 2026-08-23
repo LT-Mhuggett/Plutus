@@ -403,15 +403,21 @@ namespace Plutus.Frontend.AppClient.ViewModels
             // are server-rendered anyway.
             TryFetchOperatorTokenInBackground(_email_UserId, _password);
 
-            // ⚠ THE SHELL NEEDS A STORE, and this path never gave it one. AppShell builds
-            // StoreOptionsView, whose viewmodel dereferences App.GetViewModel().Store in its
-            // CONSTRUCTOR — so a correct password threw NullReferenceException while the shell was
-            // being assembled, and the operator was shown "Something went wrong signing in".
+            // ⚠⚠ `EnsureStoreAsync` IS GONE — cutover step 21, 2026-08-23.
             //
-            // From a shop floor that is indistinguishable from "my password is wrong", which is the
-            // worst possible way for it to read: sign-in had actually SUCCEEDED. The legacy path
-            // below never hit it because it sets Store from the employee's own row.
-            await EnsureStoreAsync();
+            // It existed to write a legacy `StoreModel` row so `App.GetViewModel().Store` was not
+            // null, because `StoreInformationViewModel` once dereferenced it IN ITS CONSTRUCTOR —
+            // which `AppShell` runs while being built, so a correct password threw and the operator
+            // was told "Something went wrong signing in".
+            //
+            // ⚠ THAT REASON EXPIRED ON 2026-08-17, when that constructor was made null-safe and the
+            // screen stopped reading the local store at all (the platform is the source of truth for
+            // store details since step 20). The comment here went on describing the old crash for six
+            // days, which is why this note says what changed rather than just deleting the call.
+            //
+            // ⚠ Every remaining reader of `.Store` handles null: `Database.cs` guards it,
+            // `ReceiptReprint` coalesces it, and the two printing paths take it as an argument and
+            // already cope — a missing store must never lose a receipt.
 
             // WP5's missing half. ⚠ IN THE BACKGROUND, DELIBERATELY: a first sync pages a whole
             // catalogue, and nobody should stand at a counter watching it before they can serve a
@@ -428,96 +434,6 @@ namespace Plutus.Frontend.AppClient.ViewModels
             return true;
         }
 
-        /// <summary>
-        /// Make sure the app has a store to render, for a till whose staff came from the portal.
-        ///
-        /// ⚠ A PORTAL-PROVISIONED TILL HAS AN EMPTY LOCAL DATABASE. The `Database` constructor
-        /// creates and migrates one on first touch, so the tables exist and every one of them is
-        /// empty — including `Stores`. Nothing local can supply this, so it comes from the server:
-        /// the device knows its till, `tills/{id}/name` gives the store, `stores/{id}/info` gives
-        /// the detail.
-        ///
-        /// Persisted locally as well as held in memory, because the Store Options screen edits the
-        /// row and saves it — an in-memory-only store would look right and fail on the first edit.
-        /// Never throws: a till that cannot reach the server still signs in, and the null-guards on
-        /// the screens themselves keep the shell standing.
-        ///
-        /// ⚠ CUTOVER STEP 21 SAYS DELETE THIS, AND IT CANNOT GO YET — recorded here rather than
-        /// left as a silent deviation. The reasoning in the plan is right: writing API data into
-        /// the legacy `Stores` table is exactly the bridge binding default 9 forbids, and step 20's
-        /// `StoreInfoCache` has already replaced it for DISPLAY (Store Options is read-only now and
-        /// no longer edits this row, so the sentence above is already out of date).
-        ///
-        /// What still holds it up is `Store.Id`, not the store's details:
-        ///   • `Helpers/Database/Database.cs:43` passes it to the legacy `AppDBContext` — null-safe,
-        ///     so this one degrades rather than breaks.
-        ///   • `Inventory/Items/AddEditViewModel.cs:330` dereferences `Store.Id` outright and would
-        ///     NullReference the moment anyone edited an item.
-        ///   • ⚠ `Inventory/Items/ViewAllViewModel.cs:1324` does the SAME, on the stock-adjust path
-        ///     — added 2026-08-14. This comment previously named only `AddEditViewModel`, which
-        ///     would have let someone delete this method, test the edit screen, and ship a crash on
-        ///     the other one. **Two dereferences, not one.**
-        ///
-        /// Deleting it today would trade a design smell for a crash on screens operators use.
-        /// It goes when **step 25** moves inventory off the legacy store — at which point nothing
-        /// needs a legacy store id and this method has no remaining callers.
-        ///
-        /// ⚠ Do NOT unblock this by null-coalescing those two to `0`: that writes stock rows against
-        /// store 0, which is a silent data change wearing a null-fix disguise.
-        /// </summary>
-        private static async Task EnsureStoreAsync()
-        {
-            try
-            {
-                if (App.GetViewModel().Store != null) return;
-
-                Enum.TryParse(new Settings().DatabaseProviderSetting, out DatabaseProvider provider);
-
-                using (var db = new Helpers.Database.Database(provider))
-                {
-                    var existing = db.Get<StoreModel>().FirstOrDefault();
-                    if (existing != null) { App.GetViewModel().Store = existing; return; }
-                }
-
-                var api = await Services.Storage.TillPlacement.TryCreateApiAsync();
-                if (api is null) return;
-
-                // Placement first, so a till that has never learned its store learns it now; the
-                // answer is then read from Meta rather than re-derived here.
-                await Services.Storage.TillPlacement.RefreshAsync(api);
-                if (await Services.Storage.TillPlacement.StoreIdAsync() is not int storeId) return;
-
-                var info = await api.GetStoreInfoAsync(storeId);
-                if (info is null) return;
-
-                var store = new StoreModel
-                {
-                    StoreName = info.Name ?? info.BusinessName ?? "Store",
-                    // ⚠ The abbreviation prints on receipts, so it must never be empty.
-                    StoreAbbr = (info.Name ?? info.BusinessName ?? "ST").Trim(),
-                    VatIN = info.VatNumber ?? string.Empty,
-                    ContactNumber = string.Empty,
-                    AdLine1 = info.AdLine1 ?? string.Empty,
-                    AdLine2 = info.AdLine2 ?? string.Empty,
-                    City = info.City ?? string.Empty,
-                    PostCode = info.PostCode ?? string.Empty,
-                    Country = info.Country ?? string.Empty,
-                };
-
-                using (var db = new Helpers.Database.Database(provider))
-                {
-                    db.Add(store);
-                    db.Save();
-                    App.GetViewModel().Store = db.Get<StoreModel>().FirstOrDefault() ?? store;
-                }
-            }
-            catch (Exception ex)
-            {
-                // ⚠ Never block sign-in. A missing store degrades the Store Options screen; a
-                // thrown exception here would put the operator back where this whole bug started.
-                CrashLog.Write("LoginViewModel.EnsureStoreAsync", ex);
-            }
-        }
 
         /// <summary>Runs the shared probe and paints the result. Swallows everything — a broken
         /// connection check must never be the reason nobody can sign in.</summary>
