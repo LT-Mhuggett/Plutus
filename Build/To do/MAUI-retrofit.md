@@ -2517,7 +2517,23 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 > | Un-enrol + manager approval (1 row) | ✅ **DONE 2026-08-16** (till 1.70.0) |
 > | VAT-band consistency guard (1 row) → WP10 | ⬜ — rides with the item-editor cluster |
 
-## 7. How long, honestly — **≈2–4 days** (re-costed 2026-08-22)
+## 7. How long, honestly — **THE BUILD IS DONE. What is left is a hand-run.** (2026-08-23)
+
+> ✅ **EVERY ROW IN THE TABLE BELOW IS NOW CLOSED**, WP10 and L1–L16 last. Re-derived from
+> `till-design.md` with `awk` rather than counted by hand, exactly as §6 says to: the **A0 MAUI
+> column has ZERO ⬜** — 44 ✅, 41 🟡, 3 ➖, 2 🟠. The only two ⬜ left in Part B are the Store
+> Information **local editor** (a deliberate ⬜ — step 20 DELETED it, so the row is inverted: this is
+> a removal, not a build) and **remote lock of a lost till**, which is ⬜ on the **web till too** and
+> moved out to platform WP-SL.
+>
+> ⚠⚠ **SO THE REMAINING NUMBER IS NOT A BUILD ESTIMATE.** 41 🟡 rows are built, tested, and never
+> once exercised by a person, plus two 🟠 from the 2026-08-18 parity review (§5c items 1 and 10 —
+> the Retrieve toolbar item nobody finds, and a portal theme that only one screen paints with).
+> Only a person at a screen turns a 🟡 into a ✅ — see §8 and [`Test Maui.md`](../Test%20Maui.md).
+>
+> ⚠ **The old ≈2–4 days is struck through below and kept deliberately.** The history of this one
+> number — 35–40 → 10–15 → 7–9 → 5–7 → 3–5 → 2–4 → **0 days of build** — is the point §26 keeps
+> making, and it is worth more than any of the individual figures were.
 
 > ⚠⚠ **THE OLD NUMBER WAS ≈35–40 DAYS AND IT WAS BADLY STALE.** Its own arithmetic said *"two thirds is
 > step 27 (12–15d) and step 26 (8–10d)"* — and **both have substantially landed**. Removing just those
