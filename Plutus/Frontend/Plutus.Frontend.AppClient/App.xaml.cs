@@ -95,11 +95,18 @@ namespace Plutus.Frontend.AppClient
             // theme that cannot be read is a till in the stock palette, not a till that will not open.
             _ = Services.Theming.Theming.ApplyCachedAsync();
 
+            // ⚠⚠ ENROLMENT ALONE DECIDES NOW — L5, 2026-08-23. This used to be
+            // `enrolled || hasLegacyDb`, sending a till that merely HAD a legacy database to the
+            // login screen. That was right while the legacy local login existed; Matt removed it the
+            // same day (*"a till needs to enrol and sync first"*), so such a till would now be shown
+            // a sign-in screen that cannot sign anybody in — the worst of both, since first-run is
+            // where it would actually enrol.
+            //
+            // ⚠ `Database.LocalDbExist()` was the last caller of the legacy DB helper, and the last
+            // code in this app that touched `Database.db` at all.
             var enrolled = Services.Connectivity.SecureDeviceCredentialStore.IsEnrolled();
-            var hasLegacyDb = ((AppViewModel)BindingContext).DatabaseProviderSetting != null
-                              && Helpers.Database.Database.LocalDbExist();
 
-            MainPage = enrolled || hasLegacyDb
+            MainPage = enrolled
                 ? new LoginView()
                 : new Views.FirstTimeStartUp.FTSUMainView();
 
