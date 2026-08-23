@@ -679,12 +679,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         // ⚠ What they did is worth keeping: each raised `DisplayAlert(…, "Yes", "No")` and assigned the
         // answer, so the only way to READ either setting was to open a dialog offering to change it —
         // and neither checked a permission. Both facts are in the commit message and in `BuildToggle`.
-        /*
-        Command _changeBarcodeTypeCommand;
-        public Command ChangeBarcodeTypeCommand
-        {
-            get => _changeBarcodeTypeCommand ?? (_changeBarcodeTypeCommand = new Command(ExecuteChangeBarcodeType));
-        }*/
+        // ⚠ L13 — the commented-out `ChangeBarcodeTypeCommand` was deleted 2026-08-23. What it did
+        // is recorded above and in the commit that disabled it; the text itself was dead either way.
         #endregion
         #endregion
 
@@ -1127,72 +1123,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
             }
         }
 
-        /*
-        private async void ExecuteChangeBarcodeType()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-            try
-            {
-                var empId = App.GetViewModel().EmployeeId;
-                bool escape = false;
-                do
-                {
-                    Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                    if (empId.IsAuthorised("Admin", Database.Enums.Permissions.Execute, databaseProvider))
-                    {
-                        bool tryAgain;
-                        do
-                        {
-                            tryAgain = false;
-                            using (var printerMgr = new PosPrinterManager())
-                            {
-                                var barcodeTypes = await printerMgr.GetBarcodeSymbols();
-                                var selectedType = await Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync("ChangeBarcodeType".Translate(), "Cancel".Translate(), null, barcodeTypes);
-                                if (selectedType != "Cancel".Translate())
-                                {
-                                    var barcodeTestID = $"{DateTime.Now.Year}" +
-                                        $"{DateTime.Now.Month}" +
-                                        $"{DateTime.Now.Day}" +
-                                        $"{DateTime.Now.Hour}" +
-                                        $"{DateTime.Now.Minute}" +
-                                        $"{DateTime.Now.Second}" +
-                                        $"{DateTime.Now.Millisecond}";
-                                    if (await printerMgr.InitPrinter())
-                                    {
-                                        printerMgr.WriteText("TestPrint".Translate(), "cntr", "true");
-                                        printerMgr.BlankLine();
-                                        printerMgr.WriteText("TestPrint".Translate(), "cntr", "true");
-                                        printerMgr.WriteBarcode(barcodeTestID, selectedType, 100, "cntr");
-                                        printerMgr.CutPaper();
-                                        await printerMgr.SetupExecutePrintMultiLine();
-                                        if (!await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "CheckReceiptCorrect".Translate(), "Correct".Translate(), "TryAgain".Translate()))
-                                            tryAgain = true;
-                                        else
-                                            BarcodeSymbologySetting = selectedType;
-                                    }
-                                    else
-                                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "PrinterNotFound".Translate(), "OK".Translate());
-                                }
-                                escape = true;
-                            }
-                        } while (tryAgain);
-                    }
-                    if (!escape)
-                    {
-                        var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                        if (empAuthoriser == default)
-                            escape = true;
-                    }
-                } while (!escape);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-        */
+        // ⚠ L13 — `ExecuteChangeBarcodeType`'s commented-out body deleted 2026-08-23 (~65 lines).
+        // ⚠⚠ `BarcodeSymbologySetting` ITSELF STAYS: `PosPrinterManager` READS it at receipt-print
+        // time, and the barcode on a receipt is what the refund flow scans. Deleting the dead UI
+        // changes nothing that prints; deleting the setting would.
         #endregion
         #endregion
     }

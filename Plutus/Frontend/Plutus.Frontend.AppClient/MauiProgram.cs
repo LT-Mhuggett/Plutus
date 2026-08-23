@@ -15,7 +15,6 @@ using Plutus.Frontend.AppClient.Services.IOHandeling;
 using Plutus.Frontend.AppClient.Services.IOHandeling.Picker;
 using Plutus.Frontend.AppClient.Services.Loading;
 using Plutus.Frontend.AppClient.Services.POSHandeling;
-using Plutus.Frontend.AppClient.Services.ThirdPartyTransfer;
 using Plutus.Frontend.AppClient.Services.UIHandeling;
 
 #if ANDROID
@@ -73,9 +72,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<IFolderPicker, FolderPickerPlatform>();
 
 #if WINDOWS
-        // IFile, ICopperTransfer and IPOSCommunication only ever had a Windows (UWP) implementation.
+        // ⚠ ICopperTransfer went with L12 (2026-08-23) — its consumer, TransferThirdPartyViewModel,
+        // was deleted under L8 and nothing resolved it afterwards. IFile and IPOSCommunication only
+        // ever had a Windows (UWP) implementation.
         builder.Services.AddSingleton<IFile, FilePlatform>();
-        builder.Services.AddSingleton<ICopperTransfer, CopperTransferPlatform>();
         builder.Services.AddSingleton<IPOSCommunication, POSCommunicationPlatform>();
 #endif
 

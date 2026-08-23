@@ -24,6 +24,5 @@ namespace Plutus.Frontend.AppClient.Tests
         public static IFolderPicker? FolderPicker { get; set; }
         public static ILoadingViewService? LoadingViewService { get; set; }
         public static IPOSCommunication? POSCommunication { get; set; }
-        public static ICopperTransfer? CopperTransfer { get; set; }
     }
 }

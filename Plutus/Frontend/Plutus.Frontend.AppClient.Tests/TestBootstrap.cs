@@ -51,7 +51,6 @@ namespace Plutus.Frontend.AppClient.Tests
             services.AddTransient(_ => TestServices.FolderPicker ?? throw new InvalidOperationException("Set TestServices.FolderPicker before resolving IFolderPicker."));
             services.AddTransient(_ => TestServices.LoadingViewService ?? throw new InvalidOperationException("Set TestServices.LoadingViewService before resolving ILoadingViewService."));
             services.AddTransient(_ => TestServices.POSCommunication ?? throw new InvalidOperationException("Set TestServices.POSCommunication before resolving IPOSCommunication."));
-            services.AddTransient(_ => TestServices.CopperTransfer ?? throw new InvalidOperationException("Set TestServices.CopperTransfer before resolving ICopperTransfer."));
 
             IPlatformApplication.Current = new TestPlatformApplication(services.BuildServiceProvider());
         }

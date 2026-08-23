@@ -331,10 +331,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
         #endregion
         #region Manual with arg
-
-        private Command _manualAddCommandArg;
-
-        public Command ManualAddCommandArg => _manualAddCommandArg ?? (_manualAddCommandArg = new Command<string>(ExecuteItemAddArg, (id) => !string.IsNullOrEmpty(id)));
+        // ⚠ L13 — `ManualAddCommandArg` removed 2026-08-23: a Command wrapper bound to nothing. The
+        // LIVE `ManualAddCommand` above is what the scan box uses (`TillView.xaml` ReturnCommand).
+        // ⚠ The region itself is KEPT because its `#endregion` is further down and pairing them by
+        // eye is how you get an unbalanced file that will not compile — which is exactly what the
+        // first attempt at this deletion did.
 
         private Command _addBagCommand;
 
@@ -396,10 +397,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         private Command _alterTransactionSelectorCommand;
 
         public Command AlterTransactionSelectorCommand => _alterTransactionSelectorCommand ?? (_alterTransactionSelectorCommand = new Command(ExecuteAlterTransactionSelector));
-
-        private Command _alterTransactionCommand;
-
-        public Command AlterTransactionCommand => _alterTransactionCommand ?? (_alterTransactionCommand = new Command<int>(ExecuteAlterTransaction));
+        // ⚠ L13 — `AlterTransactionCommand` removed 2026-08-23: a Command wrapper bound to nothing.
+        // ⚠ `ExecuteAlterTransaction` STAYS — the SELECTOR command above dispatches to it (:2128).
 
         #endregion
         #region Store

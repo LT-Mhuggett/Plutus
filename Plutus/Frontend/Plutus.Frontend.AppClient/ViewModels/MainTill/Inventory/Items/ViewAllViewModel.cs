@@ -376,39 +376,14 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         }
 
         #region Commands
-        /*
-        Command _searchItemsCommand;
+        // ⚠ L13, 2026-08-23 — three dead command wrappers removed from here.
+        //
+        // `SearchItemsCommand` and `LoadMoreItemsCommand` had already been COMMENTED OUT (search and
+        // paging moved to the server-backed list); `AddToBasketCommandArg` was live code bound to
+        // nothing. All three had no XAML binding, no `nameof`, no string-name `SetBinding` and no test
+        // — checked four ways before deleting, because a MAUI binding fails SILENTLY and a wrongly
+        // deleted command renders a dead button rather than an error.
 
-        public Command SearchItemsCommand
-        {
-            get => _searchItemsCommand ?? (_searchItemsCommand = new Command(ExecuteItemSearch));
-        }*/
-        /*
-        #region Load More Items
-        
-        Command _loadMoreItemsCommand;
-
-        public Command LoadMoreItemsCommand
-        {
-            get => _loadMoreItemsCommand ?? (_loadMoreItemsCommand = new Command(ExecuteItemLoad, CanLoadMore));
-        }
-
-        private bool CanLoadMore()
-        {
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-            using (var db = new Helpers.Database.Database(databaseProvider))
-            {
-                return db.Get<ItemModel>().Count() > Items.Count;
-            }
-        }
-        #endregion
-        */
-
-        Command _addToBasketCommandArg;
-        public Command AddToBasketCommandArg
-        {
-            get => _addToBasketCommandArg ?? (_addToBasketCommandArg = new Command<string>(ExecuteAddToBasket));
-        }
 
         Command _openEditItemCommandArg;
         public Command OpenEditItemCommandArg
