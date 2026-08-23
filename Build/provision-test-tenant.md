@@ -3,148 +3,118 @@
 > **Matt, 2026-08-23:** *"I then need to test MAUI with a different tennant to Kapow"*
 >
 > ⚠⚠ **DO NOT TEST AGAINST KAPOW.** It is a live shop with real sales, real staff and a real VAT
-> position. Every basket rung up on it lands in `salesv2` and on a return. That is the whole reason
-> for this document.
+> position. Every basket rung up on it lands in `SalesV2` and on a return.
 
-## ⚠⚠ READ THIS FIRST — the chain does not currently complete
+## ✅ The blocker is fixed and deployed — backend 1.28.0, 2026-08-23
 
-**Traced against the code on 2026-08-23, and the first version of this page was wrong about it.**
-`POST /api/v1/tenants` creates a tenant, a Business, a Store *and* an admin login — and then stops.
-**It creates no RBAC roles and assigns the admin no role.**
+`ProvisionAsync` used to create a tenant, a Business, a Store and an admin login **and no roles and
+no role assignment**, so the new admin signed in holding `pos.sell` alone: unable to create a till,
+add a user, or manage the company. **That is what made `Demo Store` an empty shell**, and it is now
+fixed — provisioning seeds the built-in roles and assigns the admin **Owner** inside the same
+transaction (`ITenantRoleProvisioner`, six tests, mutation-checked).
 
-So the new admin can sign in, and `ResolveLoginScopesAsync` gives them **`pos.sell` and nothing
-else** (`EffectivePermissionsService:133` — no assignments means the legacy branch, and a fresh
-tenant has no `EmpAuthActions` rows to make them a legacy admin either). They cannot create a till,
-cannot add a user, cannot manage the company.
+**Verified live after the 1.28.0 deploy:**
 
-⚠ **`RbacSeeder`'s own docstring says this is handled** — *"provisioning calls
-`EnsureBuiltInRolesAsync` for new tenants"* (`RbacSeeder.cs:22`). **`ProvisionAsync` does not call
-it.** The documentation and the code disagree, and the code wins.
+| Tenant | roles | assignments | employees | stores | tills |
+|---|---:|---:|---:|---:|---:|
+| Kapow Comics Ltd | 12 | 11 | 2 | 2 | 6 |
+| Demo Store | 9 | **0** | **0** | **0** | **0** |
 
-⚠⚠ **AND THAT IS EXACTLY WHY `Demo Store` IS AN EMPTY SHELL** — 0 stores, 0 tills, 0 employees, 0
-role assignments. It is not a half-finished experiment somebody abandoned; it is what this endpoint
-produces. Provisioning a second one the same way gets a second shell.
+⚠ **`Demo Store` is not retrofitted by the fix** — it has roles (the boot reconciler seeds those for
+every tenant) but nobody holding one. The fix changes what happens from here, not what already
+happened. Provision a **new** tenant rather than trying to rescue that shell.
 
-## What exists today
+## ⚠⚠ THE ONE STEP THAT NEEDS MATT — and it cannot be automated from this repo
 
-| Tenant | State |
-|---|---|
-| **Kapow Comics Ltd** | ⚠ **LIVE.** Not for testing. |
-| **Demo Store** | Flagged `IsSandbox`, and **an empty shell** — see above. |
+`POST /api/v1/tenants` is `[Authorize(Policy = PlatformAdmin)]`, and **`platform-admin` is not a
+grantable RBAC permission** — it is not in the catalogue and no role carries it. So no ordinary
+portal login can create a tenant, however senior.
 
-## The fix — ~½ day, and self-serve signup needs it anyway
+⚠⚠ **AND A HAND-MINTED HMAC TOKEN CANNOT DO IT EITHER. Measured, not assumed:**
 
-Make provisioning do what its docstring already claims:
-
-1. `RbacSeeder.EnsureBuiltInRolesAsync(db, tenantId)` — idempotent, creates Owner · Company Admin ·
-   Store Manager · Supervisor · Cashier · Auditor for the tenant.
-2. Assign the provisioned admin the **Owner** role at company scope. Owner carries every portal
-   permission including **`portal.tills.enrol`** (`RbacSeeder:94`, `:132`) — which is the one that
-   unblocks creating a till.
-
-⚠ **One design constraint.** `Plutus.Tenancy` **does not reference `Plutus.Identity`** (deliberate —
-see the note on `Pbkdf2` in `Crypto.cs`), so `ProvisioningService` cannot call `RbacSeeder`
-directly. Put a small interface in `Plutus.SharedKernel`, implement it in `Plutus.Identity`, inject
-it. Do **not** re-implement the role catalogue inside Tenancy — that is a C2-shaped drift waiting to
-happen, with permissions as the thing that drifts.
-
-⚠ **This is not throwaway work for a test tenant.** [`WP-signup.md`](To%20do/WP-signup.md) stage 5
-provisions sandbox-first through this same service, and it will hit the same wall. Fixing it here
-means signup inherits a working path rather than rediscovering this.
-
-## Which token — ⚠ not the one the first version of this page named
-
-`POST /api/v1/tenants` is `[Authorize(Policy = PlutusPolicies.PlatformAdmin)]`, and **`platform-admin`
-is not a grantable RBAC permission** — it is not in the catalogue and no role carries it. So no
-ordinary portal login can create a tenant, however senior.
-
-Two things do:
-
-- ⚠⚠ **Your own portal session**, if it carries the scope. **It evidently does** — the **Platform**
-  tab only renders when it does (`App.tsx:244`), and you have been using Platform → Quarantine.
-  The token is in `localStorage["plutus.portal.session"]` on `admin.plutus.huggett.dscloud.me`.
-- A Keycloak realm role `platform-admin`, via the `operators` group (TOTP required).
-
-⚠⚠ **A HAND-MINTED HMAC TOKEN DOES NOT WORK, AND I CHECKED RATHER THAN ASSUMING.** Minted one on the
-Mac with the live `TEST_TOKEN_SECRET` and called a platform-admin endpoint: **403**, against **401**
-with no token at all — so it authenticated and was refused. That is **WP18.1 working as designed**:
-`AddScopes` drops `platform-admin` from HMAC tokens (`PlutusTokenAuthHandler:133`). Do not go
-looking for the bug; there isn't one.
-
-⚠ **`platform-admin` DOES satisfy every `perm:*` gate** (`PermissionPolicies.cs:42`) — but **not**
-the scope policies. `portal.tills.enrol` is `RequireClaim("scope", …)` (`IdentityModule:56`), so
-creating a till needs that scope specifically, and a platform admin does not have it. **That is the
-second half of why the chain stalls**, and impersonation does not rescue it: an impersonation token
-carries the *target's* scopes (`ImpersonationController:64`), and the target has none.
-
-## The chain, once the fix is in
-
-```bash
-API=https://plutus.huggett.dscloud.me
-AUTH="Authorization: Bearer $TOKEN"      # platform-admin, from your portal session
-JSON="Content-Type: application/json"
+```
+pos.sell    HMAC token → GET /api/v1/stores/1/info            → 200   ← scopes work fine
+platform-admin HMAC    → GET /api/v1/platform/billing/catalogue → 403
+(no token)             → same endpoint                          → 401
 ```
 
-### 1. The tenant — and this now yields a usable admin
+The cause is **WP18.1, working exactly as designed**: `plutus-ecosystem.config.js` line 21 sets
+`OPERATOR_SSO_ENFORCED: "true"`, and `PlutusTokenAuthHandler.AddScopes` therefore drops
+`platform-admin` from any HMAC token. ⚠ **Do not "fix" this by flipping that flag** — it is a live
+security control on the login path, and the whole point of it is that a leaked signing secret must
+not mint a platform administrator.
 
-```bash
-curl -sX POST "$API/api/v1/tenants" -H "$AUTH" -H "$JSON" -d '{
-  "name":          "Test Shop",
-  "plan":          "standard",
-  "adminEmail":    "test-admin@example.test",
-  "adminPassword": "<a real password — this account can sign in>"
-}'
+⚠ It is **not** the operator boundary, which was the other candidate: `/api/v1/platform` and
+`/api/v1/tenants` are both on `OperatorBoundaryMiddleware`'s allow-list, and that middleware writes
+a JSON `detail` the 403 above did not carry.
+
+### So: run this from the portal, signed in as yourself
+
+The **Platform** tab renders only when the session carries `platform-admin` (`App.tsx:244`), and you
+have been using Platform → Quarantine — so your session has it. In the browser console on
+`admin.plutus.huggett.dscloud.me`:
+
+```js
+// 1. your own session token — password-mode sessions live here
+const s = JSON.parse(localStorage.getItem("plutus.portal.session") || "null");
+const token = s?.token;
+if (!token) throw new Error(
+  "No stored session — this is an OIDC/Keycloak login and its token is in memory. " +
+  "Copy the Authorization header from any API call in the Network tab instead.");
+
+// 2. create the tenant
+const r = await fetch("/api/v1/tenants", {
+  method: "POST",
+  headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name:          "Test Shop",
+    plan:          "standard",
+    adminEmail:    "test-admin@example.test",
+    adminPassword: "CHANGE-ME-to-a-real-password"
+  })
+});
+console.log(r.status, await r.json());
 ```
 
-Returns `tenantId`, `companyId`, **`storeId`** and `adminUserId`.
+It returns `tenantId`, `companyId`, **`storeId`** and `adminUserId`. ⚠ `adminPassword` is a real
+credential — PBKDF2-hashed like any other, and nothing here expires on its own.
 
-⚠ **There is no separate "create a store" step** — provisioning already makes one, address `"Main"`
-with `"N/A"` placeholders it expects the tenant to edit. The first version of this page had a step 2
-that created a *second*, redundant store.
+⚠ **There is no separate "create a store" step.** Provisioning already makes one, address `"Main"`
+with `"N/A"` placeholders the tenant is expected to edit.
 
-⚠ **`adminPassword` is a real credential**, PBKDF2-hashed like any other, and nothing here expires on
-its own.
+## Then, as the new tenant's admin
 
-### 2. Sign into the portal as that admin
+Sign into the portal with `test-admin@example.test`. **They now hold Owner**, which carries every
+portal permission — including `portal.tills.enrol`, the one that unblocks creating a till.
 
-With the fix in, they hold **Owner**, so everything below is ordinary portal work rather than API
-calls. Tidy the store's placeholder address while you are there.
+⚠ **That scope is why the Owner assignment mattered.** `portal.tills.enrol` is a
+`RequireClaim("scope", …)` policy (`IdentityModule:56`), so **a platform admin does not satisfy it**
+— only a real grant does. Impersonation would not have rescued it either: an impersonation token
+carries the *target's* scopes, and before the fix the target had none.
 
-### 3. A till, and its enrolment code
+### 1. A till, and its enrolment code
 
-Portal → **Tills**, or:
+Portal → **Tills** → add "Test Till 1" against the store provisioning created. ⚠ The code is
+single-use and short-lived; `POST /api/v1/tills/{tillId}/enrol-code` mints another.
 
-```bash
-curl -sX POST "$API/api/v1/tills" -H "Authorization: Bearer $ADMIN_TOKEN" -H "$JSON" \
-     -d '{"storeId": <storeId>, "name":"Test Till 1"}'
-```
-
-⚠ **`$ADMIN_TOKEN`, not `$TOKEN`** — this endpoint wants `portal.tills.enrol`, which the Owner has
-and the platform admin does not. The code is single-use and short-lived; if it lapses,
-`POST /api/v1/tills/{tillId}/enrol-code` mints another.
-
-### 4. Somebody who can actually sell
+### 2. Somebody who can actually sell
 
 ⚠⚠ **THE STEP THAT GETS FORGOTTEN, AND THE TILL WILL NOT LET ANYONE IN WITHOUT IT.** The roster only
 carries staff holding a `pos.*` permission — `TillOperatorsController` skips everyone else,
-deliberately, because a name on a till with no capability is exposure for nothing.
+deliberately: a name on a till with no capability is exposure for nothing.
 
 Portal → **Users** → add a person → give them a role with till permissions (Cashier is enough).
-The till's sign-in errors then name which of the four things is wrong: *"this till isn't connected
-yet"*, *"nobody is assigned to this till"*, *"can't reach Plutus"*, or *"that account isn't on this
-till's staff list"*.
 
-### 5. Something to sell
+### 3. Something to sell
 
 Items are the portal's (*"Portal decides, till obeys"*). Add a handful under **Inventory**, each with
-a barcode and a VAT band, or the till scans into an empty catalogue.
+a barcode and a VAT band, or the till scans into an empty catalogue. ⚠ Check **Company → VAT
+periods** too — a tenant with no VAT settings reports oddly, and the till's band names come from the
+platform.
 
-⚠ Check **Company → VAT periods** too: a tenant with no VAT settings reports oddly, and the till's
-band names come from the platform.
+### 4. Point the till at it
 
-### 6. Point the till at it
-
-MAUI: **Settings → Till device → Connection, enrolment & diagnostics**, enter the code from step 3.
+MAUI: **Settings → Till device → Connection, enrolment & diagnostics**, enter the code.
 
 ⚠⚠ **UN-ENROL FROM KAPOW FIRST**, or you are testing whichever tenant it is still enrolled to. The
 till-name badge in the app bar (§G80a) is the fastest check — it should read "Test Till 1".
