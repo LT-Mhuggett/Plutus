@@ -51,12 +51,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory
             get => _openViewAllItemsCommand ?? (_openViewAllItemsCommand = new Command(ExecuteOpenViewAllItems));
         }
 
-        Command _openAddItemCommand;
+        // ⚠ L2, 2026-08-23 — `OpenAddItemCommand` and `ExecuteOpenAddItem` are gone with
+        // `AddEditView`. "Add item" had no button already; the screen wrote items into the LEGACY
+        // local database, and the till has no item-write endpoint — so a till-created item reached
+        // no report, no other till and no VAT return, and could not even be SOLD on the machine
+        // that made it (the basket resolves from the v2 catalogue). Items are the portal's.
 
-        public Command OpenAddItemCommand
-        {
-            get => _openAddItemCommand ?? (_openAddItemCommand = new Command(ExecuteOpenAddItem));
-        }
         #endregion
 
         #region Execute Commands
@@ -98,27 +98,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory
             }
         }
 
-        /// <summary>⚠ Unreachable — "Add item" has no button (see the constructor). Kept only until
-        /// `Build/To do/MAUI-retrofit.md` §10 L2 is actioned.</summary>
-        private async void ExecuteOpenAddItem()
-        {
-            if (IsBusy)
-                return;
-            IsBusy = true;
-
-            try
-            {
-                await App.Current.MainPage.Navigation.PushAsync(new AddEditView());
-            }
-            catch (Exception ex)
-            {
-                Services.Analytics.CrashLog.Write("InventoryViewModel.OpenAddItem", ex);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
         #endregion
     }
 }

@@ -405,12 +405,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             get => _manageCategoriesCommand ?? (_manageCategoriesCommand = new Command(ExecuteManageCategories));
         }
 
-        Command _updateItemStockCommandArg;
-        public Command UpdateItemStockCommandArg
-        {
-            get => _updateItemStockCommandArg ?? (_updateItemStockCommandArg = new Command<string>(ExecuteUpdateItemStock));
-        }
-
         #endregion
 
         #region Execute Command
@@ -1712,89 +1706,10 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             return picked == labels[1];
         }
 
-        private async void ExecuteUpdateItemStock(string itemId)
-        {
-            if (IsBusy)
-                return;
+        // ⚠ L2, 2026-08-23 — `ExecuteUpdateItemStock` deleted with its command. It wrote a legacy
+        // `StockModel` row against the legacy store, which no longer exists on a modern till (step
+        // 21) and reached no report, no other till and no VAT return. Stock is the portal's.
 
-            IsBusy = true;
-            try
-            {
-                var empId = App.GetViewModel().EmployeeId;
-                bool escape = false;
-                do
-                {
-                    Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-                    if (empId.IsAuthorised("Item", Database.Enums.Permissions.Write, databaseProvider))
-                    {
-                        var idValidtors = new IValidator[]
-                        {
-                        new RequiredValidator()
-                        };
-
-                        var qtyValidators = new IValidator[]
-                        {
-                        new RequiredValidator(),
-                        new IntegerValidator()
-                        };
-
-                        var viewElements = new ViewElementData[]
-                        {
-                            new ViewElementData(1, string.Format("IdArg".Translate(), "Item".Translate()), itemId, idValidtors.AsEnumerable(), false, false),
-                            new ViewElementData(2, string.Format("ToIncrement/Decrement".Translate(), "Quantity".Translate()), "", qtyValidators.AsEnumerable(), false, true)
-                        };
-
-                        var data = await Helpers.CustomViews.InputAlertHelper.LaunchInputAlertAsync(viewElements, "Confirm".Translate(), false, "UpdateStock".Translate(), "Cancel".Translate());
-
-                        // ⚠ `Count == 0` FIRST — same fix as `AddEditViewModel.ExecuteCreateCategory`. Backing out
-                        // yields an EMPTY dictionary, and `Any(…)` over nothing is FALSE, so without this the
-                        // cancel path fell straight through to `int.Parse(null)` below — AFTER `db.Add(stock)`
-                        // had already put a zero-quantity row in the legacy file.
-                        // ⚠ Unreachable today (`UpdateItemStockCommandArg` is bound to nothing — §0.3b), but this
-                        // is one condition, not a restructure, and its twin already carries it.
-                        if (data.Count == 0 || data.Any(d => string.IsNullOrEmpty(d.Value)))
-                            return;
-
-                        using (var db = new Helpers.Database.Database(databaseProvider, empId))
-                        {
-                            var stock = db.Get<StockModel>().Where(s => s.ItemId.Equals(itemId)).FirstOrDefault();
-                            if (stock == default(StockModel))
-                            {
-                                // ⚠⚠ GUARDED — step 21, 2026-08-23. See `AddEditViewModel` for the
-                                // reasoning: `EnsureStoreAsync` no longer creates the legacy store, and
-                                // defaulting the id to 0 would write stock against the wrong store.
-                                // ⚠ `ExecuteUpdateItemStock` is unreachable (its command arg binds to
-                                // nothing — L13); the guard makes that true of the crash as well.
-                                var legacyStore = App.GetViewModel()?.Store;
-                                if (legacyStore is null)
-                                {
-                                    Services.Analytics.CrashLog.Write("ViewAllViewModel.UpdateItemStock",
-                                        new InvalidOperationException(
-                                            "No legacy store on this till, so a stock row cannot be created."));
-                                    return;
-                                }
-
-                                stock = new StockModel { ItemId = itemId, StoreId = legacyStore.Id };
-                                db.Add(stock);
-                            }
-                            data.TryGetValue(2, out var quatityText);
-                            stock.Quantity += int.Parse(quatityText);
-                            if (!db.Save())
-                                Debug.Write("Database save issue!");
-                        }
-                        InitItems();
-                        return;
-                    }
-                    var empAuthoriser = await Authorisation.RequestAuthorisedUserInput(databaseProvider);
-                    if (empAuthoriser == default)
-                        escape = true;
-                } while (!escape);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
         #endregion
 
         #region Operations

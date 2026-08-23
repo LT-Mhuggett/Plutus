@@ -2767,7 +2767,7 @@ platform.
 | ⚠️ **Live** | Still reachable and still runs. Must be replaced first — the step is named |
 | 🔒 **Blocked** | Cannot be deleted yet; something else depends on it. The blocker is named |
 
-### L1 — The legacy-database archive path
+### L1 — The legacy-database archive path — ✅ **DONE 2026-08-23**
 
 **Code:** `SettingsViewModel.ExecuteBackupDb` + `BackupDbCommand`;
 `Plutus.Client.Storage.Cutover.ArchiveLegacyDatabase`; `MetaKeys.LegacyArchivedAtUtc`; the archive
@@ -2784,7 +2784,17 @@ for its history. Matt's call, taken 2026-08-10 on the basis that no such migrati
 "Restore database" was deleted outright rather than hidden: it overwrote the legacy file from a
 user-chosen `.db`, which no screen reads any more, and it crashed on the legacy gate first.
 
-### L2 — Till-side inventory CRUD
+### L2 — Till-side inventory CRUD — ✅ **DONE 2026-08-23** · ⚠ one row of it was STALE
+
+> ⚠⚠ **`OpenEditItemCommandArg` IS NOT DEAD AND WAS NOT DELETED.** This entry listed it among the
+> four commands to remove. It is the **Edit** button on the item list
+> (`ViewAllView.xaml`, bound by name through the CollectionView), and since 2026-08-21 it opens
+> `ItemDetailAlert` — barcodes, history and field editing, WP10. Deleting it would have removed a
+> live button from a screen an operator uses.
+>
+> **Gone:** `AddEditViewModel` + `AddEditView` (3 files), `OpenAddItemCommand` and its executor,
+> `CreateNewCategoryCommand` (it lived in the deleted file), `UpdateItemStockCommandArg` and
+> `ExecuteUpdateItemStock`.
 
 **Code:** `ViewModels/MainTill/Inventory/Items/AddEditViewModel.cs` (whole file); `AddEditView.xaml`
 + `.cs`; `ViewAllViewModel`'s `OpenEditItemCommandArg`, `UpdateItemStockCommandArg`,
@@ -3018,7 +3028,7 @@ legacy store and nothing needs a legacy store id.
 same every time: a claim about *behaviour* written from reading a call site rather than following
 what it calls. **Grep the callers before believing a ⬜ or a ✅.**
 
-### L8 — Obsolete first-run screens
+### L8 — Obsolete first-run screens — ✅ **DONE 2026-08-23** (Recovery went with L1)
 
 ✅ **MOSTLY DONE — corrected 2026-08-12 against the tree.** `SetupViewModel` and
 `TransferThirdPartyViewModel` (self-labelled LEGACY; threw from `async void`) and their views **are
