@@ -55,6 +55,25 @@ namespace Plutus.Tenancy
             _disposable = disposable;
         }
 
+        /// <summary>
+        /// ⚠⚠ EVERY SAVE NEEDS AN AUDIT USER, AND THE ANONYMOUS PATHS HAVE NONE.
+        /// `RepositoryContext.SaveMethods` throws `ObjectIdMissingException("CurrentUser not
+        /// defined!")` before writing anything, so signup 500'd the first time it was called on the
+        /// live server.
+        ///
+        /// ⚠ THE UNIT TESTS DID NOT CATCH IT, because their context helper sets `CurrentUser =
+        /// "test"` — the double was better configured than production. There is now a test that
+        /// builds the context WITHOUT one, which is what an anonymous request actually looks like.
+        ///
+        /// ⚠ "signup" rather than a person's name: nobody is signed in, and inventing a name in an
+        /// audit column is worse than recording plainly that this came through the front door.
+        /// ⚠ `??=` so an operator-initiated call (the queue's Resend) keeps its own actor.
+        /// </summary>
+        private void StampActor(string actor = "signup")
+        {
+            if (string.IsNullOrEmpty(_db.CurrentUser)) _db.CurrentUser = actor;
+        }
+
         // ── stage 1: an application is not a tenant ──────────────────────────────────────────────
 
         /// <summary>
@@ -64,6 +83,7 @@ namespace Plutus.Tenancy
         public async Task<ApplyResult> ApplyAsync(ApplyRequest req, string ip, CancellationToken ct = default)
         {
             if (req == null) throw new EnrolmentException(400, "A request body is required.");
+            StampActor();
             var name = (req.BusinessName ?? "").Trim();
             var contact = (req.ContactName ?? "").Trim();
             var email = (req.ContactEmail ?? "").Trim();
@@ -144,6 +164,7 @@ namespace Plutus.Tenancy
         /// </summary>
         public async Task<(VerifyOutcome Outcome, TenantApplication App)> VerifyAsync(string token, CancellationToken ct = default)
         {
+            StampActor();
             if (string.IsNullOrWhiteSpace(token)) return (VerifyOutcome.UnknownToken, null);
 
             var hash = CompactToken.Sha256(Crockford32.Normalise(token));
@@ -168,6 +189,7 @@ namespace Plutus.Tenancy
         /// <summary>Re-issue a verification token. ⚠ Capped by `MaxVerifySends`.</summary>
         public async Task<string> ResendVerifyAsync(Guid applicationId, CancellationToken ct = default)
         {
+            StampActor();
             var app = await _db.TenantApplications.FirstOrDefaultAsync(a => a.Id == applicationId, ct)
                 ?? throw new EnrolmentException(404, "No such application.");
             if (app.EmailVerifiedAtUtc != null) throw new EnrolmentException(409, "That email is already verified.");
@@ -188,6 +210,7 @@ namespace Plutus.Tenancy
         public async Task<TenantApplication> AcceptDpaAsync(
             Guid applicationId, string version, string ip, string userAgent, CancellationToken ct = default)
         {
+            StampActor();
             var app = await _db.TenantApplications.FirstOrDefaultAsync(a => a.Id == applicationId, ct)
                 ?? throw new EnrolmentException(404, "No such application.");
 
@@ -240,6 +263,8 @@ namespace Plutus.Tenancy
             Guid applicationId, ProvisioningService provisioning, DpaService dpa, string actor,
             string adminPassword, CancellationToken ct = default)
         {
+            // ⚠ The operator's own name here, not "signup" — this write is theirs.
+            StampActor(string.IsNullOrWhiteSpace(actor) ? "platform-admin" : actor);
             var app = await _db.TenantApplications.FirstOrDefaultAsync(a => a.Id == applicationId, ct)
                 ?? throw new EnrolmentException(404, "No such application.");
 
@@ -287,6 +312,7 @@ namespace Plutus.Tenancy
         /// </summary>
         public async Task<TenantApplication> RejectAsync(Guid applicationId, string reason, string actor, CancellationToken ct = default)
         {
+            StampActor(string.IsNullOrWhiteSpace(actor) ? "platform-admin" : actor);
             var app = await _db.TenantApplications.FirstOrDefaultAsync(a => a.Id == applicationId, ct)
                 ?? throw new EnrolmentException(404, "No such application.");
             if (app.ProvisionedTenantId != null)

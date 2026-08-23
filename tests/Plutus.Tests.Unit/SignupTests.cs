@@ -537,4 +537,40 @@ public class SignupTests
         Assert.Equal(1, await db.DpaAcceptances.CountAsync(a => a.TenantId == tenant));
         conn.Dispose();
     }
+
+    /// <summary>
+    /// ⚠⚠ THE TEST THAT WOULD HAVE CAUGHT THE LIVE 500, AND DID NOT EXIST.
+    ///
+    /// Every other test here builds the context through a helper that sets `CurrentUser = "test"`.
+    /// Production does not: an anonymous signup has nobody signed in, `RepositoryContext.SaveMethods`
+    /// refuses to write without an audit user, and the endpoint threw
+    /// `ObjectIdMissingException("CurrentUser not defined!")` the first time it was called on the
+    /// live server.
+    ///
+    /// ⚠ The lesson is the shape, not the field: a test double configured better than reality
+    /// proves the double works. This one deliberately builds the context the way the request does.
+    /// </summary>
+    [Fact]
+    public async Task Signup_works_with_no_signed_in_user_which_is_what_anonymous_means()
+    {
+        var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+        using (var seed = Ctx(conn)) seed.Database.EnsureCreated();
+
+        // ⚠ NO CurrentUser — exactly what the DI container hands an anonymous request.
+        using var db = new MySqlDbContext(
+            new DbContextOptionsBuilder<MySqlDbContext>().UseSqlite(conn).Options,
+            new FixedTenantContext(Guid.Empty));
+        Assert.True(string.IsNullOrEmpty(db.CurrentUser), "The premise: no audit user is set.");
+
+        var svc = new TenantApplicationService(db, new DisposableEmailDomains(null));
+        var res = await svc.ApplyAsync(Req(), "203.0.113.7");
+        Assert.True(res.IsNew);
+
+        // and the follow-on anonymous step saves too
+        var (outcome, _) = await svc.VerifyAsync(res.VerifyToken);
+        Assert.Equal(TenantApplicationService.VerifyOutcome.Ok, outcome);
+
+        conn.Dispose();
+    }
 }

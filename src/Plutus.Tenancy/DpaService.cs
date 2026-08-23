@@ -38,6 +38,17 @@ namespace Plutus.Tenancy
         public DpaService(MySqlDbContext db) => _db = db;
 
         /// <summary>
+        /// ⚠⚠ EVERY SAVE NEEDS AN AUDIT USER AND THE ANONYMOUS SIGNUP PATH HAS NONE.
+        /// `RepositoryContext.SaveMethods` throws before writing anything without one, which is how
+        /// signup 500'd the first time it was called on the live server. Same fault, same shape, in
+        /// `TenantApplicationService` — its StampActor carries the full account.
+        /// </summary>
+        private void StampActor(string actor)
+        {
+            if (string.IsNullOrEmpty(_db.CurrentUser)) _db.CurrentUser = actor;
+        }
+
+        /// <summary>
         /// The DPA a client is asked to accept, or null if none is published.
         ///
         /// ⚠⚠ A DRAFT IS NEVER SERVED. `PublishedAtUtc == null` means the wording is not agreed yet,
@@ -64,6 +75,7 @@ namespace Plutus.Tenancy
         public async Task<DpaDocument> SaveDraftAsync(
             string version, string title, string bodyMarkdown, string note, string actor, CancellationToken ct = default)
         {
+            StampActor(actor);
             if (string.IsNullOrWhiteSpace(version)) throw new EnrolmentException(400, "version is required.");
             if (string.IsNullOrWhiteSpace(title)) throw new EnrolmentException(400, "title is required.");
             if (string.IsNullOrWhiteSpace(bodyMarkdown)) throw new EnrolmentException(400, "The agreement body is required.");
@@ -98,6 +110,7 @@ namespace Plutus.Tenancy
         /// </summary>
         public async Task<DpaDocument> PublishAsync(string version, string actor, CancellationToken ct = default)
         {
+            StampActor(actor);
             var doc = await _db.DpaDocuments.FirstOrDefaultAsync(x => x.Version == version, ct)
                 ?? throw new EnrolmentException(404, $"No DPA version {version}.");
 
@@ -125,6 +138,7 @@ namespace Plutus.Tenancy
             Guid tenantId, Guid? userId, string email, string ip, string userAgent,
             Guid? sourceApplicationId = null, CancellationToken ct = default)
         {
+            StampActor("dpa-accept");
             var doc = await _db.DpaDocuments.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.IsCurrent && x.PublishedAtUtc != null, ct)
                 ?? throw new EnrolmentException(409,
@@ -163,6 +177,7 @@ namespace Plutus.Tenancy
         public async Task<DpaAcceptance> RecordManuallyAsync(
             Guid tenantId, string version, string operatorName, string note, CancellationToken ct = default)
         {
+            StampActor(string.IsNullOrWhiteSpace(operatorName) ? "platform-admin" : operatorName);
             if (string.IsNullOrWhiteSpace(operatorName))
                 throw new EnrolmentException(400, "An operator name is required — an unattributed manual record is not evidence.");
 
