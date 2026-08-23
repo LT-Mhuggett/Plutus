@@ -1022,8 +1022,9 @@ numbers. Removing `MarkAsReturn()` from `BasketMoneyTests`'s helper **fails 6 te
 attempt at that mutation silently did not apply (a regex that never matched) and briefly read as
 "the tests do not catch it" — check the mutation LANDED before believing what it tells you.
 
-⚠ **It unblocks [L6](#l6--the-legacy-models)** as intended: `ItemModel` is still load-bearing in the
-till screen, but one fewer type binds to it.
+✅ **It unblocked L6, and L6 is now CLOSED** (2026-08-23). `ItemModel` was load-bearing in the till
+screen when this was written; the basket now carries `Models.TillItem` and the browse list
+`Models.InventoryRow`, and the whole legacy model set is deleted.
 
 ### Step 22 — WP7 theming · ✅ **DONE 2026-08-17 (till 1.73.0)**
 
@@ -2535,7 +2536,7 @@ always was — **no §W section has been run by a person.** Nothing in this plan
 > | ✅ | **~~Step 21 — delete `LoginViewModel.EnsureStoreAsync`~~ — DONE 2026-08-23** | ~~1½d~~ **0** | ⚠⚠ **THE BLOCKER HAD EXPIRED SIX DAYS EARLIER.** It was held by `StoreInformationViewModel` dereferencing the store in its CONSTRUCTOR — made null-safe 2026-08-17. The two remaining unguarded dereferences are both in unreachable code and now REFUSE rather than NullReference; ⚠ not null-coalesced to 0, which would write stock against the wrong store. `LegacyStoreTests` (3, mutation-checked) |
 > | ✅ | **[WP10](#wp10--the-item-editors-four-remaining-increments--1½2½d--matt-ruled-it-in-2026-08-21) — the item editor's four remaining increments** | **≈1½–2½d** | ⚠ **Matt ruled it IN, 2026-08-21** (*"cost it as a work package"*), and costing it found the justification was wrong: **"MAUI has no item editor at all" conflated two code paths.** `ExecuteOpenAddItem`/`AddEditView` is dead; `ViewAllViewModel`'s tap-menu — Add to basket · **Edit item** · Adjust stock… · Move to the Bin… — is alive, and A0 has said so two tables up all along. **Two of the four rows were not gaps**: MAUI's add is already one screen (nine fields in one dialog → marker corrected to 🟡), and restore-from-Bin already exists server-side. What is real is a **barcode section** (~1d) and a **change-history list** (~½d) on an editor that exists, plus ~½d to wire restore. ⚠ The decision that remains is narrower and sharper: **may a till change an item's IDENTITY**, not whether it may edit one |
 > | ➖ | **~~Remote lock of a lost or stolen till~~ → MOVED OUT, 2026-08-21** | — | ⚠ **Matt: *"Make it a platform work package."*** Now **`plutus-platform-architecture.md` §12b — WP-SL**, ≈1½–2d, because it is ⬜ on the **web till and MAUI both** and sitting in a MAUI parity document is why nobody picked it up for twelve days. ⚠⚠ Its three open questions are answered there, and the load-bearing one is **what a locked till does with unsynced sales**: it must still drain its outbox, so enforcement has to refuse a token for SELLING without killing the drain. ⚠ **`Revoked` is still the real incident tool today** |
-> | ⏸ | **L1–L16 legacy removal** | — | Matt actions last. **The sweep he asked for ran 2026-08-22** — L11–L16 are its findings, all verified both directions. **L4 closed 2026-08-20** with the Syncfusion removal |
+> | ✅ | **L1–L16 legacy removal — ALL SIXTEEN CLOSED 2026-08-23** | — | **The sweep Matt asked for ran 2026-08-22**; L11–L16 were its findings, all verified both directions. **L4 closed 2026-08-20** with the Syncfusion removal. The last three to go were **L5/L6** — `Helpers/Database/Database.cs`, the `Plutus/Data/Database` project (**48 tracked files**) and every legacy model, replaced by five till-owned shapes — and **L3/L9/L16** with the legacy local login. ⚠⚠ **The `Database.db` FILE is untouched and stays that way** (default 3: archive, never delete) |
 >
 > ⚠ **So: not finished, but nothing like a two-month job.** ~~Roughly **10–15 days**~~ → ~~≈7–9 days~~ → ~~≈5–7 days~~ → ~~≈3–5 days~~ → **≈2–4 days** (11b, the till half of 28, and WP10 all closed 2026-08-22)
 > after 2026-08-21, and the shape has changed as much as the number: the 🔴 at the top was **already
@@ -2806,7 +2807,19 @@ and no VAT return. And since the basket resolves items from the v2 catalogue, a 
 could not be **sold** on the machine that made it. An operator would type a full item in and then be
 unable to find it. Items belong to the portal; **step 25 replaced this rather than reviving it**.
 
-### L3 — The legacy permission gate
+### L3 — The legacy permission gate — ✅ **DONE 2026-08-23** (commit `f81b9a33`)
+
+> ✅ **CLOSED WITH THE LEGACY LOCAL LOGIN.** `Helpers/Security/Authorisation.cs` is deleted —
+> `IsAuthorised` (both overloads), `LegacyCheck` and `RequestAuthorisedUserInput` with it. Its
+> ordering condition ("after L2 and L4") was satisfied: both are closed, and the four callers the
+> re-verification counted were already unreachable. `Services/Security/TillGate.cs` is the gate now.
+>
+> ⚠ **THE SURVIVING MENTIONS ARE COMMENTS, NOT CODE.** `TillGate`, `SupervisorPrompt`,
+> `SettingsViewModel` and `StoreOptionsViewModel` each record what used to be there and why it
+> crashed, deliberately. The only `Authorisation.cs` still tracked is in `Plutus.Frontend.ClientUI`,
+> the archived second frontend (L10).
+
+**What it was:**
 
 **Code:** `Helpers/Security/Authorisation.cs` — `IsAuthorised` (both overloads), `LegacyCheck`,
 `RequestAuthorisedUserInput`. ⚠️ **Live — still compiled.** **Replaced by** `Services/Security/TillGate.cs` (step 12).
@@ -2971,30 +2984,58 @@ tiers that do NOT need L4 touched, and the 15 MB of `DocumentFormat.OpenXml` the
 in [`Shrink MAUI Build.md`](../archive/Shrink%20MAUI%20Build.md). ⚠ That page is **packaging only** — this
 document remains the authority on whether these screens live.
 
-### L5 — The legacy database layer
+### L5 — The legacy database layer — ✅ **DONE 2026-08-23**
 
-**Code:** `Helpers/Database/Database.cs`; the `Plutus/Data/Database` project (55 files).
-🔒 **Blocked by** L2, L4, L7, L8 — and `TillViewModel`, which still uses legacy models for the basket.
-**Order:** after everything above.
+**Was:** `Helpers/Database/Database.cs`; the `Plutus/Data/Database` project. **Both deleted** — the
+helper, and **48 tracked files** across the project. The project reference is gone from the app
+csproj, the test csproj and `Plutus.slnx`.
 
-Still referenced from 12 files. `TillStoreAccess`'s header records why the v2 store has a single
-owner: this layer opens its own context at **37 call sites across 21 files**, and reproducing that
-shape on a new schema was the thing to avoid. ⚠ `App.xaml.cs:59` calls
-`Helpers.Database.Database.LocalDbExist()` in the startup path — **check what that decision does
-before removing it**; a start-up branch is not a screen and will not announce itself when it changes.
+⚠⚠ **THE `Database.db` FILE ITSELF IS UNTOUCHED, AND DELIBERATELY.** Default 3 is *archive, never
+delete*: it holds pre-cutover sales history with no server copy. The **code** that opened it has
+gone; the **file** stays where it is.
 
-### L6 — The legacy models
+⚠ **The register said "55 files" and "still referenced from 12 files"; both were stale.** What
+actually held this in place was measured, not trusted, and it came to **three live DB opens** — two
+of them inside commented-out blocks. Printing opened the database **zero** times. The blocking list
+("L2, L4, L7, L8 — and `TillViewModel`") was real but had already been worked off.
 
-**Code:** `Plutus/Data/Database/Models/` — `ItemModel`, `SaleModel`, `StoreModel`, `EmployeeModel`,
-`PaymentMethodModel`, `TaxModel`, `TransactionModel`, `StockModel`, `AuthActions`,
-`Emp_AuthActions`, and the rest. 🔒 **Blocked by** L5, and the basket. **Order:** last.
+⚠ `App.xaml.cs`'s startup branch was the one thing the entry was right to flag. It decided
+`enrolled || hasLegacyDb`; it now reads `enrolled` alone, which is Matt's ruling of 2026-08-23 —
+*"a till needs to enrol and sync first"*. A till with a legacy file and no enrolment no longer
+starts as though it were configured.
 
-⚠ **`ItemModel` is load-bearing in the till screen today.** `TillViewModel.FindItem` maps v2
-`CatalogueItem` rows *into* `ItemModel` because that is what the basket and the item list bind to —
-and **MAUI bindings fail silently**, so swapping the bound type blanks the rows rather than failing
-the build. **These go when the basket is reshaped (step 11b), not before.** ⚠ Money on these models
-is `decimal`; the platform is integer pence end-to-end — recorded in till-design **C2**.
+### L6 — The legacy models — ✅ **DONE 2026-08-23**
 
+**Was:** `Plutus/Data/Database/Models/` — `ItemModel`, `SaleModel`, `StoreModel`,
+`PaymentMethodModel`, `DiscountModel`, `NoteModel`, `SavedTransactionModel`, and the rest. Gone with
+the project. No `using Database.Models;` or `using Database.Enums;` remains anywhere in the till.
+
+**Replaced by five till-owned shapes**, none of them entities:
+
+| New | Replaced | Why it shrank |
+|---|---|---|
+| `Models/TillItem.cs` | `ItemModel` on the basket | A basket line used **5** of ~20 fields. `TaxModel` was a navigation property read only for `.Name` — now a string |
+| `Models/InventoryRow.cs` | `ItemModel` on the browse list | Carries the notifying `StockDisplay` the old model apologised for as `[NotMapped]` |
+| `StoreDetails` | `StoreModel` | Nine fields, and `FullAddress` is now **computed** — a stored one can disagree with its parts, in print |
+| `TenderOption` / `TakenPayment` / `CheckoutSale` | `PaymentMethodModel` / `PaymentMethod_SaleModel` / `SaleModel` | Scratch state for the payment dialog. The committed sale is `IngestSaleRequest`, in pence |
+| `TillDiscount` / `ParkedBasketRef` | `DiscountModel` / `SavedTransactionModel` | Only `Id` was ever read off the first; the second showed a name and kept an id |
+
+`NoteModel` did not get a replacement — it collapsed to a plain `string`.
+
+⚠⚠ **THE WARNING IN THIS ENTRY WAS THE USEFUL PART, AND IT WAS ALSO THE THING THAT MADE IT LOOK
+HARDER THAN IT WAS.** *"MAUI bindings fail silently, so swapping the bound type blanks the rows
+rather than failing the build"* — true, and the reason the browse list and the basket got separate
+types rather than one shared one. But *"`ItemModel` is load-bearing"* was only half right:
+`FindItem` **already read the v2 store** and packed the result into an `ItemModel` purely because
+`BasketItem` demanded one. The legacy type was a costume v2 data already wore. Nothing was ever
+loaded from the legacy database to fill one.
+
+⚠ **Money did not move.** These shapes carry `decimal` exactly where the legacy models did, and the
+basket's own arithmetic stays integer pence (step 11b). C2's row is unchanged — this was a change of
+container, not of unit, and that was the point.
+
+⚠ **Parked baskets round-trip unchanged.** The wire format was checked before the swap: flat
+primitives, no legacy type on it. A basket parked before today restores after it.
 ### L7 — `LoginViewModel.EnsureStoreAsync` — ✅ **DONE 2026-08-23, as cutover step 21**
 
 **Code:** `ViewModels/LoginViewModel.cs` — `EnsureStoreAsync` and its two legacy `Database` blocks.
@@ -3042,7 +3083,15 @@ on-ramp. **Order:** decide L1 first.
 `Cutover.ArchiveLegacyDatabase`. **If L1 is deleted that reason goes with it** and Recovery can go
 too — but **decide L1 first, because this depends on it.**
 
-### L9 — `AppViewModel.EmployeeId` and `AppViewModel.Employees`
+### L9 — `AppViewModel.EmployeeId` and `AppViewModel.Employees` — ✅ **DONE 2026-08-23** (commit `f81b9a33`)
+
+> ✅ **BOTH DELETED**, with L3, exactly as this entry ordered it. `EmployeeId` was
+> `Employees.Last().Id` and `Employees` was filled ONLY by the legacy local login — so once that
+> login went, the list could never be non-empty again and the property could only ever return the
+> null that step 21 had already made survivable. `AppViewModel.SignedInOperator` is the answer, as
+> it already was.
+
+**What it was:**
 
 **Code:** `ViewModels/AppViewModel.cs`. ⚠️ **Live — but no longer a crash.** **Replaced by**
 `AppViewModel.SignedInOperator`. **Order:** with L3.
@@ -3136,7 +3185,22 @@ are deleted WITH the converters, or the suite count silently protects a corpse.
 
 **Order:** free-standing.
 
-### L16 — The reprint PICKER path · 🟠 **BLOCKED ON A DECISION, not on code — 2026-08-23**
+### L16 — The reprint PICKER path — ✅ **DONE 2026-08-23** (commit `f81b9a33`)
+
+> ✅ **MATT ANSWERED THE DECISION THE SAME DAY IT WAS RAISED:** *"Statistics has been replaced by
+> reporting. Remove it."* So both went — the hidden `StatisticsViewModel`/`StatisticsView`, and with
+> them `PickAndReprintAsync`, `PickPlatformSaleAsync` and the `AnotherTill` constant in
+> `ReceiptReprint`. One diff, which is what the ordering note asked for.
+>
+> ⚠⚠ **REPRINTING IS NOT LOST**, which is why this was safe to take:
+> `ReceiptReprint.ReprintAsync` is alive and reached from `SaleDetailAlert` — Matt's own route
+> (*"Reprinting receipts needs to be done from reports and looking at the specific sales in a day"*).
+>
+> ⚠⚠ **A NAME COLLISION MAKES A GREP FOR THIS LOOK UNFINISHED.** `TillViewModel` has its OWN
+> `PickPlatformSaleAsync`, and it is **live and completely unrelated** — the RETURNS picker
+> (*"Which sale is this going back to?"* → another till). **Do not delete it chasing L16.**
+
+**What it was:**
 
 > ⚠⚠ **ITS STATED BLOCKER TURNED OUT NOT TO EXIST.** This row said the picker "rides L4's
 > Statistics-screen deletion". **L4 does not delete that screen** — its own entry says

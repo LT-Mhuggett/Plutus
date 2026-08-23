@@ -158,7 +158,7 @@ namespace Plutus.Frontend.AppClient.Services.Printing
             var sale = await api.GetSaleAsync(saleId);
             if (sale is null) return null;
 
-            var store = App.GetViewModel().Store ?? new Database.Models.StoreModel();
+            var store = App.GetViewModel().Store ?? new Models.StoreDetails();
 
             var lines = sale.Lines
                 .Select(l => new ReceiptDocLine(
@@ -197,7 +197,7 @@ namespace Plutus.Frontend.AppClient.Services.Printing
 
         /// <summary>The store's address lines, blanks dropped — a receipt with an empty line in the
         /// middle of the address looks misprinted.</summary>
-        private static IReadOnlyList<string> AddressOf(Database.Models.StoreModel store) =>
+        private static IReadOnlyList<string> AddressOf(Models.StoreDetails store) =>
             new[] { store.AdLine1, store.AdLine2, store.City, store.PostCode, store.Country }
                 .Where(l => !string.IsNullOrWhiteSpace(l))
                 .ToList();
@@ -212,7 +212,7 @@ namespace Plutus.Frontend.AppClient.Services.Printing
         /// </summary>
         internal static async Task<ReceiptDocInput> InputForAsync(IngestSaleRequest sale)
         {
-            var store = App.GetViewModel().Store ?? new Database.Models.StoreModel();
+            var store = App.GetViewModel().Store ?? new Models.StoreDetails();
 
             // ⚠ NAMES ARE LOOKED UP, because the wire does not carry them: `IngestLine` has an item
             // GUID and, in its meta, the barcode — no name anywhere. A receipt listing eight rows

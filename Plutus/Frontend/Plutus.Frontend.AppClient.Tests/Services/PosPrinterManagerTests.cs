@@ -1,6 +1,5 @@
 using System.Reflection;
 using CommonPOSLibrary.Exceptions;
-using Database.Models;
 using Moq;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.Services.POSHandeling;
@@ -115,7 +114,7 @@ namespace Plutus.Frontend.AppClient.Tests.Services
             using var manager = new PosPrinterManager();
 
             await Assert.ThrowsAsync<POSPrinterException>(() =>
-                manager.SetUpSalePrint(Receipt(1000, 800), Array.Empty<IBasketRecord>(), new StoreModel()));
+                manager.SetUpSalePrint(Receipt(1000, 800), Array.Empty<IBasketRecord>(), new Plutus.Frontend.AppClient.Models.StoreDetails()));
         }
 
         [Fact]
@@ -129,7 +128,7 @@ namespace Plutus.Frontend.AppClient.Tests.Services
             var manager = new PosPrinterManager();
             SetDeviceEnabled(manager, true);
 
-            var store = new StoreModel { StoreName = "Test Store", FullAddress = "1 Test Street" };
+            var store = new Plutus.Frontend.AppClient.Models.StoreDetails { StoreName = "Test Store", AdLine1 = "1 Test Street", City = "Testville" };
 
             // Includes both a BasketItem and a BasketReturnItem so PrintTransactionAndRefundsAsync's two
             // near-identical formatting branches (sale items vs. returned items) both execute, plus a

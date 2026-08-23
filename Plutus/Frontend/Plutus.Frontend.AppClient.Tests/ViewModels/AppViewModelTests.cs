@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using Database.Models;
 using Mapster;
 using Moq;
 using Plutus.Frontend.AppClient.Models;

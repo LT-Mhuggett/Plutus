@@ -2,7 +2,6 @@ using CommonPOSLibrary;
 using Plutus.Frontend.AppClient.Helpers.Compatibility;
 using CommonPOSLibrary.Enums;
 using CommonPOSLibrary.Exceptions;
-using Database.Models;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Models;
 using System;
@@ -97,7 +96,7 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
         /// look the sale up by.
         /// </summary>
         public async Task SetUpSalePrint(
-            Services.Printing.ReceiptSale sale, IEnumerable<IBasketRecord> basketRecords, StoreModel store)
+            Services.Printing.ReceiptSale sale, IEnumerable<IBasketRecord> basketRecords, Models.StoreDetails store)
         {
             if (!_deviceEnabled)
                 throw new POSPrinterException(POSPrinterExceptionType.PrinterNotEnabled, "Printer is not Enabled!");
@@ -145,7 +144,7 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
         /// </summary>
         /// <param name="sale">The current Sale to print</param>
         /// <param name="store">The current Store transaction is occuring at</param>
-        private void PrintHeaderofReceipt(Services.Printing.ReceiptSale sale, StoreModel store)
+        private void PrintHeaderofReceipt(Services.Printing.ReceiptSale sale, Models.StoreDetails store)
         {
             // ⚠ A MISSING STORE MUST NOT LOSE THE SALE. `EnsureStoreAsync` has five paths that
             // deliberately leave `Store` null rather than block sign-in (no API, no store id, no
@@ -155,7 +154,7 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
             // was recorded and queued, but the basket was never cleared and no confirmation shown —
             // and the operator, seeing no confirmation, rings it again. A missing shop address is
             // a blank line on a receipt; a duplicate sale is real money.
-            store ??= new StoreModel();
+            store ??= new Models.StoreDetails();
 
             WriteText("ThankYouShopping".Translate(), "cntr", "true");
             if (store.Logo != null && store.Logo.Length != 0)
@@ -330,7 +329,7 @@ namespace Plutus.Frontend.AppClient.Services.POSHandeling
         }
 
 
-        private Task PdfGeneration(SaleModel sale, StoreModel store, System.IO.Stream image, decimal cashBack)
+        private Task PdfGeneration(Models.CheckoutSale sale, Models.StoreDetails store, System.IO.Stream image, decimal cashBack)
         {
             throw new NotImplementedException();
         }

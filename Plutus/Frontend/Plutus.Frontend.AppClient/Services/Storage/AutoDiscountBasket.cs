@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Database.Models;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.SharedKernel;
 
@@ -205,8 +204,8 @@ namespace Plutus.Frontend.AppClient.Services.Storage
             // ⚠ NEGATIVE, like every alteration — it is money coming off. `CheckoutCommit` works in
             // magnitudes and `BasketMoneyPence` sums signed prices, so the sign is load-bearing.
             var alteration = new BasketAlteration(
-                new NoteModel { Note = name },
-                new DiscountModel { Id = discountId },
+                name,
+                new Models.TillDiscount { Id = discountId },
                 lines,
                 -(incPence / 100m),
                 -(exPence / 100m))

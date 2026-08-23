@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using CustomViews.Structs;
 using Microsoft.Maui.ApplicationModel;
 using Plugin.Maui.MessagingCenter;
-using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Helpers.Security;

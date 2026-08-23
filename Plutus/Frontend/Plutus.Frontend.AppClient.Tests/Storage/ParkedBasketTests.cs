@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Database.Models;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.Services.Storage;
 using Xunit;
@@ -104,7 +103,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         [Fact]
         public void A_note_carrying_money_keeps_it()
         {
-            var original = new IBasketRecord[] { new BasketNote(new NoteModel { Note = "Card fee" }, 0.40m, 0.33m) };
+            var original = new IBasketRecord[] { new BasketNote("Card fee", 0.40m, 0.33m) };
 
             var back = ParkedBasket.FromJson(ParkedBasket.ToJson(original));
 

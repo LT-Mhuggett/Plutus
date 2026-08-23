@@ -372,7 +372,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
         internal static IReadOnlyList<string> ReceiptNotesFrom(IEnumerable<IBasketRecord> basket) =>
             (basket ?? Enumerable.Empty<IBasketRecord>())
                 .OfType<BasketNote>()
-                .Select(n => n.Note?.Note)
+                .Select(n => n.Note)
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .Select(n => n.Trim())
                 .ToList();

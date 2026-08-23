@@ -1,4 +1,3 @@
-using Database.Models;
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -17,7 +16,9 @@ namespace Plutus.Frontend.AppClient.Models
         #endregion
         #region Properties
         #region Public
-        public NoteModel Note { get; }
+        /// <summary>⚠ A STRING since L5/L6 (2026-08-23). It was a legacy `NoteModel`, an EF entity
+        /// whose entire content was one `Note` string — so every reader wrote `note.Note.Note`.</summary>
+        public string Note { get; }
         public int Quantity
         {
             get => _quantity;
@@ -27,7 +28,7 @@ namespace Plutus.Frontend.AppClient.Models
                 OnPropertyChanged();
             }
         }
-        public string Name => Note.Note;
+        public string Name => Note;
         /// <summary>Money on a note or alteration, in integer pence — the source of truth.
         /// ⚠ NEGATIVE on a discount: it is money coming off, and the sign is load-bearing.</summary>
         public long PricePence
@@ -72,7 +73,7 @@ namespace Plutus.Frontend.AppClient.Models
         /// <summary>A note is never goods coming back — it is not goods at all.</summary>
         public bool IsReturn => false;
 
-        public BasketNote(NoteModel note, decimal price = default, decimal priceExTax = default)
+        public BasketNote(string note, decimal price = default, decimal priceExTax = default)
         {
             Note = note;
             Price = price;

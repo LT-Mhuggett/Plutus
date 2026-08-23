@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Database.Models;
 using Plutus.Client.Core;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.Services.Security;

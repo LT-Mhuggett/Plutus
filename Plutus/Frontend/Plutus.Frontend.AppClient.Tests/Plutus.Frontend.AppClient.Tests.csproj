@@ -23,7 +23,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Plutus.Frontend.AppClient\Plutus.Frontend.AppClient.csproj" />
-    <ProjectReference Include="..\..\Data\Database\Database.csproj" />
     <ProjectReference Include="..\..\Shared\CommonPOSLibrary\CommonPOSLibrary.csproj" />
     <ProjectReference Include="..\..\Shared\CustomViews\CustomViews.csproj" />
     <ProjectReference Include="..\..\Shared\I18N_L10N\I18N_L10N.csproj" />

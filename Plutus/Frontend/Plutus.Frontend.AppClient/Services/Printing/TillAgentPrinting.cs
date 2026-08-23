@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using Database.Models;
 using Plutus.Client.Core;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.SharedKernel;
@@ -87,7 +86,7 @@ namespace Plutus.Frontend.AppClient.Services.Printing
         /// Returns false if nothing was printed, so the caller can fall back.
         /// </summary>
         public static async Task<bool> TryPrintSaleAsync(
-            ReceiptSale sale, IEnumerable<IBasketRecord> basket, StoreModel store, bool openDrawer,
+            ReceiptSale sale, IEnumerable<IBasketRecord> basket, Models.StoreDetails store, bool openDrawer,
             TillAgentStatus status)
         {
             // ⚠ THE STATUS IS PASSED IN, NOT PROBED HERE, and that is a correctness point rather
@@ -120,14 +119,14 @@ namespace Plutus.Frontend.AppClient.Services.Printing
         /// of disagreement on a receipt is the one piece of evidence a chargeback turns on.
         /// </summary>
         internal static ReceiptDocInput InputFor(
-            ReceiptSale sale, IEnumerable<IBasketRecord> basket, StoreModel store,
+            ReceiptSale sale, IEnumerable<IBasketRecord> basket, Models.StoreDetails store,
             int columns, bool openDrawer)
         {
             // ⚠ A missing store must not lose the receipt. `EnsureStoreAsync` has five paths that
             // deliberately leave `Store` null rather than block sign-in, and the OPOS printer used
             // to dereference it six times — a NullReferenceException AFTER the sale was committed,
             // which cleared nothing and showed nothing, so the operator rang the sale again.
-            store ??= new StoreModel();
+            store ??= new Models.StoreDetails();
 
             var lines = new List<ReceiptDocLine>();
             foreach (var record in basket ?? Enumerable.Empty<IBasketRecord>())

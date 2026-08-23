@@ -1,4 +1,3 @@
-using Database.Models;
 using Plutus.Frontend.AppClient.Models;
 
 namespace Plutus.Frontend.AppClient.Tests.Models
@@ -156,7 +155,7 @@ namespace Plutus.Frontend.AppClient.Tests.Models
         [Fact]
         public void BasketNote_Construction_UsesNoteNameAndDefaults()
         {
-            var note = new BasketNote(new NoteModel("Gift wrap"));
+            var note = new BasketNote(("Gift wrap"));
 
             Assert.Equal("Gift wrap", note.Name);
             Assert.Equal(1, note.Quantity);
@@ -167,7 +166,7 @@ namespace Plutus.Frontend.AppClient.Tests.Models
         [Fact]
         public void BasketNote_Construction_WithExplicitPrices()
         {
-            var note = new BasketNote(new NoteModel("Bag"), 1.5m, 1.25m);
+            var note = new BasketNote(("Bag"), 1.5m, 1.25m);
 
             Assert.Equal(1.5m, note.Price);
             Assert.Equal(1.25m, note.PriceExTax);
@@ -176,7 +175,7 @@ namespace Plutus.Frontend.AppClient.Tests.Models
         [Fact]
         public void BasketNote_PropertyChanged_RaisedForQuantityPriceAndPriceExTax()
         {
-            var note = new BasketNote(new NoteModel("Bag"));
+            var note = new BasketNote(("Bag"));
             var raised = new List<string?>();
             note.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
 
@@ -195,7 +194,7 @@ namespace Plutus.Frontend.AppClient.Tests.Models
         [Fact]
         public void A_negative_note_price_stays_negative_in_pence()
         {
-            var note = new BasketNote(new NoteModel("Discount"), -5m, -5m);
+            var note = new BasketNote(("Discount"), -5m, -5m);
 
             Assert.Equal(-500, note.PricePence);
             Assert.Equal(-5m, note.Price);
@@ -205,7 +204,7 @@ namespace Plutus.Frontend.AppClient.Tests.Models
         public void BasketAlteration_Construction_WithSingleItem_WrapsInList()
         {
             var item = new BasketItem(MakeItem());
-            var alteration = new BasketAlteration(new NoteModel("10% off"), new DiscountModel { Name = "Loyalty" }, item, 1m, 0.8m);
+            var alteration = new BasketAlteration(("10% off"), new Plutus.Frontend.AppClient.Models.TillDiscount { Name = "Loyalty" }, item, 1m, 0.8m);
 
             Assert.Equal("Loyalty", alteration.Discount.Name);
             Assert.Single(alteration.ItemsAssocitated);
@@ -218,7 +217,7 @@ namespace Plutus.Frontend.AppClient.Tests.Models
         public void BasketAlteration_Construction_WithMultipleItems()
         {
             var items = new[] { new BasketItem(MakeItem()), new BasketItem(MakeItem()) };
-            var alteration = new BasketAlteration(new NoteModel("Bundle"), new DiscountModel(), items);
+            var alteration = new BasketAlteration(("Bundle"), new Plutus.Frontend.AppClient.Models.TillDiscount(), items);
 
             Assert.Equal(2, alteration.ItemsAssocitated.Count());
         }
@@ -226,7 +225,7 @@ namespace Plutus.Frontend.AppClient.Tests.Models
         [Fact]
         public void BasketAlteration_IsABasketNote()
         {
-            Assert.IsAssignableFrom<BasketNote>(new BasketAlteration(new NoteModel("x"), new DiscountModel(), new BasketItem(MakeItem())));
+            Assert.IsAssignableFrom<BasketNote>(new BasketAlteration(("x"), new Plutus.Frontend.AppClient.Models.TillDiscount(), new BasketItem(MakeItem())));
         }
     }
 }

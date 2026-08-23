@@ -1,6 +1,4 @@
 using CustomViews.Structs;
-using Database.Enums;
-using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Helpers.Validators;
@@ -512,7 +510,6 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 // ⚠ DatabaseProvider.Sqlite is 0, so a NULL setting parses to "local SQLite" rather
                 // than failing — which is exactly how "no accounts at all" came out as "details not
                 // correct", sending someone hunting for a typo that did not exist.
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
                 // ⚠ COUNT THE STAFF, don't test for the file. `LocalDbExist()` asks "does a file
                 // exist" when the question is "is there anybody to sign in as" — and the Database

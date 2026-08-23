@@ -13,7 +13,6 @@
   </Folder>
   <Folder Name="/Plutus/Data/">
     <Project Path="Plutus/Data/Database.Migrations.Startup/Database.Migrations.Startup.csproj" />
-    <Project Path="Plutus/Data/Database/Database.csproj" />
   </Folder>
   <Folder Name="/Plutus/Endpoints/">
     <Project Path="Plutus/Endpoints/Plutus.DBService/Plutus.DBService.csproj" />

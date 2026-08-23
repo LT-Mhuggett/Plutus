@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Database.Models;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.SharedKernel;
 
@@ -115,7 +114,7 @@ namespace Plutus.Frontend.AppClient.Services.Storage
                 if (string.Equals(r.Kind, ParkedRecord.KindNote, StringComparison.OrdinalIgnoreCase))
                 {
                     basket.Add(new BasketNote(
-                        new NoteModel { Note = r.Name ?? "" }, r.IncPence / 100m, r.ExPence / 100m));
+                        r.Name ?? "", r.IncPence / 100m, r.ExPence / 100m));
                     continue;
                 }
 

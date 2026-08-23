@@ -1,7 +1,6 @@
 using CustomViews.Structs;
 using Microsoft.Maui.Devices;
 using Plutus.Frontend.AppClient.Helpers.Compatibility;
-using Database.Models;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Helpers.Security;
 using Plutus.Frontend.AppClient.Helpers.Validators;
@@ -29,7 +28,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.StoreOptions
         /// exactly what Matt's screenshot showed, a grey band with nothing in it above the same
         /// facts fetched properly.
         /// </summary>
-        public StoreModel Store
+        public Models.StoreDetails Store
         {
             get => App.GetViewModel().Store;
         }

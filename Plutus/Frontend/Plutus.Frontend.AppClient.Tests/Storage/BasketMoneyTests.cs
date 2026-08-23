@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Database.Models;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.Services.Storage;
 using Xunit;
@@ -63,10 +62,10 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         }
 
         private static BasketNote Note(string text) =>
-            new(new NoteModel { Note = text });
+            new(text);
 
         private static BasketAlteration Discount(decimal negativePrice, params BasketItem[] appliesTo) =>
-            new(new NoteModel { Note = "Discount" }, new DiscountModel(),
+            new("Discount", new Plutus.Frontend.AppClient.Models.TillDiscount(),
                 appliesTo, negativePrice, negativePrice);
 
         // ── the total ─────────────────────────────────────────────────────────

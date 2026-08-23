@@ -4,8 +4,6 @@ using Microsoft.Maui.Devices;
 using Microsoft.Maui.ApplicationModel;
 using Plugin.Maui.MessagingCenter;
 using CustomViews.Structs;
-using Database.Enums;
-using Database.Models;
 using Microsoft.EntityFrameworkCore;
 using Plutus.Frontend.AppClient.Helpers.Extensions;
 using Plutus.Frontend.AppClient.Helpers.Security;
@@ -89,7 +87,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
         Command _quantityDownCommand;
         public Command QuantityDownCommand => _quantityDownCommand ??= new Command(() => Quantity -= 1);
-        public ObservableCollection<SavedTransactionModel> StoredTransactions { get; } = new ObservableCollection<SavedTransactionModel>();
+        public ObservableCollection<Models.ParkedBasketRef> StoredTransactions { get; } = new ObservableCollection<Models.ParkedBasketRef>();
 
         /// <summary>
         /// Is there anything parked to retrieve? Drives the **Retrieve** button's enabled state.
@@ -172,7 +170,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
         /// <inheritdoc cref="SaleExTax"/>
         public decimal SaleIncTax => Services.Storage.CheckoutCommit.BasketMoneyPence(Basket) / 100m;
-        public ObservableCollection<DiscountModel> Alterations { get; } = new ObservableCollection<DiscountModel>();
+        public ObservableCollection<Models.TillDiscount> Alterations { get; } = new ObservableCollection<Models.TillDiscount>();
         public ObservableCollection<string> AlterationNames
         {
             get
@@ -284,7 +282,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     MainThread.BeginInvokeOnMainThread(() =>
                     {
                         foreach (var basket in parked)
-                            StoredTransactions.Add(new SavedTransactionModel
+                            StoredTransactions.Add(new Models.ParkedBasketRef
                             {
                                 Id = basket.Id.ToString("D"),
                                 Name = basket.Name,
@@ -2069,7 +2067,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 Alterations.Clear();
 
                 Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Transaction Alteration (Discounts)");
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
                 // ⚠ `App.GetViewModel().EmployeeId` used to be passed here and it CRASHED THE APP on
                 // a portal-provisioned till: the property threw on an empty legacy roster, out of a
@@ -2247,7 +2244,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                         if (alteration.Type == 0)
                         {
                             var alterationAmount = Math.Abs(Math.Round(Decimal.Parse(alterationAmounts.First()), 2, MidpointRounding.AwayFromZero)) * -1;
-                            adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {item.Name} {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount, alterationAmount);
+                            adjustment = new BasketAlteration(($"{alteration.Name}, {item.Name} {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount, alterationAmount);
 
                         }
                         else
@@ -2266,7 +2263,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                                 incOff / -100m,
                                 exOff / -100m);
 
-                            adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {item.Name} {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount.Item1, alterationAmount.Item2);
+                            adjustment = new BasketAlteration(($"{alteration.Name}, {item.Name} {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, item, alterationAmount.Item1, alterationAmount.Item2);
                         }
                         pending.Add(adjustment);
                     }
@@ -2276,7 +2273,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     if (alteration.Type == 0)
                     {
                         var alterationAmount = Math.Abs(Math.Round(Decimal.Parse(alterationAmounts.First()) * applyAlterationsToBasketItems.Count(), 2, MidpointRounding.AwayFromZero)) * -1;
-                        adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, applyAlterationsToBasketItems, alterationAmount, alterationAmount);
+                        adjustment = new BasketAlteration(($"{alteration.Name}, {alterationAmount.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, applyAlterationsToBasketItems, alterationAmount, alterationAmount);
                     }
                     else
                     {
@@ -2290,7 +2287,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                             Plutus.SharedKernel.LineDiscounts.Percentage(incTotal, 1, fraction, isReturn: false) / -100m,
                             Plutus.SharedKernel.LineDiscounts.Percentage(exTotal, 1, fraction, isReturn: false) / -100m);
 
-                        adjustment = new BasketAlteration(new NoteModel($"{alteration.Name}, {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, applyAlterationsToBasketItems, alterationAmount.Item1, alterationAmount.Item2);
+                        adjustment = new BasketAlteration(($"{alteration.Name}, {alterationAmount.Item1.ToString("C2", CultureInfo.CurrentCulture)}"), alteration, applyAlterationsToBasketItems, alterationAmount.Item1, alterationAmount.Item2);
                     }
                     pending.Add(adjustment);
                 }
@@ -2468,7 +2465,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     return;
                 }
 
-                StoredTransactions.Add(new SavedTransactionModel { Id = parkId.ToString("D"), Name = transName });
+                StoredTransactions.Add(new Models.ParkedBasketRef { Id = parkId.ToString("D"), Name = transName });
                 Basket.Clear();
 
                 // ⚠ THE SELECTION GOES WITH THE LINES. A dangling selection is what stopped a
@@ -2506,7 +2503,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     return;
                 }
 
-                SavedTransactionModel storedTransaction;
+                Models.ParkedBasketRef storedTransaction;
                 if (StoredTransactions.Count > 1)
                 {
                     var baskets = new string[StoredTransactions.Count];
@@ -2616,11 +2613,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // left of this legacy model on the checkout path is `Total` (the tender loop and
                 // the confirm dialog) and `PaySales` (tenders, drawer, receipt method names); both
                 // go with L6.
-                var sale = new SaleModel
+                var sale = new Models.CheckoutSale
                 {
                     DateOfSale = DateTime.Now,
                     Total = 0.0m,
-                    PaySales = new List<PaymentMethod_SaleModel>(),
+                    PaySales = new List<Models.TakenPayment>(),
                 };
 
                 var change = 0.0m;
@@ -2649,7 +2646,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                     ? await OriginTenderCapacitiesAsync()
                     : Array.Empty<SharedKernel.TenderCapacity>();
 
-                Enum.TryParse(DatabaseProviderSetting, out DatabaseProvider databaseProvider);
 
                 // ⚠ ONE SUM, IN PENCE — see `SaleIncTax`. `sale.Total` feeds the checkout screen's
                 // heading and the confirm dialog, and `CheckoutCommit` reconciles the payload against
@@ -2713,7 +2709,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
 
                 foreach (var taken in tender.Payments)
                 {
-                    sale.PaySales.Add(new PaymentMethod_SaleModel
+                    sale.PaySales.Add(new Models.TakenPayment
                     {
                         // ⚠ A FRESH MODEL PER PAYMENT IS NOW CORRECT (2026-08-19). This used to consult
                         // a `chosenMethods` cache so two payments on ONE method shared an instance —
@@ -2881,7 +2877,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         #endregion
 
         #region Operations
-        private async void FinaliseTransation(SaleModel sale, decimal change)
+        private async void FinaliseTransation(Models.CheckoutSale sale, decimal change)
         {
             {
                 var itemHasNoStock = false;
@@ -3352,8 +3348,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// so this is the same close-then-reopen dance `CustomerDetailHelper` documents.
         /// </summary>
         private async Task<Plutus.Client.Core.TenderOutcome> TakeTendersOnOneScreenAsync(
-            SaleModel sale,
-            Dictionary<string, Func<PaymentMethodModel>> payMeths,
+            Models.CheckoutSale sale,
+            Dictionary<string, Func<Models.TenderOption>> payMeths,
             IReadOnlyList<SharedKernel.TenderCapacity> refundCaps,
             bool refundOnly)
         {
@@ -3515,7 +3511,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
         /// operator can see it appear, so it has to be able to disappear.
         /// </summary>
         private async Task<Helpers.CustomViews.CheckoutHelper.Result> ShowCheckoutAsync(
-            SaleModel sale,
+            Models.CheckoutSale sale,
             IReadOnlyList<Views.CustomViews.CheckoutAlert.Row> rows,
             bool refundOnly,
             int surchargeBp,
@@ -3598,7 +3594,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
             return await Helpers.CustomViews.CheckoutHelper.ShowAsync(body);
         }
 
-        private Dictionary<string, Func<PaymentMethodModel>> GenPaymentMethodActions(
+        private Dictionary<string, Func<Models.TenderOption>> GenPaymentMethodActions(
             IReadOnlyCollection<byte> refundToTenderTypes = null)
         {
             var refundOnly = !Basket.Any(bR => bR is BasketItem && !bR.IsReturn);
@@ -3610,9 +3606,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 : Services.Sales.TillTenders.Offered(false, CreditAvailablePence, GiftCardAvailablePence);
 
             return offered.ToDictionary<
-                Services.Sales.TillTender, string, Func<PaymentMethodModel>>(
+                Services.Sales.TillTender, string, Func<Models.TenderOption>>(
                 t => t.Name,
-                t => () => new PaymentMethodModel
+                t => () => new Models.TenderOption
                 {
                     Name = t.Name,
                     IsChangeable = t.GivesChange,

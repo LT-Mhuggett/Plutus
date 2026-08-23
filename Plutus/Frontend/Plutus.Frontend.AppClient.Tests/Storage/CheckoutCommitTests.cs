@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Database.Models;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.Services.Storage;
 using Plutus.SharedKernel;
@@ -35,9 +34,9 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         /// </summary>
         private static BasketAlteration Alteration(decimal price, BasketItem applsTo) =>
             applsTo is null
-                ? new BasketAlteration(new NoteModel { Note = "Discount" }, new DiscountModel(),
+                ? new BasketAlteration("Discount", new Plutus.Frontend.AppClient.Models.TillDiscount(),
                     Array.Empty<BasketItem>(), price, price)
-                : new BasketAlteration(new NoteModel { Note = "Discount" }, new DiscountModel(),
+                : new BasketAlteration("Discount", new Plutus.Frontend.AppClient.Models.TillDiscount(),
                     applsTo, price, price);
 
         [Fact]
@@ -119,7 +118,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             var basket = new List<IBasketRecord>
             {
                 Item("A", 10m, 8.33m),
-                new BasketNote(new NoteModel { Note = "gift wrap" }),
+                new BasketNote("gift wrap"),
             };
 
             var line = Assert.Single(CheckoutCommit.LinesFrom(basket));
@@ -516,7 +515,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             var notes = CheckoutCommit.ReceiptNotesFrom(new List<IBasketRecord>
             {
                 item,
-                new BasketNote(new NoteModel { Note = "gift wrap" }),
+                new BasketNote("gift wrap"),
                 Attributed(-2m, item, "damaged box"),
             });
 
@@ -575,9 +574,9 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         {
             Assert.Empty(CheckoutCommit.ReceiptNotesFrom(new List<IBasketRecord>
             {
-                new BasketNote(new NoteModel { Note = "   " }),
-                new BasketNote(new NoteModel { Note = "" }),
-                new BasketNote(new NoteModel { Note = null }),
+                new BasketNote("   "),
+                new BasketNote(""),
+                new BasketNote(null),
             }));
         }
 

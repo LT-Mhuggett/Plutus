@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Database.Models;
 using Plutus.Frontend.AppClient.Models;
 using Plutus.Frontend.AppClient.Services.Storage;
 using Plutus.SharedKernel;
@@ -65,7 +64,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
         }
 
         private static BasketAlteration ManualDiscount(decimal price, BasketItem on) =>
-            new(new NoteModel { Note = "Manual" }, new DiscountModel { Id = 7 }, on, price, price);
+            new("Manual", new Plutus.Frontend.AppClient.Models.TillDiscount { Id = 7 }, on, price, price);
 
         private static ScheduledDiscount Rule(
             decimal fraction = 0.10m, int id = 41, Guid? cat = null, byte? days = Wednesdays) =>
@@ -89,7 +88,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
 
             Assert.NotNull(alteration);
             Assert.Equal(-1m, alteration.Price);          // £1.00 off £10.00
-            Assert.Equal("Gold 10%", alteration.Note.Note);
+            Assert.Equal("Gold 10%", alteration.Note);
         }
 
         /// <summary>
@@ -179,7 +178,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
             var basket = new List<IBasketRecord>
             {
                 Item("A", 10m, 10m),
-                new BasketAlteration(new NoteModel { Note = "5 off" }, new DiscountModel { Id = 7 },
+                new BasketAlteration("5 off", new Plutus.Frontend.AppClient.Models.TillDiscount { Id = 7 },
                     Array.Empty<BasketItem>(), -5m, -5m),
             };
 
@@ -287,7 +286,7 @@ namespace Plutus.Frontend.AppClient.Tests.Storage
 
             var onWed = AutoDiscountBasket.Build(basket, MemberStanding.None, new[] { Rule() }, Wed, Cashier);
             Assert.Equal(-1m, Assert.Single(onWed).Price);
-            Assert.Equal("Wednesday Warhammer", Assert.Single(onWed).Note.Note);
+            Assert.Equal("Wednesday Warhammer", Assert.Single(onWed).Note);
 
             Assert.Empty(AutoDiscountBasket.Build(basket, MemberStanding.None, new[] { Rule() }, Thu, Cashier));
         }

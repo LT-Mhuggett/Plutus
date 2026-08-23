@@ -1,4 +1,3 @@
-using Database.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,8 +15,7 @@ namespace Plutus.Frontend.AppClient.ViewModels
     public class AppViewModel : BaseViewModel
     {
         #region Private Fields
-        private IList<EmployeeModel> _employees;
-        private StoreModel _store;
+        private Models.StoreDetails _store;
         private bool _toolbarItemsChanged;
 
         #region Loading
@@ -28,7 +26,7 @@ namespace Plutus.Frontend.AppClient.ViewModels
         #region Properties
         public Guid SessionId { get; }
 
-        internal StoreModel Store
+        internal Models.StoreDetails Store
         {
             get => _store;
             set { SetProperty(ref _store, value); }
@@ -89,7 +87,6 @@ namespace Plutus.Frontend.AppClient.ViewModels
 
         public AppViewModel()
         {
-            _employees = new List<EmployeeModel>();
             SessionId = Guid.NewGuid();
         }
     }
