@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchTenants, provisionTenant, type ProvisionedTenant, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
+  fetchTenants, provisionTenant, type ProvisionedTenant, fetchUsageSummary, fetchHealth,
+  fetchApplications, approveApplication, rejectApplication, resendApplicationVerify, type TenantApplicationRow,
+  fetchDpaDocuments, saveDpaDraft, publishDpa, type DpaDocumentRow, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
   fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
   fetchAnnouncements, createAnnouncement, deleteAnnouncement, fetchSla,
   fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics, fetchConnectors, setCompliance,
@@ -107,7 +109,7 @@ function Sparkline({ values, w = 120, h = 26 }: { values: number[]; w?: number; 
 }
 
 export default function PlatformPage() {
-  const [screen, setScreen] = useState<"Subscribers" | "Tickets" | "Health" | "Quarantine" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
+  const [screen, setScreen] = useState<"Subscribers" | "Applications" | "DPA" | "Tickets" | "Health" | "Quarantine" | "Jobs" | "Flags" | "Comms" | "Commercial" | "Analytics" | "Notifications" | "Billing" | "Plans">("Subscribers");
   return (
     <section className="panel">
       {/* ⚠⚠ THE SCREEN SWITCHER IS ITS OWN ROW (2026-08-21). Matt, of the health dashboard: *"Which
@@ -121,13 +123,17 @@ export default function PlatformPage() {
           within one screen: the same thing should look the same wherever it appears. */}
       <div className="toolbar"><h2 className="grow">Platform</h2></div>
       <nav className="tabs platform-tabs">
-        {(["Subscribers", "Tickets", "Plans", "Health", "Quarantine", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
+        {(["Subscribers", "Applications", "DPA", "Tickets", "Plans", "Health", "Quarantine", "Jobs", "Flags", "Comms", "Commercial", "Analytics", "Notifications", "Billing"] as const).map((s) => (
           <button key={s} className={s === screen ? "tab active" : "tab"} onClick={() => setScreen(s)}>{s}</button>
         ))}
       </nav>
       {screen === "Tickets" && <TicketsScreen />}
       {screen === "Plans" && <PlansScreen />}
       {screen === "Subscribers" && <TenantsScreen />}
+      {/* WP-SIGNUP: the application queue, and the versioned agreement that gates it. Placed next
+          to Subscribers because that is what an application becomes. */}
+      {screen === "Applications" && <ApplicationsScreen />}
+      {screen === "DPA" && <DpaScreen />}
       {screen === "Health" && <HealthScreen />}
       {screen === "Quarantine" && <QuarantineScreen />}
       {screen === "Jobs" && <JobsScreen />}
@@ -1058,6 +1064,384 @@ function NewTenantResult({ result, onClose }: { result: ProvisionedTenant; onClo
           <button type="button" className="primary" onClick={onClose}>Done</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * WP-SIGNUP §6 — the application queue.
+ *
+ * ⚠⚠ THIS SCREEN IS THE BACKSTOP FOR EVERY OTHER ABUSE CONTROL. The rate limit, the
+ * disposable-domain list and email verification each stop a category of junk; none of them stops a
+ * plausible-looking application that should not be accepted. "No self-serve tenant goes live unseen."
+ *
+ * ⚠ Modelled on Quarantine: a list, a reason, an action, and a note recorded against whoever took it.
+ */
+function ApplicationsScreen() {
+  const [rows, setRows] = useState<TenantApplicationRow[]>([]);
+  const [filter, setFilter] = useState<string>("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [approving, setApproving] = useState<TenantApplicationRow | null>(null);
+  const [rejecting, setRejecting] = useState<TenantApplicationRow | null>(null);
+
+  const refresh = () =>
+    fetchApplications(filter || undefined)
+      .then((r) => { setRows(r); setError(""); })
+      .catch((e) => setError(String(e instanceof Error ? e.message : e)));
+  useEffect(() => { void refresh(); }, [filter]);
+
+  const act = async (id: string, fn: () => Promise<unknown>) => {
+    setBusy(id); setError("");
+    try { await fn(); await refresh(); }
+    catch (e) { setError(String(e instanceof Error ? e.message : e)); }
+    finally { setBusy(null); }
+  };
+
+  const pending = rows.filter((r) => r.status !== "Provisioned" && r.status !== "Rejected").length;
+
+  return (
+    <>
+      {error && <p className="error">{error}</p>}
+
+      <div className="stat-row">
+        <div className="stat">
+          <span className="stat-label">Awaiting a decision</span>
+          <span className="stat-value">{pending}</span>
+        </div>
+      </div>
+
+      <div className="toolbar">
+        <label>Status{" "}
+          <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <option value="">all</option>
+            <option value="Pending">Pending — email not confirmed</option>
+            <option value="EmailVerified">EmailVerified</option>
+            <option value="Provisioned">Provisioned</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+        </label>
+        <span className="grow" />
+        <button className="ghost small" onClick={() => void refresh()}>Refresh</button>
+      </div>
+
+      <DataTable<TenantApplicationRow>
+        rows={rows}
+        getKey={(r: TenantApplicationRow) => r.id}
+        emptyText="No applications."
+        columns={[
+          { key: "businessName", label: "Business", render: (r) => <strong>{r.businessName}</strong> },
+          {
+            key: "contactEmail", label: "Contact",
+            render: (r) => (<>{r.contactName}<br /><span className="muted small">{r.contactEmail}</span></>),
+          },
+          {
+            key: "emailVerified", label: "Email",
+            // ⚠ An unverified application is INERT — it cannot be approved by any route.
+            render: (r) => r.emailVerified
+              ? <span title={r.emailVerifiedAtUtc ?? ""}>✅ confirmed</span>
+              : <span className="muted">⏳ not confirmed</span>,
+          },
+          {
+            key: "dpaVersionAccepted", label: "DPA",
+            // ⚠⚠ THE COLUMN MATT ASKED FOR. It says the CLIENT accepted, with which version and when
+            // — not that somebody ticked a box on their behalf.
+            render: (r) => r.dpaVersionAccepted
+              ? <span title={`${r.dpaAcceptedByEmail ?? ""} · ${r.dpaAcceptedAtUtc ?? ""}`}>✅ {r.dpaVersionAccepted}</span>
+              : <span className="muted">—</span>,
+          },
+          { key: "createdAtUtc", label: "Applied", render: (r) => <span title={r.createdFromIp}>{apiDateTime(r.createdAtUtc)}</span> },
+          { key: "status", label: "Status" },
+          {
+            key: "id", label: "", sortable: false,
+            render: (r) => r.provisionedTenantId
+              ? <span className="muted small">tenant {short(r.provisionedTenantId)}</span>
+              : r.status === "Rejected"
+                ? <span className="muted small" title={r.rejectedReason ?? ""}>rejected</span>
+                : (
+                  <span className="row-actions">
+                    {!r.emailVerified && (
+                      <button className="ghost small" disabled={busy === r.id}
+                              onClick={() => void act(r.id, () => resendApplicationVerify(r.id))}>Resend</button>
+                    )}
+                    <button className="primary small" disabled={busy === r.id || !r.emailVerified || !r.dpaVersionAccepted}
+                            title={!r.emailVerified ? "The email address has not been confirmed."
+                                 : !r.dpaVersionAccepted ? "The applicant has not accepted the DPA."
+                                 : "Provision a sandbox tenant"}
+                            onClick={() => setApproving(r)}>Approve…</button>
+                    <button className="ghost small" disabled={busy === r.id}
+                            onClick={() => setRejecting(r)}>Reject…</button>
+                  </span>
+                ),
+          },
+        ]}
+      />
+
+      {approving && <ApproveDialog row={approving} onClose={() => setApproving(null)}
+        onDone={() => { setApproving(null); void refresh(); }} />}
+      {rejecting && <RejectDialog row={rejecting} onClose={() => setRejecting(null)}
+        onDone={() => { setRejecting(null); void refresh(); }} />}
+    </>
+  );
+}
+
+function ApproveDialog({ row, onClose, onDone }: { row: TenantApplicationRow; onClose: () => void; onDone: () => void }) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, busy]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try { await approveApplication(row.id, password); onDone(); }
+    catch (err) { setError(String(err instanceof Error ? err.message : err)); setBusy(false); }
+  };
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <form className="dialog" onSubmit={submit}>
+        <div className="toolbar">
+          <h3 className="grow">Approve {row.businessName}</h3>
+          <button type="button" className="ghost small" onClick={onClose} disabled={busy} aria-label="Close">✕</button>
+        </div>
+
+        <dl className="env-info">
+          <dt>Contact</dt><dd>{row.contactName} · {row.contactEmail}</dd>
+          <dt>Email confirmed</dt><dd>{row.emailVerified ? "yes" : "no"}</dd>
+          <dt>DPA accepted</dt><dd>{row.dpaVersionAccepted ?? "—"} {row.dpaAcceptedAtUtc && `· ${apiDateTime(row.dpaAcceptedAtUtc)}`}</dd>
+          <dt>Applied from</dt><dd><code>{row.createdFromIp}</code></dd>
+        </dl>
+
+        {/* ⚠⚠ SANDBOX IS NOT AN OPTION HERE, AND THAT IS DELIBERATE. A self-serve tenant that starts
+            live is one taking real money before anyone has looked at it. Promotion out of sandbox is
+            a separate, later operator action on the Subscribers screen. */}
+        <p className="muted small">
+          Creates a <strong>sandbox</strong> tenant with {row.contactEmail} as its Owner. Sandbox
+          tenants are excluded from MRR and every commercial report; promote it from Subscribers when
+          the shop is real.
+        </p>
+
+        <div className="form-grid">
+          <label>Initial admin password
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                   required minLength={8} disabled={busy} autoComplete="new-password" />
+          </label>
+        </div>
+        <p className="muted small">
+          ⚠ They sign in with this and should change it immediately. It cannot be read back.
+        </p>
+
+        {error && <p className="error small">{error}</p>}
+        <div className="dialog-actions">
+          <button type="button" className="ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="submit" className="primary" disabled={busy || password.length < 8}>
+            {busy ? "Provisioning…" : "Approve & provision"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function RejectDialog({ row, onClose, onDone }: { row: TenantApplicationRow; onClose: () => void; onDone: () => void }) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, busy]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try { await rejectApplication(row.id, reason.trim()); onDone(); }
+    catch (err) { setError(String(err instanceof Error ? err.message : err)); setBusy(false); }
+  };
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <form className="dialog" onSubmit={submit}>
+        <div className="toolbar">
+          <h3 className="grow">Reject {row.businessName}</h3>
+          <button type="button" className="ghost small" onClick={onClose} disabled={busy} aria-label="Close">✕</button>
+        </div>
+        {/* ⚠ The reason is EMAILED to the applicant — it is written for them, not as an internal note. */}
+        <label>Reason (emailed to {row.contactEmail})
+          <textarea rows={4} value={reason} onChange={(e) => setReason(e.target.value)} required disabled={busy} />
+        </label>
+        <p className="muted small">
+          The application is kept so the decision stays explainable, but the business name is released
+          for somebody else to claim.
+        </p>
+        {error && <p className="error small">{error}</p>}
+        <div className="dialog-actions">
+          <button type="button" className="ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="submit" className="danger" disabled={busy || !reason.trim()}>
+            {busy ? "Rejecting…" : "Reject & email"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * WP-SIGNUP §4 — the DPA documents.
+ *
+ * ⚠⚠ THE TEXT LIVES HERE, NOT IN THE CODE. A legal instrument gets revised; each revision needs its
+ * own acceptance records, and a solicitor's wording must be publishable without a redeploy.
+ *
+ * ⚠ Publishing re-raises "dpa-missing" for every tenant that has not accepted THAT version — a
+ * re-issued DPA silently treated as already agreed is worse than never having asked.
+ */
+function DpaScreen() {
+  const [docs, setDocs] = useState<DpaDocumentRow[]>([]);
+  const [editing, setEditing] = useState<DpaDocumentRow | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const refresh = () =>
+    fetchDpaDocuments().then((d) => { setDocs(d); setError(""); })
+      .catch((e) => setError(String(e instanceof Error ? e.message : e)));
+  useEffect(() => { void refresh(); }, []);
+
+  const doPublish = async (version: string) => {
+    if (!confirm(
+      `Publish ${version} as the current agreement?\n\n` +
+      "Every tenant that has not accepted THIS version will be flagged as missing a DPA, " +
+      "including ones that accepted an earlier version. That is intended.")) return;
+    setBusy(true); setError("");
+    try { await publishDpa(version); await refresh(); }
+    catch (e) { setError(String(e instanceof Error ? e.message : e)); }
+    finally { setBusy(false); }
+  };
+
+  const current = docs.find((d) => d.isCurrent && d.publishedAtUtc);
+
+  return (
+    <>
+      {error && <p className="error">{error}</p>}
+
+      {!current && (
+        <p className="warn">
+          ⚠⚠ <strong>No agreement is published, so self-serve signup cannot complete.</strong> This is
+          deliberate rather than a fault: recording acceptance of unfinished wording would be evidence
+          that a client agreed to something nobody wrote. Publish a version to open signup.
+        </p>
+      )}
+
+      <div className="toolbar">
+        <span className="grow" />
+        <button className="primary" onClick={() => setEditing({ version: "", title: "", bodyMarkdown: "", publishedAtUtc: null, isCurrent: false })}>
+          New version…
+        </button>
+      </div>
+
+      <DataTable<DpaDocumentRow>
+        rows={docs}
+        getKey={(d: DpaDocumentRow) => d.version}
+        emptyText="No agreement documents."
+        columns={[
+          { key: "version", label: "Version", render: (d) => <strong>{d.version}</strong> },
+          { key: "title", label: "Title" },
+          {
+            key: "publishedAtUtc", label: "State",
+            render: (d) => d.publishedAtUtc
+              ? <>published {apiDateTime(d.publishedAtUtc)} {d.isCurrent && <strong> · CURRENT</strong>}</>
+              : <span className="warn">DRAFT — cannot be accepted</span>,
+          },
+          {
+            key: "bodyMarkdown", label: "", sortable: false,
+            render: (d) => (
+              <span className="row-actions">
+                <button className="ghost small" onClick={() => setEditing(d)}>
+                  {d.publishedAtUtc ? "View" : "Edit…"}
+                </button>
+                {!d.publishedAtUtc && (
+                  <button className="primary small" disabled={busy} onClick={() => void doPublish(d.version)}>Publish…</button>
+                )}
+              </span>
+            ),
+          },
+        ]}
+      />
+
+      {editing && <DpaEditor doc={editing} onClose={() => setEditing(null)}
+        onDone={() => { setEditing(null); void refresh(); }} />}
+    </>
+  );
+}
+
+function DpaEditor({ doc, onClose, onDone }: { doc: DpaDocumentRow; onClose: () => void; onDone: () => void }) {
+  const readOnly = !!doc.publishedAtUtc;   // ⚠ a published version is immutable: it is evidence
+  const [version, setVersion] = useState(doc.version);
+  const [title, setTitle] = useState(doc.title);
+  const [body, setBody] = useState(doc.bodyMarkdown);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, busy]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try { await saveDpaDraft(version.trim(), { title: title.trim(), bodyMarkdown: body }); onDone(); }
+    catch (err) { setError(String(err instanceof Error ? err.message : err)); setBusy(false); }
+  };
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <form className="dialog wide" onSubmit={submit}>
+        <div className="toolbar">
+          <h3 className="grow">{readOnly ? `Agreement ${doc.version}` : doc.version ? `Edit ${doc.version}` : "New agreement version"}</h3>
+          <button type="button" className="ghost small" onClick={onClose} disabled={busy} aria-label="Close">✕</button>
+        </div>
+
+        {readOnly && (
+          <p className="muted small">
+            Published {apiDateTime(doc.publishedAtUtc!)} and therefore read-only — editing text a
+            client has accepted would rewrite the evidence. To change the wording, create a new version.
+          </p>
+        )}
+
+        <div className="form-grid">
+          <label>Version
+            <input value={version} onChange={(e) => setVersion(e.target.value)} required disabled={busy || readOnly}
+                   placeholder="2026-01" />
+          </label>
+          <label>Title
+            <input value={title} onChange={(e) => setTitle(e.target.value)} required disabled={busy || readOnly} />
+          </label>
+        </div>
+
+        <label>Agreement text (markdown)
+          <textarea rows={22} className="mono" value={body} onChange={(e) => setBody(e.target.value)}
+                    required disabled={busy || readOnly} />
+        </label>
+
+        {error && <p className="error small">{error}</p>}
+        <div className="dialog-actions">
+          <button type="button" className="ghost" onClick={onClose} disabled={busy}>{readOnly ? "Close" : "Cancel"}</button>
+          {!readOnly && (
+            <button type="submit" className="primary" disabled={busy || !version.trim() || !title.trim() || !body.trim()}>
+              {busy ? "Saving…" : "Save draft"}
+            </button>
+          )}
+        </div>
+      </form>
     </div>
   );
 }

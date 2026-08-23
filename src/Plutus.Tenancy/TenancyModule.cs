@@ -53,6 +53,34 @@ namespace Plutus.Tenancy
                 return new ProvisioningService(ctx, sp.GetRequiredService<ITenantRoleProvisioner>());
             });
 
+            // ── WP-SIGNUP: self-serve tenancy and the DPA that gates it ──────────────────────────
+            // ⚠ The disposable-domain list is a SINGLETON built from config, so it can be replaced
+            // by setting SIGNUP_DISPOSABLE_DOMAINS without a code change — the plan requires the
+            // list be config rather than code, because it is wrong the day after it ships.
+            services.AddSingleton<IDisposableEmailDomains>(
+                _ => new DisposableEmailDomains(configuration["SIGNUP_DISPOSABLE_DOMAINS"]));
+
+            services.AddScoped(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "Signup requires the MySqlDbContext (server build), not the SQLite dev context.");
+                return new TenantApplicationService(ctx, sp.GetRequiredService<IDisposableEmailDomains>());
+            });
+
+            services.AddScoped(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "The DPA service requires the MySqlDbContext (server build), not the SQLite dev context.");
+                return new DpaService(ctx);
+            });
+
+            // Seeds Matt's DPA as an UNPUBLISHED draft on first boot, once. Never fatal — a
+            // seeder that can stop the backend booting takes every till offline over a document
+            // nobody can accept yet.
+            services.AddHostedService<DpaSeedHostedService>();
+
             // Phase 10: entitlements, billing seam, tenant lifecycle, retention sweeper.
             services.AddScoped<TenantLifecycleService>(sp => new TenantLifecycleService(sp.GetRequiredService<MySqlDbContext>()));
             services.AddScoped<IEntitlementService>(sp => new EntitlementService(sp.GetRequiredService<MySqlDbContext>()));

@@ -35,6 +35,7 @@ public class AnonymousEndpointTests
         ["TokensController"] = "Device-token exchange — a till presents its enrolment secret, which IS the credential. Rate-limited 5/min per IP.",
         ["PasswordResetController"] = "Reset request/complete: by definition reachable by someone who cannot sign in. Class-level [AllowAnonymous] + rate limit.",
         ["WebstoreWebhookController"] = "Inbound Woo webhook, authenticated by signature over the raw body rather than by a bearer token.",
+        ["SignupController"] = "WP-SIGNUP's front door. Every action must work before a credential exists, by definition — apply, verify the email, read the DPA, accept it. ⚠⚠ NONE OF THEM CREATES A TENANT: a signup writes ONE TenantApplication row and provisioning is a separate operator decision, which is the whole reason this is safe to expose. Rate-limited on the 'enrol' policy (per-IP fixed window), plus a per-application cap on verification sends because the IP limiter cannot see one address being mail-bombed from many IPs. ⚠ Apply answers identically whether the business name is free or taken, so it is not an oracle for who is a Plutus customer.",
         ["PingController"] = "WP16a reachability. Anonymous ON PURPOSE and touches no database: a till that is un-enrolled or revoked still needs to learn whether the server is there.",
     };
 

@@ -139,6 +139,14 @@ namespace Plutus.Entities
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
         // WP5.3 cross-channel identity (webstore ⇄ loyalty link by email).
         public DbSet<CustomerExternalRef> CustomerExternalRefs { get; set; }
+        // WP-SIGNUP: self-serve tenancy and the DPA that gates it. ⚠ ALL THREE ARE GLOBAL /
+        // UNSCOPED, and deliberately — the precedent is EnrolmentCode/Device. An application exists
+        // BEFORE any tenant does, so there is nothing to scope it to; the DPA documents are
+        // platform-wide; and acceptances are read across every tenant by the operator console and
+        // the compliance sweep. TenantId on DpaAcceptance is carried as DATA, not as a filter.
+        public DbSet<TenantApplication> TenantApplications { get; set; }
+        public DbSet<DpaDocument> DpaDocuments { get; set; }
+        public DbSet<DpaAcceptance> DpaAcceptances { get; set; }
         #endregion
 
         /// <summary>The tenant scoping every query and write is bound to. Referenced by the
@@ -1034,6 +1042,38 @@ namespace Plutus.Entities
             modelBuilder.Entity<Item>()
                 .HasIndex("TenantId", nameof(Item.ModifiedAt), nameof(Item.IdOne))
                 .HasDatabaseName("IX_Items_Tenant_Modified_IdOne");
+
+            // ── WP-SIGNUP ──────────────────────────────────────────────────────────────────────
+            modelBuilder.Entity<TenantApplication>(e =>
+            {
+                // ⚠⚠ THE NAME RESERVATION IS THIS UNIQUE INDEX, not a check in code. Two applicants
+                // racing for one business name is a real scenario (a chain, a rebrand, a squatter),
+                // and resolving it in application code means resolving it wrongly under concurrency.
+                // ⚠ A REJECTED application must not hold a name for ever, so the reservation is
+                // released by DELETING the row — see TenantApplicationService.RejectAsync.
+                e.HasIndex(x => x.BusinessNameFolded).IsUnique().HasDatabaseName("UX_TenantApplications_NameFolded");
+                // The per-email duplicate check and the operator queue's search.
+                e.HasIndex(x => x.ContactEmailFolded).HasDatabaseName("IX_TenantApplications_EmailFolded");
+                // ⚠ The verify endpoint looks up BY HASH — anonymous, with no id — so this is the
+                // difference between a lookup and a full scan on the front door of the platform.
+                e.HasIndex(x => x.EmailVerifyTokenHash).HasDatabaseName("IX_TenantApplications_VerifyHash");
+                e.HasIndex(x => new { x.Status, x.CreatedAtUtc }).HasDatabaseName("IX_TenantApplications_Status_Created");
+            });
+
+            modelBuilder.Entity<DpaDocument>(e =>
+            {
+                e.HasIndex(x => x.Version).IsUnique().HasDatabaseName("UX_DpaDocuments_Version");
+                // ⚠ Serving "the current DPA" happens on an anonymous signup page; it must not scan.
+                e.HasIndex(x => x.IsCurrent).HasDatabaseName("IX_DpaDocuments_IsCurrent");
+            });
+
+            modelBuilder.Entity<DpaAcceptance>(e =>
+            {
+                // ⚠⚠ ONE ACCEPTANCE PER TENANT PER VERSION. Without this a double-clicked Accept
+                // writes two evidence rows for one act, and "how many times did they agree?" is not
+                // a question a compliance record should be able to answer ambiguously.
+                e.HasIndex(x => new { x.TenantId, x.Version }).IsUnique().HasDatabaseName("UX_DpaAcceptances_Tenant_Version");
+            });
 
             ApplyTenantQueryFilters(modelBuilder);
         }

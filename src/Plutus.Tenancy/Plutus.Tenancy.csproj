@@ -11,6 +11,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- WP-SIGNUP: Matt's DPA, shipped as an UNPUBLISHED DRAFT and seeded on first boot so it is
+         reviewable in Platform without a redeploy. See DpaSeeder for why it must stay a draft. -->
+    <EmbeddedResource Include="Resources\dpa-draft.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Plutus.SharedKernel\Plutus.SharedKernel.csproj" />
     <!-- WP1.2: provisioning/enrolment reach the server-only tenancy tables on MySqlDbContext.
          Plutus.Entities is a legacy Commons library (allowed by the module-boundary rule). -->

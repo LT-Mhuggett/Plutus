@@ -1328,3 +1328,49 @@ export const putCarrierBag = (pricePence: number, name: string) =>
 /** ⚠ Withdraws it from sale (binned, never deleted) — it is on historical receipts. */
 export const withdrawCarrierBag = (pricePence: number) =>
   del<void>(`/api/v1/carrier-bags/${pricePence}`);
+
+// ── WP-SIGNUP: the application queue and the versioned DPA (all platform-admin) ──────────────────
+// ⚠ The applications list is the BACKSTOP for every other abuse control. Rate limits, the
+// disposable-domain list and email verification each stop a category of junk; none of them stops a
+// plausible-looking application that should not be accepted. No self-serve tenant goes live unseen.
+export interface TenantApplicationRow {
+  id: string; businessName: string; contactName: string; contactEmail: string; phone: string;
+  requestedRegion: string; status: string; emailVerified: boolean; emailVerifiedAtUtc: string | null;
+  dpaVersionAccepted: string | null; dpaAcceptedAtUtc: string | null; dpaAcceptedByEmail: string | null;
+  createdAtUtc: string; createdFromIp: string; provisionedTenantId: string | null;
+  decidedAtUtc: string | null; decidedBy: string | null; rejectedReason: string | null;
+}
+export const fetchApplications = (status?: string) =>
+  get<TenantApplicationRow[]>(`/api/v1/platform/applications${status ? `?status=${encodeURIComponent(status)}` : ""}`);
+export const approveApplication = (id: string, adminPassword: string) =>
+  post<{ tenantId: string; created: boolean; isSandbox: boolean }>(`/api/v1/platform/applications/${id}/approve`, { adminPassword });
+export const rejectApplication = (id: string, reason: string) =>
+  post<{ rejected: boolean }>(`/api/v1/platform/applications/${id}/reject`, { reason });
+export const resendApplicationVerify = (id: string) =>
+  post<{ sent: boolean }>(`/api/v1/platform/applications/${id}/resend`, {});
+
+// ⚠ The DPA text is DATA, not code: a legal instrument gets revised, each revision needs its own
+// acceptance records, and a solicitor's wording must be publishable without a redeploy.
+export interface DpaDocumentRow {
+  version: string; title: string; bodyMarkdown: string; publishedAtUtc: string | null; isCurrent: boolean;
+}
+export const fetchDpaDocuments = () => get<DpaDocumentRow[]>("/api/v1/platform/dpa");
+export const saveDpaDraft = (version: string, body: { title: string; bodyMarkdown: string; note?: string }) =>
+  put<void>(`/api/v1/platform/dpa/${encodeURIComponent(version)}`, body);
+export const publishDpa = (version: string) =>
+  post<{ version: string; publishedAtUtc: string; isCurrent: boolean }>(`/api/v1/platform/dpa/${encodeURIComponent(version)}/publish`, {});
+export const recordDpaManually = (tenantId: string, version: string, note: string) =>
+  post<{ recorded: boolean }>("/api/v1/platform/dpa/record-manual", { tenantId, version, note });
+
+// ── the CLIENT's own view of the DPA (Company tab; perm:portal.company.manage) ───────────────────
+export interface CompanyDpaView {
+  document: { version: string; title: string; body: string; publishedAtUtc: string } | null;
+  accepted: boolean; acceptedVersion: string | null; acceptedAtUtc: string | null;
+  acceptedByEmail: string | null;
+  /** ⚠ Non-null means an OPERATOR recorded it, not that the client accepted. Render differently. */
+  recordedByOperator: string | null;
+  currentVersion: string | null; currentAccepted: boolean;
+}
+export const fetchCompanyDpa = () => get<CompanyDpaView>("/api/v1/company/dpa");
+export const acceptCompanyDpa = (version: string) =>
+  post<{ accepted: boolean; version: string; acceptedAtUtc: string }>("/api/v1/company/dpa/accept", { version });

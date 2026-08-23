@@ -54,7 +54,7 @@ namespace Plutus.Tenancy
                 "Provisioning must be able to seed roles, or it creates tenants nobody can configure.");
         }
 
-        public async Task<ProvisionResult> ProvisionAsync(ProvisionRequest req, string actingUser)
+        public async Task<ProvisionResult> ProvisionAsync(ProvisionRequest req, string actingUser, System.Threading.CancellationToken ct = default)
         {
             if (req == null || string.IsNullOrWhiteSpace(req.Name) ||
                 string.IsNullOrWhiteSpace(req.AdminEmail) || string.IsNullOrWhiteSpace(req.AdminPassword))

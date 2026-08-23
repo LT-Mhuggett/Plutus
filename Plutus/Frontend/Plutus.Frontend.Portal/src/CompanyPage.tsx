@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import {
   fetchCompanies, updateCompany, fetchGatewayCatalogue, fetchGatewayConfig, setGatewayConfig,
   fetchMfaRequired, setMfaRequired,
+  fetchCompanyDpa, acceptCompanyDpa, type CompanyDpaView,
   type Company, type CommerceProviderInfo, type GatewayConfig,
 } from "./api.ts";
+import { apiDateTime } from "./apiTime.ts";
 import PeriodsPage from "./PeriodsPage.tsx";
 import CarrierBagsSection from "./CarrierBagsSection.tsx";
 import VatPeriodsSection from "./VatPeriodsSection.tsx";
@@ -38,6 +40,9 @@ export default function CompanyPage() {
       {/* ⚠ WP-FY (2026-08-21) — after the card surcharge and before Security, with the other
           money settings. These are facts HMRC knows the business by, not per-store config. */}
       <VatPeriodsSection />
+      {/* WP-SIGNUP §4.4(2) — the client accepts the DPA THEMSELVES, which is the whole point.
+          Opens itself when something is outstanding; silent otherwise. */}
+      <DpaSection />
       <SecuritySection />
       <PeriodsPage />
     </>
@@ -47,6 +52,114 @@ export default function CompanyPage() {
 /** Company → Security: the MFA/SSO requirement toggle. When on, everyone in this company is routed
  *  to Plutus secure sign-in (Keycloak) and forced to enrol an authenticator on next login. Gated on
  *  portal.company.manage (403 → hidden). */
+
+/**
+ * Company → Data processing agreement.
+ *
+ * ⚠⚠ THIS IS THE ANSWER TO MATT'S QUESTION, 2026-08-22: *"is there somewhere that the end user can
+ * sign or agree to this? So that I am not 'Ticking it for them?' This needs to be in the portal."*
+ * Before this, the only writer was a platform-admin endpoint — the operator typed a date and the
+ * `dpa-missing` signal cleared. An operator-entered date records that somebody BELIEVES a DPA was
+ * signed. It does not record that the client agreed to anything.
+ *
+ * ⚠⚠ NAGGING, NOT BLOCKING, and that is a decision rather than an oversight. WP-signup leaves the
+ * choice explicitly open, and blocking an existing paying customer out of their own till over a
+ * document they have not seen is not a default anybody should set in passing. Nothing here prevents
+ * selling.
+ *
+ * ⚠ The body renders as TEXT, never as HTML — an operator-supplied legal document that can inject
+ * script into a client's browser is a stored XSS with a contract as the payload.
+ */
+function DpaSection() {
+  const [view, setView] = useState<CompanyDpaView | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+
+  const refresh = () =>
+    fetchCompanyDpa()
+      .then((v) => { setView(v); setError(""); })
+      // 403 is normal for anyone without portal.company.manage — the section simply stays quiet.
+      .catch(() => setView(null));
+  useEffect(() => { void refresh(); }, []);
+
+  if (!view) return null;
+
+  const accept = async () => {
+    if (!view.document) return;
+    setBusy(true); setError("");
+    try { await acceptCompanyDpa(view.document.version); await refresh(); setConfirmed(false); }
+    catch (e) { setError(String(e instanceof Error ? e.message : e)); }
+    finally { setBusy(false); }
+  };
+
+  const outstanding = !!view.document && !view.currentAccepted;
+
+  return (
+    <details className="card store-card" open={outstanding}>
+      <summary>
+        <strong>Data processing agreement</strong>{" "}
+        {outstanding
+          ? <span className="warn small">— needs your agreement</span>
+          : view.currentAccepted ? <span className="muted small">— accepted</span> : null}
+      </summary>
+
+      {error && <p className="error">{error}</p>}
+
+      {!view.document && (
+        <p className="muted">
+          No agreement has been published yet. Nothing is needed from you.
+        </p>
+      )}
+
+      {view.accepted && (
+        <dl className="env-info">
+          <dt>Accepted version</dt><dd>{view.acceptedVersion}</dd>
+          <dt>When</dt><dd>{view.acceptedAtUtc ? apiDateTime(view.acceptedAtUtc) : "—"}</dd>
+          {/* ⚠⚠ THE TWO ROUTES READ DIFFERENTLY, DELIBERATELY. "Recorded manually by" is not the
+              same claim as "accepted by", and conflating them is the exact thing this work removed. */}
+          <dt>By</dt>
+          <dd>
+            {view.recordedByOperator
+              ? <>recorded manually by <strong>{view.recordedByOperator}</strong> <span className="muted small">(signed outside Plutus)</span></>
+              : <>accepted by <strong>{view.acceptedByEmail ?? "your account"}</strong></>}
+          </dd>
+        </dl>
+      )}
+
+      {outstanding && (
+        <>
+          <p className={view.accepted ? "warn" : undefined}>
+            {view.accepted
+              ? <>A newer version (<strong>{view.currentVersion}</strong>) has been issued and needs accepting.</>
+              : <>Please read and accept the agreement below.</>}
+          </p>
+
+          <h4>{view.document!.title} <span className="muted small">· version {view.document!.version}</span></h4>
+          {/* ⚠ <pre>, so the text is shown exactly as written and cannot execute. */}
+          <pre className="dpa-body" style={{ maxHeight: "22rem", overflow: "auto", whiteSpace: "pre-wrap" }}>
+            {view.document!.body}
+          </pre>
+
+          <label className="check">
+            <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} disabled={busy} />
+            {" "}I have read the agreement and I accept it on behalf of this business.
+          </label>
+
+          <div className="dialog-actions">
+            <button className="primary" disabled={busy || !confirmed} onClick={() => void accept()}>
+              {busy ? "Recording…" : "Accept"}
+            </button>
+          </div>
+          <p className="muted small">
+            ⚠ Your name, the time and the address you accept from are recorded as evidence of the
+            agreement.
+          </p>
+        </>
+      )}
+    </details>
+  );
+}
 function SecuritySection() {
   const [current, setCurrent] = useState<boolean | null>(null);
   const [mfa, setMfa] = useState(false);

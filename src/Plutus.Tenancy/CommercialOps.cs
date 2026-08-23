@@ -145,16 +145,41 @@ namespace Plutus.Tenancy
         public static async Task EvaluateAsync(MySqlDbContext db, IOperatorAlerter alerter, DateTime nowUtc, CancellationToken ct = default)
         {
             db.CurrentUser = "commercial-sweep";   // background save — see ChurnSweep for the why
+
+            // ⚠⚠ WP-SIGNUP §4.2 — THE SIGNAL IS AGAINST THE CURRENT VERSION, NOT AGAINST "ever
+            // signed anything". Accepting "2026-01" is not accepting "2027-04": a re-issued DPA
+            // silently treated as already agreed is worse than never having asked, and a sweep that
+            // only checks `DpaSignedAtUtc != null` would do exactly that. Publishing a new current
+            // version therefore re-raises this for everyone who has not accepted THAT version.
+            //
+            // ⚠ Falls back to the old behaviour when nothing is published — there is no version to
+            // be behind, so the only question left is the legacy one.
+            var currentVersion = await db.DpaDocuments.AsNoTracking()
+                .Where(d => d.IsCurrent && d.PublishedAtUtc != null)
+                .Select(d => d.Version).FirstOrDefaultAsync(ct);
+
+            var acceptedCurrent = currentVersion == null
+                ? new HashSet<Guid>()
+                : (await db.DpaAcceptances.AsNoTracking()
+                    .Where(a => a.Version == currentVersion)
+                    .Select(a => a.TenantId).ToListAsync(ct)).ToHashSet();
+
             var tenants = await db.Tenants.AsNoTracking()
                 .Where(t => !t.IsSandbox && t.Status != 4)
                 .Select(t => new { t.Id, t.DpaSignedAtUtc }).ToListAsync(ct);
             foreach (var t in tenants)
             {
                 var key = ChurnSweep.AlertKey(t.Id, TenantSignals.DpaMissing);
-                if (t.DpaSignedAtUtc == null)
+                var behind = currentVersion != null && !acceptedCurrent.Contains(t.Id);
+                if (t.DpaSignedAtUtc == null || behind)
                 {
-                    await TenantSignalStore.RaiseAsync(db, t.Id, TenantSignals.DpaMissing, "No signed DPA on record.", nowUtc, ct);
-                    await alerter.RaiseAsync(key, TenantSignals.DpaMissing, t.Id, "signal", "No signed DPA on record.", ct);
+                    // ⚠ The two cases read differently on the dashboard on purpose: "never signed"
+                    // and "signed an older version" need different conversations with the client.
+                    var why = t.DpaSignedAtUtc == null
+                        ? "No signed DPA on record."
+                        : $"Has not accepted the current DPA ({currentVersion}).";
+                    await TenantSignalStore.RaiseAsync(db, t.Id, TenantSignals.DpaMissing, why, nowUtc, ct);
+                    await alerter.RaiseAsync(key, TenantSignals.DpaMissing, t.Id, "signal", why, ct);
                 }
                 else
                 {
