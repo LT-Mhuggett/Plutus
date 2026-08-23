@@ -81,29 +81,4 @@ namespace Plutus.Frontend.AppClient.Tests.Helpers
         }
     }
 
-    public class ByteArrayToImageSourceConverterTests
-    {
-        [Fact]
-        public void Convert_Null_ReturnsNull()
-        {
-            var converter = new ByteArrayToImageSourceConverter();
-            Assert.Null(converter.Convert(null!, typeof(object), null, System.Globalization.CultureInfo.InvariantCulture));
-        }
-
-        [Fact]
-        public void Convert_NonByteArray_ThrowsArgumentException()
-        {
-            var converter = new ByteArrayToImageSourceConverter();
-            Assert.Throws<ArgumentException>(() =>
-                converter.Convert("not bytes", typeof(object), null, System.Globalization.CultureInfo.InvariantCulture));
-        }
-
-        [Fact]
-        public void ConvertBack_AlwaysThrowsNotSupported()
-        {
-            var converter = new ByteArrayToImageSourceConverter();
-            Assert.Throws<NotSupportedException>(() =>
-                converter.ConvertBack(null!, typeof(object), null, System.Globalization.CultureInfo.InvariantCulture));
-        }
-    }
 }

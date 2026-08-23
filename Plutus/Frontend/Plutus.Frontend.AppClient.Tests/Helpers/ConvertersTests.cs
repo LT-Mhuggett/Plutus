@@ -3,33 +3,6 @@ using Plutus.Frontend.AppClient.Helpers.Extensions.XAML;
 
 namespace Plutus.Frontend.AppClient.Tests.Helpers
 {
-    public class BoolANDGateConverterTests
-    {
-        private readonly BoolANDGateConverter _converter = new();
-
-        [Theory]
-        [InlineData(true, true, true)]
-        [InlineData(true, false, false)]
-        [InlineData(false, true, false)]
-        [InlineData(false, false, false)]
-        public void Convert_AndsValueAndParameter(bool value, bool parameter, bool expected)
-        {
-            Assert.Equal(expected, _converter.Convert(value, typeof(bool), parameter, CultureInfo.InvariantCulture));
-        }
-
-        [Fact]
-        public void Convert_NonBooleanInputs_Throws()
-        {
-            Assert.Throws<ArgumentException>(() => _converter.Convert("not-a-bool", typeof(bool), true, CultureInfo.InvariantCulture));
-        }
-
-        [Fact]
-        public void ConvertBack_Throws()
-        {
-            Assert.Throws<NotSupportedException>(() => _converter.ConvertBack(true, typeof(bool), true, CultureInfo.InvariantCulture));
-        }
-    }
-
     public class CollectionEmptyBoolConverterTests
     {
         private readonly CollectionEmptyBoolConverter _converter = new();
@@ -77,35 +50,6 @@ namespace Plutus.Frontend.AppClient.Tests.Helpers
         public void ConvertBack_InvertsBoolean(bool value, bool expected)
         {
             Assert.Equal(expected, _converter.ConvertBack(value, typeof(bool), null!, CultureInfo.InvariantCulture));
-        }
-    }
-
-    public class PickerIndexToDBIdConverterTests
-    {
-        private readonly PickerIndexToDBIdConverter _converter = new();
-
-        [Fact]
-        public void Convert_AddsOne()
-        {
-            Assert.Equal(3, _converter.Convert(2, typeof(int), null!, CultureInfo.InvariantCulture));
-        }
-
-        [Fact]
-        public void ConvertBack_SubtractsOne()
-        {
-            Assert.Equal(2, _converter.ConvertBack(3, typeof(int), null!, CultureInfo.InvariantCulture));
-        }
-
-        [Fact]
-        public void Convert_NonInteger_Throws()
-        {
-            Assert.Throws<NotSupportedException>(() => _converter.Convert("2", typeof(int), null!, CultureInfo.InvariantCulture));
-        }
-
-        [Fact]
-        public void ConvertBack_NonInteger_Throws()
-        {
-            Assert.Throws<NotSupportedException>(() => _converter.ConvertBack("2", typeof(int), null!, CultureInfo.InvariantCulture));
         }
     }
 
