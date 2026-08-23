@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  fetchTenants, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
+  fetchTenants, provisionTenant, type ProvisionedTenant, fetchUsageSummary, fetchHealth, fetchTenantHealth, fetchAlerts, fetchJobs, setTenantStatus, impersonate,
   fetchOverrides, setOverrides, fetchFlags, setFlag, setSandbox, resetSandbox,
   fetchAnnouncements, createAnnouncement, deleteAnnouncement, fetchSla,
   fetchSignals, fetchContract, setContract, fetchMargin, fetchAnalytics, fetchConnectors, setCompliance,
@@ -904,12 +904,171 @@ function FlagsScreen() {
   );
 }
 
+
+/**
+ * Create a subscriber, from the operator portal.
+ *
+ * ⚠⚠ WHY THIS EXISTS. Matt, 2026-08-23: *"I dont need YOU to create it, I need either a way to
+ * create it in the operator portal, or a way to sign up for it."* The endpoint has existed since
+ * T1.2 and this screen has listed its output all along — nothing ever called it, so the only way in
+ * was curl with a hand-copied bearer token.
+ *
+ * ⚠ THIS IS NOT SELF-SERVE SIGNUP. No application, no email verification, no abuse controls, and no
+ * DPA acceptance — an operator is already trusted with impersonation, so none of those five stages
+ * protect anything here. A stranger off the internet needs every one of them, and that is WP-signup.
+ */
+function NewTenantDialog({ onClose, onDone }: { onClose: () => void; onDone: (r: ProvisionedTenant) => void }) {
+  const [name, setName] = useState("");
+  const [plan, setPlan] = useState("standard");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSandbox, setIsSandbox] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  // ⚠ Escape cancels, and there is a visible ✕ — the dialog contract (till-design D4).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, busy]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      onDone(await provisionTenant({
+        name: name.trim(), plan, adminEmail: email.trim(), adminPassword: password, isSandbox,
+      }));
+    } catch (err) {
+      setError(String(err instanceof Error ? err.message : err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <form className="dialog" onSubmit={submit}>
+        <div className="toolbar">
+          <h3 className="grow">New subscriber</h3>
+          <button type="button" className="ghost small" onClick={onClose} disabled={busy} aria-label="Close">✕</button>
+        </div>
+
+        <p className="muted small">
+          Creates the subscriber, its company, a first store and an admin login — and gives that admin
+          the <strong>Owner</strong> role, so they can set up tills and staff themselves.
+        </p>
+
+        <div className="form-grid">
+          <label>Business name
+            <input value={name} onChange={(e) => setName(e.target.value)} required disabled={busy}
+                   placeholder="Test Shop" />
+          </label>
+          <label>Plan
+            <select value={plan} onChange={(e) => setPlan(e.target.value)} disabled={busy}>
+              <option value="standard">standard</option>
+              <option value="demo">demo</option>
+            </select>
+          </label>
+          <label>Admin email
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={busy}
+                   placeholder="owner@example.com" />
+          </label>
+          <label>Admin password
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
+                   disabled={busy} autoComplete="new-password" minLength={8} />
+          </label>
+        </div>
+
+        {/* SANDBOX DEFAULTS ON HERE, AND ONLY HERE. Six places exclude sandbox tenants from the
+            commercial rollups - MRR, analytics, usage, contracts - so an unflagged test subscriber
+            inflates the revenue figure on this very screen.
+            The flag was always SETTABLE (the toggle on the subscriber detail below, and
+            PUT /api/v1/platform/tenants/id/sandbox behind it). What was missing was setting it at
+            CREATION: between creating a test subscriber and remembering to flip that toggle, it
+            counts as real, and nothing prompts anyone.
+            Defaulted ON because operator-created subscribers are overwhelmingly tests - a real one
+            is a deliberate un-tick, and the warning below makes that choice loud. The API keeps the
+            opposite default; see ProvisionRequest. */}
+        <label className="check">
+          <input type="checkbox" checked={isSandbox} onChange={(e) => setIsSandbox(e.target.checked)} disabled={busy} />
+          {" "}Sandbox — a test subscriber, excluded from MRR and every commercial report
+        </label>
+        {!isSandbox && (
+          <p className="warn small">
+            ⚠ This will be counted as a <strong>real, paying subscriber</strong> in MRR and the
+            commercial reports. Tick Sandbox if you are testing.
+          </p>
+        )}
+
+        <p className="muted small">
+          ⚠ The password is a real credential — it signs into this portal and nothing here expires on
+          its own. It cannot be read back afterwards, so record it now.
+        </p>
+
+        {error && <p className="error small">{error}</p>}
+        <div className="dialog-actions">
+          <button type="button" className="ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="submit" className="primary"
+                  disabled={busy || !name.trim() || !email.trim() || password.length < 8}>
+            {busy ? "Creating…" : "Create subscriber"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/**
+ * What provisioning returned — shown once, because these ids are the only thing the operator needs
+ * carry forward and re-reading them means going and looking each one up.
+ *
+ * ⚠ The store id is the one that matters next: creating the subscriber's first till needs it.
+ */
+function NewTenantResult({ result, onClose }: { result: ProvisionedTenant; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="dialog">
+        <div className="toolbar">
+          <h3 className="grow">Subscriber created</h3>
+          <button type="button" className="ghost small" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+
+        <dl className="env-info">
+          <dt>Subscriber</dt><dd><code>{result.tenantId}</code></dd>
+          <dt>Company</dt><dd><code>{result.companyId}</code></dd>
+          <dt>Store</dt><dd><code>{result.storeId}</code> — created as “Main”, with placeholder address</dd>
+          <dt>Admin</dt><dd><code>{result.adminUserId}</code></dd>
+        </dl>
+
+        <p className="muted small">
+          <strong>Next:</strong> sign in as that admin — they hold Owner. Add a till (Tills), somebody
+          who can sell (Users → a role with till permissions, Cashier is enough), and a few items with
+          barcodes and VAT bands. ⚠ A till shows nobody on its sign-in list until at least one person
+          holds a <code>pos.*</code> permission.
+        </p>
+
+        <div className="dialog-actions">
+          <button type="button" className="primary" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function TenantsScreen() {
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [usage, setUsage] = useState<UsageSummaryRow[]>([]);
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [signals, setSignals] = useState<SignalRow[]>([]);
   const [contracts, setContracts] = useState<ContractLite[]>([]);
+  const [creating, setCreating] = useState(false);
+  const [created, setCreated] = useState<ProvisionedTenant | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -941,6 +1100,18 @@ function TenantsScreen() {
   return (
     <>
       {error && <p className="error">{error}</p>}
+      {/* NEW SUBSCRIBER, 2026-08-23. Matt: *"I dont need YOU to create it, I need either a way to
+          create it in the operator portal, or a way to sign up for it."* The endpoint has existed
+          since T1.2 and this screen has listed its output all along - nothing ever called it, so
+          the only way in was curl with a hand-copied bearer token.
+          NOT self-serve signup (WP-signup): no application, no email verification, no DPA
+          acceptance, no abuse controls. This is an operator creating a subscriber directly. */}
+      <div className="toolbar">
+        <span className="grow" />
+        <button className="primary" onClick={() => setCreating(true)}>New subscriber…</button>
+      </div>
+      {creating && <NewTenantDialog onClose={() => setCreating(false)} onDone={(r) => { setCreating(false); setCreated(r); void refresh(); }} />}
+      {created && <NewTenantResult result={created} onClose={() => setCreated(null)} />}
       <div className="stat-row">
         <div className="stat"><span className="stat-label">MRR (live subscribers)</span><span className="stat-value">{pounds(mrr)}</span><span className="muted small">{live.length} paying</span></div>
         {statusCounts.filter((s) => s.n > 0).map((s) => (

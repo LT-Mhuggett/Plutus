@@ -6,7 +6,21 @@ using Plutus.SharedKernel;
 
 namespace Plutus.Tenancy
 {
-    public sealed record ProvisionRequest(string Name, string Plan, string AdminEmail, string AdminPassword);
+    /// <summary>
+    /// ⚠ `IsSandbox` ADDED TO PROVISIONING 2026-08-23. Six places exclude sandbox tenants from the
+    /// commercial rollups — MRR, analytics, usage, contracts — so a tenant created to TEST against and
+    /// not flagged is counted as a paying subscriber and inflates the revenue figure.
+    ///
+    /// ⚠ A SETTER ALREADY EXISTED and this does not replace it: `SandboxController` serves
+    /// `PUT /api/v1/platform/tenants/{id}/sandbox`, and the portal has a toggle on the subscriber detail.
+    /// What was missing is setting it AT CREATION — between provisioning and remembering to flip the
+    /// toggle, a test tenant counts as real, and nothing prompts anyone to flip it.
+    ///
+    /// ⚠ It defaults to FALSE here. A real subscriber is the common case for the API, and a flag that
+    /// defaults to "not real" is one nobody notices is wrong until money is missing from a report.
+    /// ⚠ The PORTAL dialog defaults it to TRUE, deliberately — see NewTenantDialog.
+    /// </summary>
+    public sealed record ProvisionRequest(string Name, string Plan, string AdminEmail, string AdminPassword, bool IsSandbox = false);
     public sealed record ProvisionResult(Guid TenantId, Guid CompanyId, int StoreId, Guid AdminUserId);
 
     /// <summary>
@@ -58,6 +72,7 @@ namespace Plutus.Tenancy
                 Status = 1, // Active
                 Plan = string.IsNullOrWhiteSpace(req.Plan) ? "standard" : req.Plan,
                 Entitlements = "[]",
+                IsSandbox = req.IsSandbox,
                 ConnectionRef = "",
                 CreatedAtUtc = DateTime.UtcNow,
             });

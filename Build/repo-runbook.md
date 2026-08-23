@@ -201,6 +201,51 @@ same grep against the deployed bundle before declaring victory.
 flattened copy has no such path, so it falls back to `"0.0.0"` — the footer version is cosmetic
 there and is not evidence of a bad build.
 
+
+### ⚠⚠ THE PORTAL'S BUILD ENV — the three variables, and how to prove you have them right
+
+**Two of them are load-bearing and silently absent if you forget them:**
+
+```bash
+export PLUTUS_APP_VERSION=$(cat versions/portal.txt)
+export VITE_OIDC_AUTHORITY=https://login.plutus.huggett.dscloud.me/realms/plutus
+export VITE_OIDC_CLIENT_ID=plutus-portal
+npm run build
+```
+
+⚠ **`VITE_AUTH_MODE` changes NOTHING in the artefact** — measured 2026-08-23 by building with and
+without it and comparing the bundles byte-for-byte after normalising `__BUILD_TIME__`: **identical**.
+`oidc.ts` reads `import.meta.env.VITE_AUTH_MODE` at runtime rather than as a `define`, so it is not
+folded at build time. Do not spend time on it; do not cite it as a reason a build differs.
+
+⚠⚠ **FORGETTING THE TWO `VITE_OIDC_*` VARS PRODUCES A BUILD THAT PASSES EVERY GATE AND IS WRONG.**
+`tsc --noEmit` passes, `vite build` passes, the `__APP_VERSION__` grep passes, the version string is
+present — and `AUTHORITY`/`CLIENT_ID` are `""` (they are `?? ""` fallbacks in `oidc.ts:30-31`), so
+Keycloak sign-in has nowhere to go. It happened on 2026-08-23 and was caught only by comparing
+against the deployed bundle.
+
+**The check that catches it** — the deployed bundle contains the authority string TWICE when the vars
+were set and ONCE when they were not (the single one is `ACCOUNT_CONSOLE`, hardcoded in `App.tsx`):
+
+```bash
+grep -c 'realms/plutus"' dist/assets/index-*.js     # 1 = the vars were set; 0 = they were NOT
+```
+
+#### ⚠ Proving a build matches the deployed one, when you do not know how the deployed one was built
+
+Build the **unmodified HEAD source** at the **deployed version number**, normalise the timestamp out
+of both, and `cmp`. Identical means your env matches; different means it does not, and the size delta
+points at what is missing (66 bytes was the two OIDC values).
+
+```bash
+sed -E 's/20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z/TS/g' dist/assets/index-*.js > /tmp/mine.n
+sed -E 's/20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z/TS/g' /srv/apps/PLUTUS/portal/current/assets/index-*.js > /tmp/live.n
+cmp /tmp/mine.n /tmp/live.n && echo "same env"
+```
+
+⚠ **The web roots are `/srv/apps/PLUTUS/portal/current` and `/srv/apps/PLUTUS/web/current`** — NOT
+under `~/PLUTUS`, which holds the *source* trees (`~/PLUTUS/Plutus.Frontend.Portal`). ⚠⚠ `/srv/apps/`
+also holds **ETRIE**, which must never be touched.
 ### ⚠⚠ "Is what is DEPLOYED what is in the TREE?" — the bundle hash cannot answer that
 
 `vite.config.ts` defines `__BUILD_TIME__: JSON.stringify(new Date().toISOString())`, so **every build

@@ -183,4 +183,47 @@ public class TenantRoleProvisioningTests
         Assert.Throws<ArgumentNullException>(() => new ProvisioningService(ctx, null!));
         conn.Dispose();
     }
+
+    /// <summary>
+    /// ⚠⚠ THE SANDBOX FLAG MUST ACTUALLY PERSIST, because everything downstream of it is a money
+    /// figure. Six places exclude sandbox tenants from the commercial rollups — MRR, analytics,
+    /// usage, contracts — so a test subscriber that silently provisions as `IsSandbox = false` is
+    /// counted as paying and inflates the revenue on the operator dashboard.
+    ///
+    /// ⚠ It was always SETTABLE after the fact (`SandboxController`, and the toggle on the
+    /// subscriber detail). What is new is setting it at CREATION — the window between provisioning
+    /// and remembering to flip the toggle is where the wrong number lives.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_sandbox_flag_provisions_as_asked(bool sandbox)
+    {
+        var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+        using (var ctx = Ctx(conn, Guid.Empty)) ctx.Database.EnsureCreated();
+
+        ProvisionResult res;
+        using (var c = Ctx(conn, Guid.Empty, "platform-admin"))
+            res = await new ProvisioningService(c, new TenantRoleProvisioner(c)).ProvisionAsync(
+                new ProvisionRequest("Flag Shop", "standard", "a@flag.test", "pw123456", sandbox), "platform-admin");
+
+        using var ctx2 = Ctx(conn, Guid.Empty);
+        var t = await ctx2.Tenants.FirstAsync(x => x.Id == res.TenantId);
+        Assert.Equal(sandbox, t.IsSandbox);
+
+        conn.Dispose();
+    }
+
+    /// <summary>⚠ And the API default is FALSE — a real subscriber. A flag defaulting to "not real"
+    /// is one nobody notices is wrong until money is missing from a report. (The PORTAL dialog
+    /// defaults it the other way on purpose; that is a UI choice, not this one.)</summary>
+    [Fact]
+    public async Task The_api_default_is_a_real_subscriber_not_a_sandbox()
+    {
+        var (conn, res) = await ProvisionAsync("Default Shop");
+        using var ctx = Ctx(conn, Guid.Empty);
+        Assert.False((await ctx.Tenants.FirstAsync(x => x.Id == res.TenantId)).IsSandbox);
+        conn.Dispose();
+    }
 }

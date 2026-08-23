@@ -62,6 +62,27 @@ export interface AlertRow { alertKey: string; jobName: string; tenantId: string 
 export interface JobRow { jobName: string; tenantId: string | null; runStatus: string; startedAtUtc: string; finishedAtUtc: string | null; detail: string | null; cadenceStatus: string }
 
 export const fetchTenants = () => get<PlatformTenant[]>("/api/v1/tenants");
+
+/**
+ * Create a subscriber. Platform-admin only.
+ *
+ * WHY THIS IS HERE AND NOT A CONSOLE SNIPPET. Matt, 2026-08-23: *"I dont need YOU to create it, I
+ * need either a way to create it in the operator portal, or a way to sign up for it."* The endpoint
+ * has existed since T1.2 and the Subscribers screen has listed its output all along; nothing ever
+ * called it, so the only way in was curl with a hand-copied bearer token.
+ *
+ * NOT the same thing as self-serve signup (WP-signup). This is an OPERATOR creating a subscriber -
+ * no application, no email verification, no DPA acceptance, no abuse controls. Those five stages are
+ * what WP-signup adds, and they are what a stranger off the internet needs. An operator who is
+ * already trusted with impersonation does not.
+ *
+ * One call creates the tenant, its Business, a Store ("Main") and the admin login - and, since
+ * backend 1.28.0, the built-in ROLES with that admin assigned Owner. Before 1.28.0 it stopped after
+ * the login and the result was a tenant nobody could configure; that is what `Demo Store` is.
+ */
+export interface ProvisionedTenant { tenantId: string; companyId: string; storeId: number; adminUserId: string }
+export const provisionTenant = (body: { name: string; plan: string; adminEmail: string; adminPassword: string; isSandbox: boolean }) =>
+  post<ProvisionedTenant>("/api/v1/tenants", body);
 export const fetchUsageSummary = () => get<UsageSummaryRow[]>("/api/v1/platform/usage/summary");
 export const fetchHealth = () => get<HealthResponse>("/api/v1/platform/health");
 /**
