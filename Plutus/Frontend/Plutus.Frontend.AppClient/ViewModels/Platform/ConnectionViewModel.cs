@@ -372,18 +372,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.Platform
                 // ⚠ IF A REAL MIGRATION OFF NatApp IS EVER PLANNED, this gate is the mechanism that
                 // protects that shop's history, and it needs an on-ramp built BEFORE it is switched
                 // back on. Recorded in `Build/To do/MAUI-retrofit.md` §10 L1.
-                var blocked = await TillStoreAccess.UseAsync(store =>
-                    new EnrolmentFlow(store, api, _credentials).BlockedReasonAsync(null));
-
-                if (blocked != null)
-                {
-                    LastAction = blocked;
-                    return;
-                }
+                // ⚠ L1, 2026-08-23 — the archive gate went with `BlockedReasonAsync`. It was passed
+                // `null` here, so it returned immediately and never blocked anything.
 
                 var deviceId = await TillStoreAccess.UseAsync(store =>
                     new EnrolmentFlow(store, api, _credentials)
-                        .EnrolAsync(ServerUrl, EnrolmentCode.Trim(), null));
+                        .EnrolAsync(ServerUrl, EnrolmentCode.Trim()));
 
                 // ⚠ THE SHARED CLIENT MUST FORGET THE OLD CREDENTIAL. Enrolment issues a NEW device
                 // id and secret; a cached client built before this point would keep presenting the

@@ -626,18 +626,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         }
 
         #region Commands
-        #region Database
-        // ⚠ `BackupDbCommand` is kept, WITHOUT a button (2026-08-10). `ExecuteBackupDb` is the only
-        // thing that can stamp `MetaKeys.LegacyArchivedAtUtc`, which is the enrolment gate's input —
-        // deleting the implementation would remove a platform capability, not just a control, and
-        // the gate is a binding default. The button is gone because Matt does not need the on-ramp;
-        // the code goes when `Build/To do/MAUI-retrofit.md` §10 item L1 is actioned.
-        Command _backupDbCommand;
-        public Command BackupDbCommand
-        {
-            get => _backupDbCommand ?? (_backupDbCommand = new Command(ExecuteBackupDb));
-        }
-        #endregion
+        // ⚠ L1, 2026-08-23 — the whole "Database" region is gone: `BackupDbCommand` and
+        // `ExecuteBackupDb`, which was the only thing that could stamp `LegacyArchivedAtUtc`.
+        // ⚠⚠ THAT REMOVES A CAPABILITY, NOT JUST A CONTROL, and it is Matt's call taken 2026-08-10:
+        // no migration off NatApp is planned, so the enrolment gate that read the stamp goes too.
+        // A shop that DID need one would now have no on-ramp for its history.
 
         #region Help and support
         Command _helpAndSupportCommand;
@@ -762,84 +755,6 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Settings
         Command _openTillDeviceCommand;
         #region Execute Commands
         #region Database
-        /// <summary>
-        /// Archive the legacy database — the cutover on-ramp (step 21, binding default 9.3).
-        ///
-        /// ⚠ THIS IS WHAT UNLOCKS ENROLMENT. `EnrolmentFlow.BlockedReasonAsync` refuses to enrol a
-        /// till that still holds an un-archived legacy file, because that file is the shop's sales
-        /// history and the migration's only input. Until now nothing could archive, so the gate was
-        /// passed `null` and did not run at all; this is the capability that lets it be switched on.
-        ///
-        /// ⚠ It was "Backup database": it copied the file through a save dialog, gated on
-        /// `IsAuthorised` (the legacy `AuthActions` table a portal till has no rows in) via
-        /// `EmployeeId` (null for every roster operator), falling back to
-        /// `RequestAuthorisedUserInput` (which never terminates). So on the tills that most need to
-        /// archive, it could not run — and even when it did, nothing recorded that it had happened.
-        ///
-        /// ⚠ COPY, NEVER MOVE, and never overwrite an existing archive: a second cutover must not
-        /// quietly replace the only copy of the first one's data.
-        /// </summary>
-        private async void ExecuteBackupDb()
-        {
-            if (IsBusy) return;
-            IsBusy = true;
-            try
-            {
-                var gate = Services.Security.TillGate.Check(
-                    App.GetViewModel().SignedInOperator, PermissionCatalogue.PosSettingsManage);
-
-                if (!gate.Allowed)
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(), gate.Message, "OK".Translate());
-                    return;
-                }
-
-                var legacyPath = Path.Combine(FileSystem.AppDataDirectory, "Database.db");
-                if (!File.Exists(legacyPath))
-                {
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                        "There's no previous database on this till to archive.", "OK".Translate());
-                    return;
-                }
-
-                var archiveDir = Path.Combine(FileSystem.AppDataDirectory, "legacy-archive");
-                string archivedTo;
-                try
-                {
-                    archivedTo = Plutus.Client.Storage.Cutover.ArchiveLegacyDatabase(
-                        legacyPath, archiveDir, DateTime.UtcNow);
-                }
-                catch (Exception ex)
-                {
-                    CrashLog.Write("SettingsViewModel.ExecuteBackupDb", ex);
-                    await App.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                        "Couldn't archive the previous database. Nothing has been changed or deleted.",
-                        "OK".Translate());
-                    return;
-                }
-
-                // ⚠ STAMPED ONLY AFTER THE COPY SUCCEEDED. The stamp is what opens the enrolment
-                // gate, so writing it first would let a till enrol having archived nothing.
-                await Services.Storage.TillStoreAccess.UseAsync(async s =>
-                {
-                    await s.SetMetaAsync(MetaKeys.LegacyArchivedAtUtc,
-                        DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
-                    return true;
-                });
-
-                await App.Current.MainPage.DisplayAlert("Archived",
-                    $"The previous database has been archived to:\n\n{archivedTo}\n\n" +
-                    "The original is untouched. This till can now be enrolled.", "OK".Translate());
-            }
-            catch (Exception ex)
-            {
-                CrashLog.Write("SettingsViewModel.ExecuteBackupDb", ex);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
 
         // ⚠ "RESTORE DATABASE" IS GONE (2026-08-10, Matt: *"its no longer needed"*).
         //

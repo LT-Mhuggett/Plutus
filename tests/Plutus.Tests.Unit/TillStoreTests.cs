@@ -638,39 +638,9 @@ public class CutoverTests : IAsyncLifetime
         Assert.Equal(3, result.ItemsSeeded);
     }
 
-    [Fact]
-    public void Archiving_copies_the_legacy_file_and_refuses_to_overwrite_an_archive()
-    {
-        var dir = Path.Combine(Path.GetTempPath(), "plutus-cutover-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
-        try
-        {
-            var legacy = Path.Combine(dir, "Database.db");
-            File.WriteAllText(legacy, "legacy bytes");
-            var archiveDir = Path.Combine(dir, "archive");
-            var at = new DateTime(2026, 8, 7, 12, 0, 0, DateTimeKind.Utc);
-
-            var archived = Cutover.ArchiveLegacyDatabase(legacy, archiveDir, at);
-
-            // COPY, not move: §9.3 is archive-never-delete, and the original must survive a
-            // failure later in the cutover.
-            Assert.True(File.Exists(legacy));
-            Assert.True(File.Exists(archived));
-            Assert.Equal("legacy bytes", File.ReadAllText(archived));
-
-            // a second cutover at the same instant must not silently replace the first archive —
-            // that would destroy the only copy of a till's history
-            Assert.Throws<IOException>(() => Cutover.ArchiveLegacyDatabase(legacy, archiveDir, at));
-        }
-        finally { Directory.Delete(dir, recursive: true); }
-    }
-
-    [Fact]
-    public void A_missing_legacy_file_is_a_clear_error_not_a_null()
-    {
-        Assert.Throws<FileNotFoundException>(() =>
-            Cutover.ArchiveLegacyDatabase(Path.Combine(Path.GetTempPath(), "does-not-exist.db"),
-                Path.GetTempPath(), DateTime.UtcNow));
-    }
+    // ⚠ The `ArchiveLegacyDatabase` tests went with the method — L1, 2026-08-23. They covered the
+    // copy-never-move rule and the refusal to overwrite an existing archive; both are moot now that
+    // nothing can archive a legacy database from the till.
+    // ⚠ …and its missing-file case.
 }
 

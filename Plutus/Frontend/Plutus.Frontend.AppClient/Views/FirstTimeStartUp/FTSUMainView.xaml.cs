@@ -33,9 +33,15 @@ namespace Plutus.Frontend.AppClient.Views.FirstTimeStartUp
             // Portal-first: this is the path everyone should take.
             Children.Add(new Plutus.Frontend.AppClient.Views.Platform.ConnectionView(firstRun: true));
 
-            // ⚠ RecoveryView is KEPT and reframed as the cutover on-ramp — it is how a till with a
-            // legacy database gets that database archived, which is now what unlocks enrolment.
-            Children.Add(new RecoveryView());
+            // ⚠⚠ RecoveryView IS GONE — L8, 2026-08-23, and this CHANGES THE FIRST-RUN SCREEN. It
+            // offered "restore a database onto this till": pick a `Database.db`, copy it in, check it
+            // has employees. That was the on-ramp for a shop migrating off NatApp.
+            //
+            // ⚠ It went because L1 removed the rest of that path — the archive step and the enrolment
+            // gate that read it — on Matt's decision of 2026-08-10 that no such migration is planned.
+            // Keeping a restore button with no archive behind it would offer half a migration.
+            //
+            // ⚠ A future NatApp migration needs BOTH rebuilt, and this is the visible half.
 
             // ⚠ `SetupView` and `TransferThirdPartyView` ARE DELETED (cutover step 21). Setup built
             // a till that LOOKS configured and can never talk to the platform: a locally-invented

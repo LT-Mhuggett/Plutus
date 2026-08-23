@@ -41,20 +41,13 @@ public sealed class EnrolmentFlow
     public async Task<bool> IsEnrolledAsync(CancellationToken ct = default) =>
         _credentials.DeviceId != null && await _store.GetGuidMetaAsync(MetaKeys.TillId, ct) != null;
 
-    /// <summary>
-    /// The §9.3 gate. Returns the reason enrolment is blocked, or null when it may proceed.
-    /// <paramref name="legacyDatabasePath"/> is null when this is a clean install with no legacy
-    /// file to worry about.
-    /// </summary>
-    public async Task<string?> BlockedReasonAsync(string? legacyDatabasePath, CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(legacyDatabasePath) || !File.Exists(legacyDatabasePath)) return null;
-        if (await _store.GetMetaAsync(MetaKeys.LegacyArchivedAtUtc, ct) != null) return null;
-
-        return "This till still has its previous database, and it hasn't been archived yet. " +
-               "Archive it first — it holds this till's sales history and is what the migration " +
-               "reads. Enrolling now would leave that history stranded on this machine.";
-    }
+    // ⚠⚠ L1, 2026-08-23 — `BlockedReasonAsync` DELETED, and this removes a protection rather than
+    // dead code. It refused enrolment on a till still holding an un-archived legacy database, so
+    // that a shop migrating off NatApp could not strand its own history by enrolling first.
+    //
+    // ⚠ IT WAS ALREADY INERT: the one caller passed `null`, so the gate returned immediately and
+    // nothing was ever blocked. Matt's call, 2026-08-10, on the basis that no such migration is
+    // planned. ⚠ A future one needs this gate AND an on-ramp rebuilt before it is switched back on.
 
     /// <summary>
     /// Redeem an enrolment code and record the till's identity.
@@ -62,12 +55,11 @@ public sealed class EnrolmentFlow
     /// The ClientSecret goes to <see cref="IDeviceCredentialStore"/> (platform secure storage) and
     /// NEVER into the local database — support copies that file off machines routinely.
     /// </summary>
+    /// <remarks>⚠ `legacyDatabasePath` WENT WITH THE ARCHIVE GATE (L1, 2026-08-23). It existed only
+    /// to be handed to `BlockedReasonAsync`, and the one production caller passed null.</remarks>
     public async Task<Guid> EnrolAsync(
-        string serverUrl, string enrolmentCode, string? legacyDatabasePath = null, CancellationToken ct = default)
+        string serverUrl, string enrolmentCode, CancellationToken ct = default)
     {
-        var blocked = await BlockedReasonAsync(legacyDatabasePath, ct);
-        if (blocked != null) throw new EnrolmentBlockedException(blocked);
-
         if (string.IsNullOrWhiteSpace(serverUrl))
             throw new EnrolmentBlockedException("A server address is needed before this till can enrol.");
 

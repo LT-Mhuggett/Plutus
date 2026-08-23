@@ -361,7 +361,6 @@ public static class MetaKeys
     public const string DeviceSeq = "deviceSeq";
     public const string CatalogueVersion = "catalogueVersion";
     /// <summary>Set once the legacy database has been archived — enrolment refuses until then (§9.3).</summary>
-    public const string LegacyArchivedAtUtc = "legacyArchivedAtUtc";
 
     /// <summary>The portal's published VAT bands, WHOLE effective-dated timeline, as the wire sent
     /// them. ⚠ Never "today's rate" — the timeline is what lets an offline till apply a

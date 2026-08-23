@@ -40,26 +40,10 @@ public static class Cutover
     public static Guid ItemIdFor(Guid businessId, string itemIdOne) =>
         DeterministicGuid.ForItem(businessId, itemIdOne);
 
-    /// <summary>
-    /// Archive the legacy database beside itself with a timestamp. Returns the archive path.
-    /// Refuses to overwrite an existing archive — a second cutover must not quietly replace the
-    /// only copy of the first one's data.
-    /// </summary>
-    public static string ArchiveLegacyDatabase(string legacyPath, string archiveDirectory, DateTime nowUtc)
-    {
-        if (!File.Exists(legacyPath))
-            throw new FileNotFoundException("The legacy till database was not found.", legacyPath);
-
-        Directory.CreateDirectory(archiveDirectory);
-        var stamped = $"{Path.GetFileNameWithoutExtension(legacyPath)}-{nowUtc:yyyyMMddHHmmss}{Path.GetExtension(legacyPath)}";
-        var target = Path.Combine(archiveDirectory, stamped);
-        if (File.Exists(target))
-            throw new IOException($"An archive already exists at {target} — refusing to overwrite it.");
-
-        // Copy, never move: if anything later fails, the till still has its original file.
-        File.Copy(legacyPath, target);
-        return target;
-    }
+    // ⚠ L1, 2026-08-23 — `ArchiveLegacyDatabase` deleted. It copied the legacy file aside and was
+    // the only producer of the `LegacyArchivedAtUtc` stamp that gated enrolment. ⚠⚠ THE LEGACY
+    // `Database.db` ITSELF IS UNTOUCHED AND MUST STAY: it is the shop's pre-cutover sales history
+    // and there is no server copy (default 3 — archive, never delete).
 
     /// <summary>
     /// Seed the v2 catalogue from legacy rows, minting each item's id deterministically.
@@ -137,7 +121,8 @@ public static class Cutover
         await db.Meta.AddRangeAsync(new[]
         {
             new MetaEntry { Key = MetaKeys.BusinessId, Value = businessId.ToString("D") },
-            new MetaEntry { Key = MetaKeys.LegacyArchivedAtUtc, Value = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture) },
+            // ⚠ L1, 2026-08-23 — the `LegacyArchivedAtUtc` stamp is gone with the gate that read
+            // it. Nothing consumes it any more, and a stamp nobody reads is a fact nobody can act on.
         }, ct);
         await db.SaveChangesAsync(ct);
 

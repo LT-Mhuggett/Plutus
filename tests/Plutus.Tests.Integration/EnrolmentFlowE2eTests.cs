@@ -91,34 +91,15 @@ public class EnrolmentFlowE2eTests : IClassFixture<PlutusAppFactory>, IAsyncLife
         return (tBody.GetProperty("enrolmentCode").GetString()!, tBody.GetProperty("tillId").GetGuid(), storeId);
     }
 
-    [Fact]
-    public async Task Enrolment_REFUSES_while_the_legacy_database_is_un_archived()
-    {
-        var http = _f.CreateClient();
-        var (code, _, _) = await ProvisionAsync(http, "wp4a@acme.test");
-        var creds = new SecureStorageStub();
-        var flow = new EnrolmentFlow(_store, new PlutusApiClient(http), creds);
-
-        // a live till: its old database is sitting right there, unarchived
-        var legacy = Path.Combine(_tempDir, "Database.db");
-        await File.WriteAllTextAsync(legacy, "a shop's sales history");
-
-        var blocked = await Assert.ThrowsAsync<EnrolmentBlockedException>(
-            () => flow.EnrolAsync("https://plutus.example", code, legacy));
-        Assert.Contains("archive", blocked.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("stranded", blocked.Message);
-
-        // nothing was half-done: no credential, no identity, and the code is still unused
-        Assert.Null(creds.DeviceId);
-        Assert.Null(await _store.GetGuidMetaAsync(MetaKeys.TillId));
-
-        // archive it, and the same code now works — the gate is a gate, not a wall
-        Cutover.ArchiveLegacyDatabase(legacy, Path.Combine(_tempDir, "archive"), DateTime.UtcNow);
-        await _store.SetMetaAsync(MetaKeys.LegacyArchivedAtUtc, DateTime.UtcNow.ToString("O"));
-        var deviceId = await flow.EnrolAsync("https://plutus.example", code, legacy);
-        Assert.NotEqual(Guid.Empty, deviceId);
-    }
-
+    // ⚠⚠ `Enrolment_REFUSES_while_the_legacy_database_is_un_archived` WAS DELETED WITH THE GATE —
+    // L1, 2026-08-23. It asserted that a till holding an un-archived legacy database could not enrol,
+    // which was the protection for a shop migrating off NatApp: enrol first and your history is
+    // stranded on that machine.
+    //
+    // ⚠ The gate had already been inert — its one production caller passed `null` — and removing it
+    // is Matt's decision of 2026-08-10, on the basis that no such migration is planned. The test is
+    // named here rather than quietly dropped, because a deleted test is a deleted requirement and the
+    // next person planning a NatApp migration needs to know this one existed.
     [Fact]
     public async Task A_clean_install_enrols_stores_its_identity_and_survives_a_restart()
     {
@@ -129,7 +110,7 @@ public class EnrolmentFlowE2eTests : IClassFixture<PlutusAppFactory>, IAsyncLife
         var flow = new EnrolmentFlow(_store, api, creds);
 
         Assert.False(await flow.IsEnrolledAsync());
-        Assert.Null(await flow.BlockedReasonAsync(legacyDatabasePath: null));   // nothing to archive
+        // ⚠ The archive gate assertion went with `BlockedReasonAsync` (L1, 2026-08-23).
 
         var deviceId = await flow.EnrolAsync("https://plutus.example", code);
 
@@ -280,38 +261,6 @@ public class EnrolmentFlowE2eTests : IClassFixture<PlutusAppFactory>, IAsyncLife
         Assert.NotNull(await _store.GetMetaAsync(MetaKeys.ServerUrl));
     }
 
-    /// <summary>
-    /// ⚠ ENROLMENT MUST NOT BE A ONE-WAY DOOR — regression guard for a live incident, 2026-08-10.
-    ///
-    /// The archive gate (binding default 9.3) was switched on at step 21, satisfied only by
-    /// Settings' "Archive legacy database". That button was removed the same day, leaving a gate ON
-    /// with nothing able to satisfy it — and because the legacy `Database` constructor CREATES
-    /// `Database.db` on first touch, EVERY till that had ever been signed into was permanently
-    /// blocked from enrolling. Forget a till and you could never get it back.
-    ///
-    /// The caller now passes null. This pins the property that actually matters: a legacy file
-    /// sitting on disk does not block enrolment.
-    /// </summary>
-    [Fact]
-    public async Task A_legacy_database_on_disk_does_not_block_enrolment_when_the_gate_is_off()
-    {
-        var http = _f.CreateClient();
-        var creds = new SecureStorageStub();
-        var flow = new EnrolmentFlow(_store, new PlutusApiClient(http), creds);
-
-        var legacy = Path.Combine(Path.GetTempPath(), $"plutus-legacy-{Guid.NewGuid():N}.db");
-        await File.WriteAllTextAsync(legacy, "not really a database");
-        try
-        {
-            // The gate, asked about the file, still refuses — the mechanism is intact...
-            Assert.NotNull(await flow.BlockedReasonAsync(legacy));
-
-            // ...but the till does not ASK about it, which is what the caller now does.
-            Assert.Null(await flow.BlockedReasonAsync(null));
-        }
-        finally
-        {
-            File.Delete(legacy);
-        }
-    }
+    // ⚠ This test asserted the gate was INTACT but not asked. The gate went with L1 (2026-08-23),
+    // so both halves of its assertion are gone — see the note further up naming the deleted rule.
 }
