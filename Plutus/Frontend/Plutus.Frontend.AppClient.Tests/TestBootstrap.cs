@@ -7,7 +7,6 @@ using Plutus.Frontend.AppClient.Services.IOHandeling;
 using Plutus.Frontend.AppClient.Services.IOHandeling.Picker;
 using Plutus.Frontend.AppClient.Services.Loading;
 using Plutus.Frontend.AppClient.Services.POSHandeling;
-using Plutus.Frontend.AppClient.Services.ThirdPartyTransfer;
 using Plutus.Frontend.AppClient.Services.UIHandeling;
 
 // App.TranslateExtension (which every ".Translate()" call reads) is one shared instance whose Text

@@ -21,7 +21,6 @@
   <Folder Name="/Plutus/Frontend/">
     <Project Path="Plutus/Frontend/Plutus.Frontend.AppClient.Tests/Plutus.Frontend.AppClient.Tests.csproj" />
     <Project Path="Plutus/Frontend/Plutus.Frontend.AppClient/Plutus.Frontend.AppClient.csproj" />
-    <Project Path="Plutus/Frontend/Plutus.Frontend.ClientUI/Plutus.Frontend.ClientUI.csproj" />
   </Folder>
   <Folder Name="/Plutus/Shared/">
     <Project Path="Plutus/Shared/CommonPOSLibrary/CommonPOSLibrary.csproj" />
