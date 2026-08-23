@@ -33,52 +33,11 @@ namespace Plutus.Frontend.AppClient.Tests.ViewModels
             Vat = new TaxModel { Name = "Standard", Rate = 0.2 }
         };
 
-        [Fact]
-        public void Construction_AssignsSessionIdAndEmptyEmployeeList()
-        {
-            var vm = new AppViewModel();
-            Assert.NotEqual(Guid.Empty, vm.SessionId);
-            Assert.Empty(vm.Employees);
-        }
-
-        [Fact]
-        public void EmployeeId_WithSingleEmployee_ReturnsItsId()
-        {
-            var vm = new AppViewModel();
-            vm.Employees.Add(new EmployeeModel { Id = "E1" });
-            Assert.Equal("E1", vm.EmployeeId);
-        }
-
-        [Fact]
-        public void EmployeeId_WithMultipleEmployees_Throws()
-        {
-            var vm = new AppViewModel();
-            vm.Employees.Add(new EmployeeModel { Id = "E1" });
-            vm.Employees.Add(new EmployeeModel { Id = "E2" });
-            Assert.Throws<NotImplementedException>(() => vm.EmployeeId);
-        }
-
-        /// <summary>
-        /// ⚠ THE READ THAT CLOSED THE APPLICATION. This was `Employees.Last().Id`, and `Employees`
-        /// is filled ONLY by the legacy local login — the portal roster path sets
-        /// `SignedInOperator` and never touches it. So on every portal-provisioned till the getter
-        /// threw `InvalidOperationException: Sequence contains no elements`, out of `async void`
-        /// command handlers with no catch, which reposts to the UI thread as unhandled and
-        /// TERMINATES THE PROCESS. Pressing Checkout — or the alter-transaction button — closed the
-        /// till mid-sale, with a full basket and a customer waiting, and showed nothing.
-        ///
-        /// "There is no legacy employee" is the NORMAL state of a portal till, so it must be an
-        /// answer. Anything needing to know who is acting uses `SignedInOperator`.
-        /// </summary>
-        [Fact]
-        public void EmployeeId_WithNoLegacyEmployee_IsNullRatherThanACrash()
-        {
-            var vm = new AppViewModel();
-
-            Assert.Empty(vm.Employees);
-            Assert.Null(vm.EmployeeId);
-        }
-
+        // ⚠⚠ FOUR `Employees`/`EmployeeId` TESTS WENT WITH THE PROPERTIES — L9, 2026-08-23.
+        // One of them, `EmployeeId_WithNoLegacyEmployee_IsNullRatherThanACrash`, pinned the fix for
+        // the read that CLOSED THE APPLICATION on a portal-provisioned till. Step 21 made null a
+        // normal answer; removing the legacy login removed the question, so the pin has nothing left
+        // to protect. Named here because a deleted test is a deleted requirement.
         [Fact]
         public void ToolbarItemsChanged_SetTrue_RaisesToolbarItemChangedEvent()
         {

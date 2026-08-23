@@ -28,63 +28,15 @@ namespace Plutus.Frontend.AppClient.Services.Printing
     /// </summary>
     internal static class ReceiptReprint
     {
-        /// <summary>
-        /// Pick a past sale from THIS till and print it again. Returns quietly if the operator
-        /// backs out at any point.
-        ///
-        /// ⚠ Reads this till's OWN record, so it works with the line down — the same reasoning as
-        /// the refund picker. A sale rung up on another till is the server's to know about, and
-        /// reprinting somebody else's paperwork is not what this is for.
-        /// </summary>
-        public static async Task PickAndReprintAsync()
-        {
-            // ⚠ `purchasesOnly: false` — UNLIKE the refund picker, and deliberately. A refund is
-            // its own sale with a negative gross, the customer gets a receipt for it, and they can
-            // lose that one too. Refunding a refund is invalid; REPRINTING one is not.
-            var recent = await Services.Storage.TillStoreAccess.TryUseAsync(
-                s => s.ListRecentSalesAsync(20, purchasesOnly: false));
-
-            if (recent is not { Count: > 0 })
-            {
-                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "This till hasn't recorded any sales yet, so there's nothing to reprint.",
-                    "OK".Translate());
-                return;
-            }
-
-            var labels = recent
-                .Select(r => $"{r.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} · "
-                           + $"{r.GrossPence / 100m:C}"
-                           + (r.GrossPence < 0 ? " · REFUND" : "")
-                           + $" · {r.LineCount} item{(r.LineCount == 1 ? "" : "s")}"
-                           + (string.IsNullOrWhiteSpace(r.FirstItemIdOne) ? "" : $" · {r.FirstItemIdOne}"))
-                .ToList();
-
-            // ⚠⚠ THE SAME TWO-STEP SHAPE AS THE REFUND PICKER, and deliberately so — step 26 says
-            // these are one screen with two callers. THIS TILL'S SALES FIRST, because they are the
-            // common case and the only ones available with the line down; the platform lookup is an
-            // explicit second step, so a reprint never depends on the network unless it has to.
-            labels.Add(AnotherTill);
-
-            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
-                    "Which receipt?", "Cancel".Translate(), null, labels.ToArray()));
-
-            if (string.IsNullOrWhiteSpace(picked) || picked == "Cancel".Translate()) return;
-
-            if (picked == AnotherTill)
-            {
-                if (await PickPlatformSaleAsync() is Guid fromPlatform)
-                    await ReprintAsync(fromPlatform);
-                return;
-            }
-
-            var index = labels.IndexOf(picked);
-            if (index < 0 || index >= recent.Count) return;
-
-            await ReprintAsync(recent[index].SaleId);
-        }
-
+        // ⚠⚠ L16, 2026-08-23 — `PickAndReprintAsync`, `PickPlatformSaleAsync` and the `AnotherTill`
+        // constant are gone (~162 lines). They were the "pick a recent sale and reprint it" flow, and
+        // their only caller was the Statistics screen, which Matt ruled superseded by Reporting on
+        // 2026-08-23 and which went with them.
+        //
+        // ⚠ REPRINTING IS NOT LOST, and that is why this could go: `ReprintAsync` below is the live
+        // one, reached from Reports → a sale → **Print copy receipt** (`SaleDetailHelper`). Matt,
+        // 2026-08-21: *"Reprinting receipts needs to be done from reports and looking at the specific
+        // sales in a day."* The picker was the older, second way in.
         /// <summary>Print a copy of one known sale.</summary>
         public static async Task ReprintAsync(Guid saleId)
         {
@@ -179,62 +131,6 @@ namespace Plutus.Frontend.AppClient.Services.Printing
                 "Receipt", Plutus.Client.Core.ReceiptPreview.Text(doc), "Close");
         }
 
-        private const string AnotherTill = "Sold on another till — look it up in Plutus…";
-
-        /// <summary>
-        /// Pick a sale from the PLATFORM — the only path to another till's receipt.
-        ///
-        /// ⚠ A FORTNIGHT, not everything: reprints are overwhelmingly recent, and the server clamps
-        /// `take` anyway. A picker holding months of sales is one nobody reads.
-        ///
-        /// ⚠ REFUNDS ARE INCLUDED HERE, unlike the refund picker's platform list. A refund is its own
-        /// sale, the customer was handed a receipt for it, and they can lose that one too —
-        /// reprinting a refund is legitimate where refunding one is not.
-        /// </summary>
-        private static async Task<Guid?> PickPlatformSaleAsync()
-        {
-            var api = await Services.Connectivity.PlutusApi.GetOperatorAsync();
-            if (api is null)
-            {
-                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    "Looking up another till's sale needs someone signed in and a connection to "
-                    + "Plutus. This till's own sales are in the previous list.", "OK".Translate());
-                return null;
-            }
-
-            var today = Plutus.SharedKernel.BusinessDay.Today();
-            var sales = await api.GetSalesAsync(today.AddDays(-14), today, tillId: null, take: 40);
-
-            if (sales is null || sales.Count == 0)
-            {
-                await Application.Current.MainPage.DisplayAlert("Hmm".Translate(),
-                    sales is null
-                        ? "Plutus couldn't be reached, so other tills' sales can't be listed."
-                        : "Plutus has no sales in the last fortnight.",
-                    "OK".Translate());
-                return null;
-            }
-
-            var thisTill = await Services.Storage.TillStoreAccess.TryUseAsync(
-                s => s.GetGuidMetaAsync(Plutus.Client.Storage.MetaKeys.TillId));
-
-            var labels = sales
-                .Select(s => $"{s.OccurredAtUtc.ToLocalTime():dd MMM HH:mm} · {s.GrossPence / 100m:C}"
-                           + (s.GrossPence < 0 ? " · REFUND" : "")
-                           // ⚠ Says WHOSE sale it is — without it the operator cannot tell a
-                           // neighbouring till's from one of their own.
-                           + (thisTill is Guid t && s.TillId == t ? " · this till" : " · another till"))
-                .ToList();
-
-            var picked = await Services.UIHandeling.Modal.ShowAsync(() =>
-                Plutus.Frontend.AppClient.Helpers.CustomViews.ChoiceHelper.AskAsync(
-                    "Which sale, from Plutus?", "Cancel".Translate(), null, labels.ToArray()));
-
-            if (string.IsNullOrEmpty(picked) || picked == "Cancel".Translate()) return null;
-
-            var index = labels.IndexOf(picked);
-            return index >= 0 && index < sales.Count ? sales[index].Id : null;
-        }
 
         // ⚠ One client for the app's lifetime — a new one per reprint leaks sockets into TIME_WAIT.
         private static readonly System.Net.Http.HttpClient Http = new System.Net.Http.HttpClient();

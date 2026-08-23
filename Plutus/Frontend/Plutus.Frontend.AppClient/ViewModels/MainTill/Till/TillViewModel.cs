@@ -2077,8 +2077,11 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // Tapping the leftmost button on the till screen closed the application. It now
                 // returns null, and the audit user is the SIGNED-IN OPERATOR, which is the person
                 // who actually applied the discount on either sign-in path.
-                var auditUser = App.GetViewModel().SignedInOperator?.UserId.ToString()
-                                ?? App.GetViewModel().EmployeeId;
+                // ⚠ L9, 2026-08-23 — the `?? EmployeeId` fallback is gone with the legacy login that
+                // was the only thing filling `Employees`. It could only ever answer null now, and the
+                // signed-in operator is the person who actually applied the discount on the one
+                // remaining sign-in path.
+                var auditUser = App.GetViewModel().SignedInOperator?.UserId.ToString();
 
                 using (var db = new Helpers.Database.Database(databaseProvider, auditUser))
                 {

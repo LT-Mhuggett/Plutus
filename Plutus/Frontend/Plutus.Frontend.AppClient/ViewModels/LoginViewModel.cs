@@ -520,12 +520,22 @@ namespace Plutus.Frontend.AppClient.ViewModels
                 // attempt made the file exist, this guard stopped firing, and the honest message
                 // reverted to "details not correct" on the very next try. The guard was defeating
                 // itself after one use.
-                int localStaff;
-                using (var probe = new Helpers.Database.Database(databaseProvider))
-                    localStaff = probe.Get<EmployeeModel>().Count();
-
-                if (localStaff == 0)
-                {
+                // ⚠⚠ THE LEGACY LOCAL LOGIN IS GONE — Matt, 2026-08-23: *"A till should not
+                // authenticate against the legacy DB... a till needs to enrol and sync first."*
+                //
+                // It signed people in against `EmployeeModel` in the legacy SQLite file, and it fired
+                // on exactly ONE condition: `LoginFailure.NoOperators` — a till with no roster at all.
+                // Every other outcome, a wrong password included, was answered above and never
+                // reached it.
+                //
+                // ⚠ SO THE ONE BEHAVIOUR REMOVED IS "sign in on a till that has never synced", and
+                // that is the point. Those hashes are PBKDF2-**SHA1**/101,010 — which
+                // `OfflineCredentials` calls roughly 13x below current OWASP guidance and cannot
+                // raise, because the legacy till shares the format — and a never-synced till is also
+                // the one a thief has. Step 28 exists to shrink exactly this.
+                //
+                // ⚠ The four messages below already said the right thing in every case; they were
+                // simply gated behind a local-staff count. They are now the whole answer.
                     // ⚠ SAY WHICH OF THE FOUR THINGS WENT WRONG. "No staff on this till" was true
                     // in every case and useful in none — it sent someone to press a button that,
                     // depending on the cause, either was not needed, could not work, or had already
@@ -552,40 +562,6 @@ namespace Plutus.Frontend.AppClient.ViewModels
                     };
                     await App.Current.MainPage.DisplayAlert(title, message, "OK");
                     return;
-                }
-
-                using (var dbHelper = new Helpers.Database.Database(databaseProvider))
-                {
-                    var tempUser = await dbHelper.Get<EmployeeModel>()
-                        .Include(e => e.Store)
-                        .Where(e => e.Id.Equals(_email_UserId) ||
-                            EF.Functions.Like(e.Email.ToLower(), _email_UserId.ToLower())).FirstOrDefaultAsync();
-                    if (tempUser == null || !await Task.Run(() =>
-                        Helpers.Security.Password.Verify(_password, Convert.FromBase64String(tempUser.Salt),
-                            Convert.FromBase64String(tempUser.HashedPassword))))
-                    {
-
-                        Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Login", new Dictionary<string, string> { { "Authorised", "False" } });
-                        await App.Current.MainPage.DisplayAlert("Hmm".Translate(), "DetailsNotCorrectORUserNotExistMesg".Translate(), "OK".Translate());
-                        return;
-                    }
-
-                    Logger.LogEvent(AppLogLevel.Info, $"{this.GetType().Name}: Login", new Dictionary<string, string> { { "Authorised", "True" } });
-                    var store = tempUser.Store;
-
-                    App.GetViewModel().Employees.Add(tempUser);
-                    // May change Store setter
-                    App.GetViewModel().Store = store;
-                    App.Current.MainPage = new AppShell();
-
-                    Shell.Current.CurrentPage.ToolbarItems.Add(new IconToolbarItem
-                    {
-                        Text = "Users".Translate(),
-                        IconImageSource = "md-people",
-                        IconColor = Helpers.Extensions.XAML.MaterialIconGlyphConverter.ThemeColour("ThemeAccentInk", Colors.White),
-                        Command = ShowLoggedUsersCommand
-                    });
-                }
             }
             catch (Exception ex)
             {
