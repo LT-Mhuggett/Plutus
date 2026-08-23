@@ -27,7 +27,7 @@ in this document.
 
 **Legend:** ✅ built · 🟡 partial · ⬜ absent · ➖ not applicable · ⏸ blocked externally.
 Last verified against code **2026-08-08**. Retrofit WPs refer to
-[`MAUI-retrofit.md`](To%20do/MAUI-retrofit.md).
+[`MAUI-retrofit.md`](archive/MAUI-retrofit.md).
 
 *Consolidated 2026-08-08 from `till-parity.md` (features) and `till-anatomy.md` (build + rules) at
 Matt's instruction — the two questions were always one question, and splitting them meant a till
@@ -239,7 +239,7 @@ Everything that can produce a sale, and what it's made of.
 | Surface | Technology | Runs on | Local state | Reaches the server via |
 |---|---|---|---|---|
 | **Web till** — `Plutus.Frontend.WebApp` | React 19 + TypeScript, Vite | Any browser | IndexedDB (outbox + catalogue cache) | `POST /api/v1/sales`, plus some legacy `/api/*` |
-| **MAUI till** — `Plutus.Frontend.AppClient` | .NET MAUI (Sean's rework, NatApp lineage) | `net10.0-windows`, `-android`, `-ios` | **SQLite local store v2** (`TillDbContext`) — ⚠ the legacy schema is still present and still read by the hidden pre-cutover reports ([L4](To%20do/MAUI-retrofit.md)), but **sales, cash, the outbox, the catalogue, the roster and every Meta key are v2** | ✅ **`POST /api/v1/sales` through `Plutus.Client.Core`**, plus the 60 s cadence (heartbeat, catalogue, cash drain, VAT bands, receipt template, noticeboard, agent status, device standing) and some legacy `/api/*` for the item editor and staff. ⚠ **This cell read *"Not yet — WP5+ wires it"* until 2026-08-17**, long after it was wired |
+| **MAUI till** — `Plutus.Frontend.AppClient` | .NET MAUI (Sean's rework, NatApp lineage) | `net10.0-windows`, `-android`, `-ios` | **SQLite local store v2** (`TillDbContext`) — ⚠ the legacy schema is still present and still read by the hidden pre-cutover reports ([L4](archive/MAUI-retrofit.md)), but **sales, cash, the outbox, the catalogue, the roster and every Meta key are v2** | ✅ **`POST /api/v1/sales` through `Plutus.Client.Core`**, plus the 60 s cadence (heartbeat, catalogue, cash drain, VAT bands, receipt template, noticeboard, agent status, device standing) and some legacy `/api/*` for the item editor and staff. ⚠ **This cell read *"Not yet — WP5+ wires it"* until 2026-08-17**, long after it was wired |
 | **Webstore connector** | Backend module `Plutus.Webstore` | Server | — | Its sink builds an `IngestSaleRequest` and calls `SalesIngestService` **directly** |
 | **Hardware agent** — `tools/Plutus.TillAgent` | WinForms tray app + Kestrel on `127.0.0.1:9123` | `net10.0-windows` | Token in local config | Not a sales path — it prints and kicks the drawer for the *browser* till |
 | **Portal** — `Plutus.Frontend.Portal` | React 19 + TypeScript | Any browser | — | The **source of truth**, not a till: it publishes what tills obey |
@@ -340,7 +340,7 @@ see that it changed rather than wonder whether they misread it.
 
 | Area | Web | MAUI | Retrofit |
 |---|:--:|:--:|---|
-| Inventory CRUD | ✅ | 🟡 | **WP10 / step 25.** ✅ **EDIT (name + price) landed 2026-08-10**, against `PUT /api/Item/{id1}` — the same endpoint the web till uses in production. ⚠ **READ-MODIFY-WRITE, always**: that PUT binds the WHOLE entity, so a bare price change would clear `StockUntracked` or blank `BinnedAtUtc` — **restoring a withdrawn item to sale on every till in the estate**. `PlutusApiClient.UpdateItemFieldsAsync` fetches first and echoes everything back, and the client deliberately exposes no way to construct the payload from scratch. ⚠ **The ex price is DERIVED from the item's existing pair, never typed**: the server guards `|price − exPrice × rate| ≤ 2p` because free-typed ex-prices corrupted 47 live items (a £7.99 item with a £799.00 ex-price) and with them every downstream VAT figure. ⚠ **Needs an OPERATOR token** — the legacy base controller reads an `objectidentifier` claim in its CONSTRUCTOR, so a device token does not merely fail the policy, it 500s before the action runs. 🟡 not ✅ until CREATE, the stock ledger, categories and the Bin land — see below. **Original correction, 2026-08-10:** this row read ✅ / ✅ and was WRONG — MAUI's add/edit/stock screens wrote into the LEGACY local database, and the till client has no item-write endpoint at all (`PlutusApiClient` reads the catalogue and nothing more), so a till-created item reached no report, no other till and no VAT return. Since cutover step 11 the basket resolves items from the v2 catalogue, so it could not even be SOLD on the machine that made it. Both were also gated on the legacy `IsAuthorised`, which **crashed the app** rather than refusing. Hidden 2026-08-10 — see [`MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) §10 L2. A ✅ here is what "reads as built and is not" looks like; the ⬜ is the honest state. |
+| Inventory CRUD | ✅ | 🟡 | **WP10 / step 25.** ✅ **EDIT (name + price) landed 2026-08-10**, against `PUT /api/Item/{id1}` — the same endpoint the web till uses in production. ⚠ **READ-MODIFY-WRITE, always**: that PUT binds the WHOLE entity, so a bare price change would clear `StockUntracked` or blank `BinnedAtUtc` — **restoring a withdrawn item to sale on every till in the estate**. `PlutusApiClient.UpdateItemFieldsAsync` fetches first and echoes everything back, and the client deliberately exposes no way to construct the payload from scratch. ⚠ **The ex price is DERIVED from the item's existing pair, never typed**: the server guards `|price − exPrice × rate| ≤ 2p` because free-typed ex-prices corrupted 47 live items (a £7.99 item with a £799.00 ex-price) and with them every downstream VAT figure. ⚠ **Needs an OPERATOR token** — the legacy base controller reads an `objectidentifier` claim in its CONSTRUCTOR, so a device token does not merely fail the policy, it 500s before the action runs. 🟡 not ✅ until CREATE, the stock ledger, categories and the Bin land — see below. **Original correction, 2026-08-10:** this row read ✅ / ✅ and was WRONG — MAUI's add/edit/stock screens wrote into the LEGACY local database, and the till client has no item-write endpoint at all (`PlutusApiClient` reads the catalogue and nothing more), so a till-created item reached no report, no other till and no VAT return. Since cutover step 11 the basket resolves items from the v2 catalogue, so it could not even be SOLD on the machine that made it. Both were also gated on the legacy `IsAuthorised`, which **crashed the app** rather than refusing. Hidden 2026-08-10 — see [`MAUI-retrofit.md`](archive/MAUI-retrofit.md) §10 L2. A ✅ here is what "reads as built and is not" looks like; the ⬜ is the honest state. |
 | **Item search by NAME in the scan box** | ✅ | ✅ | **Closed 2026-08-10.** ⚠ **MAUI had none, and its absence read as an empty catalogue**: `TillViewModel.FindItem` called `FindByBarcodeAsync` and nothing else, so anything TYPED — "BAT" — was tried as an exact barcode, missed, and produced *"We can't find an item with that ID"* against 20,344 synced, sellable items. ⚠ `TillStore.SearchAsync` had been built, correct and tested since 2026-08-09 and was called from **nowhere** — the third finished component found sitting unwired behind a screen that looked broken (after `OutboxPusher.DrainAsync` and the catalogue browse). ⚠ Barcode is tried FIRST and stays exact: a scan is the hot path and must never open a picker in front of a queue. Matching is `SharedKernel.ItemSearch` (C1), never a `LIKE` written at the call site. `matchAllWords` is a per-device preference defaulting to **true on both tills** — two tills that merely *default* differently would disagree about the same query out of the box. |
 | **Stock QUANTITY on the till** (read) | ✅ | ✅ | `POST /api/v1/stock/levels/bulk` | ✅ **2026-08-10 (till 1.37.0 + backend 1.9.0).** The column was **BLANK on every row** — it bound `Stock.Quantity`, a legacy EF navigation property nothing populates on a portal till, and a MAUI binding to a null path renders empty without complaint. **An empty stock column reads as ZERO**, so the till was telling anyone who looked that the shop holds none of anything. ⚠ **Three states, three renderings**: a number, **∞** for a deliberately untracked item, **—** for "never counted". Null arrives for BOTH of the last two and only the flag separates them; printing 0 for "never counted" gets the item reordered, and printing 0 for a carrier bag reads as a stock-out. ⚠ **Read after the rows render, never before** — making the list wait on the network would blank the screen exactly when the line is down, which is when browsing matters most; failure leaves the dashes. ⚠ **One bulk call per page, clamped to 200 client-side** because the endpoint TRUNCATES rather than refusing — 500 ids would return 200 answers and 300 silent gaps, each rendering as the honest "never counted". ⚠ Gate widened to accept `pos.reports.view` (third time, same defect — see the row below). Pinned by `StockLevelDisplayTests` + `StockLevelClientTests` (11), mutation-checked four ways. |
 | Stock as a movement LEDGER (write) | ✅ | ✅ | `POST /api/v1/stock/movements` — a signed DELTA | ✅ **2026-08-11 (till 1.39.0 + backend 1.9.0).** Tap a row → **Adjust stock…** → write off / add → how many → why. ⚠⚠ **EVERYTHING IS A CHANGE, NEVER A COUNT, AND THE SCREEN SAYS SO.** The server does `level.Quantity += qtyDelta`, so a box labelled "quantity" filled in with what somebody counted ADDS their count to the existing one — 7 on the shelf, operator counts 7, stock becomes 14, nothing errors and nobody finds out until a stock take. Every prompt asks *how many*, in a direction already chosen, with the current figure beside it. ⚠ **The SIGN comes from the choice, never from typing** — a `WriteOff` must be negative or the server refuses, and asking somebody to get a minus sign right on a ledger at a counter is asking for the wrong answer. ⚠ **A REASON IS COMPULSORY** (the server refuses without one): an unexplained stock correction is indistinguishable from shrinkage being hidden. ⚠ **NOT QUEUED when offline, unlike a sale, and the message says so** — a sale is queued because the money moved regardless; a stock correction is a DECISION, and replaying one against a count that has since changed writes a wrong number. ⚠ **Not offered for an untracked item** — its level is meaningless by design. ⚠ **"Correct the count to N" is deliberately absent**: that is `/stock/takes`, which sits under a controller-wide portal gate covering inter-store transfers, so reaching it from a till would grant transfers by accident. A till adjusts; a stock take stays a portal job until it has its own gate. Pinned by `StockMovementClientTests` + `PosStockAdjustSeedTests` (12), mutation-checked three ways. |
@@ -798,7 +798,7 @@ mechanical rather than a matter of remembering:
    decides what the operator may do, it belongs in `Plutus.SharedKernel` or `Plutus.Client.Core`,
    not in the UI project you happen to be editing. Then add its C1 row.
 3. **Every till that isn't getting it now needs a WP number in Notes.** Not "TODO", not "later" —
-   the work package in [`MAUI-retrofit.md`](To%20do/MAUI-retrofit.md)
+   the work package in [`MAUI-retrofit.md`](archive/MAUI-retrofit.md)
    that will close it. If no WP covers it, add one; a plan is cheap and an unrecorded gap is not.
 4. **A ⬜ needs a reason, not just a number.** "Online-only by design" and "no MAUI model exists
    for this yet" are reasons. An empty Notes cell is how the July drift happened.
@@ -838,7 +838,7 @@ Every dialog on every till, no exceptions:
 | **1** | **A visible ✕, top-right.** | Backing out already worked on every dialog in this codebase — Escape/back always cancels, and tapping outside cancels on most. **What was missing was any way to KNOW that.** An exit nobody can see is not an exit |
 | **2** | **Escape / the back button always cancels.** | `AlertDialogBase.OnBackButtonPressed` — it once returned `true` unconditionally and swallowed both |
 | **3** | **Tapping outside cancels**, unless the dialog is deliberately modal (`interuptable: false`) — and if it is, rules 1 and 2 are the only exits, so they must work | A 40%-black scrim over a till with no way out is a dead counter |
-| **4** | ⚠⚠ **THE CALLER HANDLES "BACKED OUT" — and this is the money rule.** A cancelled dialog yields *no answer*, and the caller must treat that as "the operator changed their mind", never read a value out of it | ⚠⚠ **CORRECTED 2026-08-19 — THIS ROW SAID "returns null" AND THAT IS NOT WHAT THE CODE DOES.** `InputAlertHelper.ShowAsync` ends `return await popUp.PageClosedTask ?? new Dictionary<uint, string>();` — `await` binds tighter than `??`, so backing out yields an **EMPTY DICTIONARY**, and the method's own header comment says so. So **guard on `Count == 0` / a failed `TryGetValue`, never on `== null`**: a `== null` test never fires and is dead code. ⚠ The crash is real but it is not a `NullReferenceException` — reading an absent key throws `KeyNotFoundException`, and in an `async void` handler that still **kills the till**. ⚠⚠ **The worse case is where nothing throws at all**: a caller that reads the empty dictionary through `FirstOrDefault()` gets a zeroed struct and proceeds with a **silent zero** — on a cash movement or a price adjust that is a wrong number rather than a crash. See `MAUI-retrofit.md` §0.3b |
+| **4** | ⚠⚠ **THE CALLER HANDLES "BACKED OUT" — and this is the money rule.** A cancelled dialog yields *no answer*, and the caller must treat that as "the operator changed their mind", never read a value out of it | ⚠⚠ **CORRECTED 2026-08-19 — THIS ROW SAID "returns null" AND THAT IS NOT WHAT THE CODE DOES.** `InputAlertHelper.ShowAsync` ends `return await popUp.PageClosedTask ?? new Dictionary<uint, string>();` — `await` binds tighter than `??`, so backing out yields an **EMPTY DICTIONARY**, and the method's own header comment says so. So **guard on `Count == 0` / a failed `TryGetValue`, never on `== null`**: a `== null` test never fires and is dead code. ⚠ The crash is real but it is not a `NullReferenceException` — reading an absent key throws `KeyNotFoundException`, and in an `async void` handler that still **kills the till**. ⚠⚠ **The worse case is where nothing throws at all**: a caller that reads the empty dictionary through `FirstOrDefault()` gets a zeroed struct and proceeds with a **silent zero** — on a cash movement or a price adjust that is a wrong number rather than a crash. See `MAUI_finaltest.md` §0.3b |
 | **5** | **The ✕ is wired to CANCEL, not to the raw dismiss.** | Not cosmetic. On MAUI the two return *different things*: Cancel blanks the fields and returns a dictionary of nulls that every caller's `if (x != null)` guard already survives; the raw dismiss returns **null**, which is rule 4's crash. Wiring the ✕ to Cancel gives the operator a visible exit **without widening the reach of a bug that is still open** |
 
 ### Where it is implemented — one place per till, on purpose
@@ -888,7 +888,7 @@ writing a title label by hand, that is the smell.
     contract that silently excludes the ones nobody added. **If you add a surface, add its row here.**
 - ✅ **Rule 4 — CLOSED 2026-08-21. This contract is now 5/5 honoured on every reachable dialog.**
   ⚠⚠ **It was never "17 places", and that number outlived its own correction by two days.** The
-  2026-08-19 re-audit in `MAUI-retrofit.md` §0.3b already said so; this line, §0.3's table and §7's
+  2026-08-19 re-audit in `MAUI_finaltest.md` §0.3b already said so; this line, §0.3's table and §7's
   first row all kept the 17. **Re-enumerated by grep on 2026-08-21: 23 `LaunchInputAlertAsync` call
   sites, and every one an operator can open returns on `Count == 0` or a checked `TryGetValue`** —
   including all five named here (refund, gift-card sale, cash, the supervisor prompt, checkout).
@@ -1098,7 +1098,7 @@ grep -rn "window.print()" Plutus/Frontend/Plutus.Frontend.WebApp/src --include=*
 
 Matt ran the MAUI till against the web till and reported **nine** faults in one sitting. Every one had
 passed every automated check in this project. They are itemised as a work programme in
-[`MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) **§5c**; what belongs *here* is what they say about this
+[`MAUI_finaltest.md`](MAUI_finaltest.md) **§5c**; what belongs *here* is what they say about this
 document:
 
 - **🟡 meant less than it reads.** Reports, Loyalty, Settings and checkout were all 🟡 — *"built,
@@ -1124,3 +1124,245 @@ document:
 **silent about whether a person can use it**, and this review is the fourth demonstration that the gap
 between those two is where the faults live. ⚠ Only [`Test Maui.md`](Test%20Maui.md) closes it, and it
 has still never been run start to finish.
+
+---
+
+# PART E · WHAT BINDS THE NEXT BUILD — inherited from `MAUI-retrofit.md`, 2026-08-23
+
+> ⚠⚠ **THIS PART EXISTS BECAUSE ARCHIVING A DOCUMENT NEARLY THREW AWAY ITS RULINGS.**
+> `MAUI-retrofit.md` was archived on 2026-08-23 when the retrofit finished, and its §0.2, §13, §14,
+> §15 and §22 were **not history** — they are decisions that bind whatever gets built next, on any
+> till. They moved here because `till-design.md` is the standing authority for every till build, and
+> the alternative was a sixth MAUI document.
+>
+> ⚠ **Matt's rulings are quoted, not paraphrased.** A paraphrase of a decision is a new decision.
+
+### 0.2 ⚠⚠ Matt's rulings — the ones that decide what gets built
+
+Chronological. **Each is a decision, not a preference — build against these, and if one looks wrong,
+say so rather than quietly doing something else.**
+
+| Date | Ruling | What it settles |
+|---|---|---|
+| 2026-08-19 | ⚠⚠ *"Can you add the carrier bag decision to the portal? That creates the 5p and 20p bags at the back and that pushes down to the tills? This could just be a unique item that doesnt show in the Inventory. This would be cleaner than creating a bag at each till."* | **Carrier bags are a PORTAL decision, not a till setting.** Kills `DefaultBagId` (MAUI) and `prefs.bagBarcode` (web) — both per-device, one of which held `"001"`, a barcode no item has. ⚠ **A LIST, not a pair** — his own question, *"is there a time when you would have to charge 5 and 20p for a bag? Or is it one or the other?"*, answers **both**: a shop normally sells a statutory-minimum single-use bag AND a dearer bag for life, side by side. ⚠ **And no price is hardcoded** — England's minimum went 5p → **10p on 21 May 2021**, and the four nations differ, so a figure baked into a build is wrong the next time Parliament moves. ⚠ Bags are real catalogue items in their own category (standard-rated, unlike the gift-card item), hidden from the inventory lists. See `till-design.md` Part B "Portal decides, till obeys", C1 and C2 |
+| 2026-08-19 | ⚠⚠ *"I need the functionality and look and feel to be the same across both tills. So if a user swaps between the two, it doesnt matter and they would understand how to use it"* | ⚠⚠ **THIS SUPERSEDES THE 2026-08-17 RULING AND WIDENS IT.** That one said *"parity in FUNCTIONALITY, not in how the functions operate"* — quoted in CLAUDE.md and till-design A0 — and it is what justified MAUI's sequential tender prompts against the web till's one screen. **It no longer holds: look and feel are now in scope**, and the test is an operator who moves between tills mid-shift and needs no retraining. ⚠ **The direct consequence: §5c item 2 (the one-screen checkout) is BACK ON, at its full ~4 d.** I had cut it to ~1–2 d on 2026-08-19 on the strength of Matt's earlier answer that the dialog chain was *not* a functional gap — that answer was about the CHAIN specifically, and this ruling is about the whole screen. ⚠ It also makes the double-take money bug impossible **by construction** rather than by a guard, which is the stronger fix. ⚠ A0's framing needs revisiting: a table that records only "can the till do the thing" cannot express this ruling. |
+| 2026-08-19 | ⚠⚠ *"It was on the till screen where it didnt make sense. I asked you to remove them from the till screen because +Add member didnt make sense. It implied that it was to add a new member. It needs to be more obvious what that button was for, which is why I suggested 'Loyalty Customer Lookup'"* | ⚠⚠ **I REMOVED A WANTED FEATURE BY MISREADING A COMPLAINT ABOUT ITS LABEL.** On 2026-08-18 Matt said *"Why is search and add member on the till screen? Neither the webtill or original NatApp has this here. It should not be there"* — and I took that as "the function does not belong", deleted both controls, and wrote into `TillView.xaml` that *"I argued once that they belonged, and I was wrong on the facts."* **The objection was the WORDING**: "+Add member" reads as "create a new member" when what he wanted was to find an existing one. ⚠ So the control goes back on the till screen, on **both** tills, labelled for what it does — *"Loyalty customer lookup"*. ⚠ And the consequence of the removal is on the record: attaching a member became scan-only, which is what stranded §G50a/§G53a (see §0.3d / WP-T2) — a deleted feature caused a testing dead end four weeks of documentation later. ⚠ **The lesson: when a complaint names a control, check whether it is about the control or its label before deleting the control.** |
+| 2026-08-08 | *"The tills need to be in parity. This is the point of the MAUI retrofit. In addition when adding new functionality, it needs to be added to all tills going forward."* | Parity is the DEFAULT. A feature is not done until its Part B row is filled for **every** till — ✅, or a ⬜ naming the work package that will close it |
+| 2026-08-08 | *"Each till needs a specific version as they will end up diverging."* | One version file per deployable in `versions/`. ⚠ A shared number would force the web till to claim a release it had no changes in |
+| 2026-08-08 | *"When you have enrolled a till, what is the point of seeing the Connect to Plutus tab?"* | Enrolment, not a local database, decides where a till starts |
+| 2026-08-11 | *"As part of the heartbeat, the re-read of permissions needs to happen. If a user is disabled, the user needs immediately logging out with an information message."* | The roster rides the 60 s beat; revocation signs the operator out. ⚠ Only from a roster the server ANSWERED with — see `OperatorRevocation` |
+| 2026-08-11 | *"No self update for MAUI."* | The update prompt is **advisory**. Nothing may refuse to sell over it. ⚠ The **agent** is the exception — see W5 |
+| 2026-08-11 | *"Does the heartbeat from the till check for updates? All tills should do this."* | `ExpectedMauiVersion` / `ExpectedWebVersion` on the beat |
+| 2026-08-10 | *"I am not going to renew Syncfusion, it seems like it can be replaced."* | ✅ **FULLY HONOURED 2026-08-20 (till 1.110.0): Syncfusion is out of the app entirely** — 10 packages, the licence registration and the stale key all deleted. ⚠ **Do not add one back**; no key exists and the failure is a shop-floor modal, not a build error |
+| 2026-08-13 | *"You cannot have a discount greater than the basket."* | Binding default 22a. Checked **before** the permission ceiling — "more than the basket" is true regardless of who is signed in |
+| 2026-08-13 | *"All discounts need to be tracked."* | Every discount carries a reason; step-ups carry an authoriser (`DiscountAudit`) |
+| 2026-08-14 | *"Base it on roles."* | A discount level **IS** a role's `pos.discount` `MaxPence`. ⚠ A separate tier entity would state a cashier's money limit twice with nothing to notice them disagreeing |
+| 2026-08-14 | *"Credits are only ever earned, never purchased, not transferable to cash."* | Loyalty credit is a **DISCOUNT**, not a tender. ⚠ That same line separates it from a gift card, which IS purchased and IS a liability — hence zero VAT on activation |
+| 2026-08-16 | *"Can you only deploy new MAUI tills when I ask please."* | Bump `versions/till-maui.txt` per slice, but **build only on request** |
+| 2026-08-16 | *"Tables only."* | Reports match the web till's **table behaviour**; no chart. The portal is the home for charts |
+| 2026-08-17 | *"Make it %"* | The discount box takes a percent NUMBER — `10` means 10%. Made it a **money** bug, not a label one. Fixed |
+| 2026-08-17 | *"I would not install silently, I would inform with a 'Continue or cancel' option… But if they say no, it needs to remind them."* | Agent updates are **asked for** and a decline **returns**. See W5 |
+| 2026-08-17 | ⚠⚠ *"Do not drop anything. I have a more recent DB to import and will need to translate where required and retain all legacy sales."* | ~~**L4 is not a deletion.**~~ ✅ **CONDITION MET, L4 CLOSED 2026-08-20** — the 19_08 import ran and `salesv2` holds 21,914 sales back to 2019-01-23, so the screens stopped being the only reader of that history. **A conditional ruling, honoured then discharged — not overridden.** See L4 |
+| 2026-08-20 | *"if the packaging of it removes all you see, what about removing syncfusion now? Worth it?"* | ✅ **Yes, and done — till 1.110.0.** The case was the **licence hazard**, not the megabytes: no key is coming, and an unlicensed control fails as a modal on a shop floor rather than as a build error. 264 MB → 169 MB fell out of it. ⚠ The question also settled the packaging point: the flat root is an **unsigned-MSIX workaround**, so signing the package is the real answer to it — Shrink §6 |
+| 2026-08-18 | ⚠⚠ *"Store credit needs to be for a KNOWN customer. Adding credit needs to have a reason and be viewable in the customers history."* | **§5c item 2b, answered.** ⚠ **There is no anonymous store credit at all** — the "no known customer" case is not a supervisor-authorised path, it is **refused**. That is simpler than the plan assumed and closes the question it was blocked on. ⚠ Credit is a **liability the shop owes a named person**; issuing it to nobody creates money the shop cannot reconcile against anybody, and a bearer instrument is what a **gift card** is for (WP13, which already exists). ⚠ **A REASON IS MANDATORY on the way in**, and it is not a local log: it must reach the customer's history where a manager can read it later. So the reason travels on the credit movement, the same shape as `DiscountAudit` — reason mandatory, actor recorded, stored on the record rather than beside it. ⚠ *"viewable in the customers history"* means a **screen requirement as well as a storage one**: a reason nobody can read afterwards is not an audit trail. |
+| 2026-08-18 | ⚠⚠ *"Portal shows which reports a till can show. Separate permissions need to be created for viewing them."* | **§5c item 5b, answered — and it is BOTH halves, not one.** ⚠ **(a) The portal curates the SET**: a till shows the reports the portal has published to it, not a catalogue hard-coded into each client. That makes `ReportCatalogue` a *superset the portal chooses from* rather than the answer, on every till. ⚠ **(b) Each report gets its OWN permission**, so "which reports exist here" and "who may read them" are separate decisions — today every report shares `portal.reports.view` / `pos.reports.view`, which is why widening that gate for a Supervisor widened it for **every** report at once (and why the same gate defect has now been fixed four times). ⚠⚠ **This is a new work package, not a §5c slice**: new entries in `PermissionCatalogue`, a per-tenant/per-till published set with storage and an endpoint, a portal screen, and both tills consuming it. ⚠ **It also settles a question nobody asked**: with per-report permissions, a till that is *published* a report it may not *read* must show nothing rather than a refusal — the publish decides the menu, the permission decides the door. ⚠⚠ **(b) SHIPPED 2026-08-19** — codes, shared rule + C2 twin, both tills filtering, and the nine endpoints re-gated so a narrow grant actually opens its report (backend 1.17.9). **(a) is still open.** Hand-run **§G51**. |
+| 2026-08-18 | ⚠⚠ *"A customer needs to have a unique ID, because people can change emails over time. Audit please."* | **§5c item 6's edit, answered — edit is ALLOWED, and audited.** ⚠ The unique id already exists and always has: `Customer.Id` is a UUIDv7 and `MemberNo` is the human-facing one. **The ruling is that neither the email nor any other editable field is ever the identity** — so changing an email cannot "redirect somebody's account", because nothing resolves a customer by email. That removes the objection the till's missing edit path was built around. ⚠ **"Audit please" is the condition, not an aside**: an edit records who changed what, from what, to what, and when — the `DiscountAudit` shape again, and the same reason (a change to somebody's record that nobody can trace is indistinguishable from a mistake). ⚠ It follows that **email must not be treated as unique** anywhere: two family members sharing an address is ordinary, and a uniqueness constraint on email would refuse a legitimate second member. |
+
+
+## 13. Binding defaults — the decisions, already made
+
+An agent building from this document follows these **without asking**. **Matt can veto any of them**,
+before or after — most are cheap to change.
+
+| # | Default (binding) | Used by |
+|---|---|---|
+| **1** | **AppClient is the go-forward app.** Harvest from ClientUI exactly two things — `Colors.xaml` (step 22) and the repository *interface shape*, never its implementation — then remove ClientUI from `Plutus.slnx`. Do **not** delete its directory. | Everything |
+| **2** | **Offline credentials = synced password hashes verified locally** via `Plutus.SharedKernel.Pbkdf2`, byte-identical to the server. Not an invention — the legacy Kapow DB carried `HashedPassword`+`Salt`. No local-PIN interim step. | WP8 |
+| **3** | **Existing local till data at enrolment: archive, never merge, never delete.** A timestamped copy of the legacy SQLite file into the translation agent's input folder, then build the v2 store from the server catalogue. Local sales history lives only in the archive; history queries go to the server. **Enrolment refuses to proceed until the archive step has succeeded.** | WP2, WP4 |
+| **4** | **Migrate first, enrol second.** A till enrols only after its store's legacy data has run through the translation agent. | WP2, WP4 |
+| **5** | **Legacy `TillController` in `Plutus.DBService`: deprecate, don't delete.** `[Obsolete]` + a doc comment pointing at `Plutus.Tenancy`'s `TillsController`. Removal is a separate cleanup once MAUI is live — deleting mid-retrofit risks the NatApp still trading in the shop. | WP4 |
+| **6** | **Card capture stays out of scope** for both tills, pending a provider (risk 8). MAUI copies the web till's gateway-*awareness* display only. | WP14 |
+| **7** | **The parity-audit rulings stand**: everything found is IN, homed to a WP. | §21 |
+| **8** | **Offline credential horizons are TIERED, and a till never hard-locks out of selling.** §14. | WP8, WP16 |
+| **9** | ⚠⚠ **NO BRIDGE TO THE LEGACY LOCAL DATABASE — the MAUI screens cut over to `Plutus.Client.Storage`.** *(Matt, 2026-08-09: "I would not bridge the legacy DB, it is not needed.")* The question arose the moment the till opened and its search found nothing: MAUI's screens read the legacy `Database.db` while the synced catalogue, the outbox and committed sales live in the **v2** store — two different databases. Writing synced items back into the legacy tables would have lit every screen up in an afternoon and left every till carrying two copies of its catalogue on a schema nobody intends to keep. **Decided against.** ⚠ The consequence is honest: **a screen shows nothing until it is ported**, so the till gets *more* visibly incomplete before it gets better. Scope measured 2026-08-09: **37 call sites across 21 files**. | WP2, all screens |
+| **10** | **When in doubt, MATCH THE WEB TILL.** `Plutus.Frontend.WebApp/src/api.ts` + `till/*.tsx` are the reference for behaviour, wording, payload shape and arithmetic. If this document and the web till disagree, **the web till wins** and the discrepancy is noted in the commit. Parity IS the requirement; inventing a better answer on one till is how C2 rows are born. | every step |
+| **11** | **Online operator auth = `POST /api/Auth/Login`, exactly like the web till.** No new token endpoint. MAUI calls it when online, holds the token in memory for the session; its `pos.sell` scope satisfies `SalesIngest`, and `perm:*` routes resolve from RBAC by the token's userId (runbook pitfall 5). Offline sign-in stays the roster. **Bundled fixes:** `Employee.Active` checked at login; `unenrol-request` gets a device-token policy; `GET /api/v1/sales` and `GET /api/v1/cash-events` gain `pos.*` alternatives. | 19, then 23–27 |
+| **12** | ✅ **CONFIRMED — Matt, 2026-08-09: "You should not be able to refund MORE than the price paid for it."** Enforced at **BOTH** gates. At the till: `RefundRules.Authorise` caps at the remainder and refuses past it — ⚠ **no override, supervisor included, may exceed the remainder**; ceilings authorise *up to* what is owed, never beyond. At ingest: `SalesIngestService` re-runs the same `Authorise` against the origin sale's recorded refunds and **quarantines (202)** anything claiming more. ⚠ **Quarantine, not 400** — the money (if any) already left a drawer on a till that broke the rule: a 400 makes the evidence vanish into the till's Failed queue; quarantine preserves it where the portal can see it. | 16, 17 |
+| **13** | ✅ **CONFIRMED — Matt, 2026-08-09 ("Do I need more?" — no). Tenders = the fixed `TenderType` set** (Cash, Card, Online, Credit, GiftCard), moved to SharedKernel. Five covers everything the platform takes: the web till exposes exactly these, Online is how webstore orders ingest, Credit is store credit, GiftCard is WP13's redemption. No payment-method roster endpoint. ⚠ A sixth is a cheap **additive** change — one enum member, one till button, one C2 pin — not a redesign. | 8, 9, 13b |
+| **14** | **Discounts = manual line discount first** (positive inc-VAT `DiscountPence`, gated `pos.discount` with the operator's ceiling), scaled by `VatLineMath.ForLine`. Catalogue/scheduled discounts wait until a server endpoint exists — there is none. | 9, 12 |
+| **15** | **Parked baskets are local-only**, in the v2 `SavedBasket` table, serialised as **contract JSON via `PlutusApiClient.Json` — no Newtonsoft `$type`.** No server sync (the web till parks locally too). `$type` coupling already broke discounted parked baskets once. | 18 |
+| **16** | ⚠ **First sign-in of any account on a device must be ONLINE** *(Matt, 2026-08-09)*. That first login mints a **device-local PBKDF2 verifier** (fresh salt); offline sign-in verifies against it. The roster keeps shipping hashes until both tills run verifiers, then the server stops (flagged, separate change, C2 row required). A till that has never been online cannot sign anyone in — deliberately: it has no catalogue or prices either. | 28 |
+| **17** | **Reporting series with no server answer are DROPPED, not locally recomputed.** `summary-rich` is in **POUNDS**, everything else in **PENCE** — encode it in the contract type names. Local re-derivation is C2 drift by construction. | 26 |
+| **19** | ✅ **CONFIRMED — Matt, 2026-08-13: "If the card machine is down, we cannot refund cards."** A refund goes back **only** to the tender that took the money, capped at what that tender took, **with no exception for a dead card terminal and no supervisor override** — the same shape as default 12 for the sale total. So a part-cash-part-card customer cannot be handed the whole refund in notes, and a card sale cannot be refunded from the drawer at all. ⚠ **This was raised as an owner-level question precisely because it has a shop-floor cost** (a customer sent away until the terminal is back), and the answer is the strict one: the alternative is the oldest till fraud there is, and an honest cash refund of card takings empties the drawer just as effectively. **Do not re-litigate it in code** — if it ever changes it changes here first. | 16, 17, ingest |
+| **20** | ✅ **CONFIRMED — Matt, 2026-08-13: "Tiers need to be set on the portal, but you need to be able to assign and change a tier on the tills IF you have the correct permissions. Supervisor to change tiers. Till operator to add new loyalty members."** Three rules: **(a)** tiers are *configured* in the **portal only** — no till creates or edits a tier. **(b)** *Assigning/changing* a member's tier at a till is **Supervisor and up** — `customers.manage`, which Supervisor already holds, so this is screen work only. **(c)** *Adding* a new member at a till is **Cashier and up** via a new **`pos.customers.add`**, with `POST /api/v1/customers` accepting either it or `customers.manage` (the `CheckAny` shape from `pos.stock.adjust`). ⚠ **Create-only, deliberately** — a cashier may add but not alter: editing a member's email quietly redirects their account, and a tier changes every future basket. ⚠ **Changes the WEB till too** — its create dialog is gated `customers.manage` alone today, so a web-till cashier cannot add either; both tills gain the gate in the same slice. ⚠ Adding is **online-only on every till**: member numbers come from a tenant-wide counter, and two offline tills would mint the same one. Expanded design: [`Loyalty Update across all tills.md`](To%20do/Loyalty%20Update%20across%20all%20tills.md) §14. | 27 |
+| **21** | ✅ **CONFIRMED — Matt, 2026-08-13: "We already have tier'd discount. The credits/Gems value need to be set in the portal. Each credit/gem is worth £0.10. Earn one credit/gem for every £10 spent. Use as many credits/gems as you want on an order. Need to be able to set an expiry date or never."** The programme's economics, and every till reads them from the server: a per-tenant **`LoyaltySettings`** row (`PencePerPoint` 10, `SpendPerPointPence` 1000, `ExpiryChoice` `NotChosen`/`Never`/`AfterMonths` + `ExpiryMonths`), following the `GiftCardSettings` idiom where **absence is the gate** — ⚠ **expiry is the TILL OWNER's explicit decision** (Matt, 2026-08-13), so `NotChosen` blocks earning and *"never"* is **chosen, not defaulted into**; two fields rather than a bare nullable so *"the owner chose never"* is distinguishable from *"nobody has decided"*. ⚠ **The brand term is configurable and lives ONLY in `NameSingular`/`NamePlural`** — code, tables, columns and DTOs use the neutral `Point`, and MAUI carries the two strings with its synced `LoyaltyCache` rather than a resource file, because a hardcoded "gems" on a till button or receipt is a bug the second tenant finds. ⚠ **Expiry is computed ON READ from the date** (the `GiftCardLedger.cs:57` precedent — nothing sweeps gift cards at all), so a balance is right **even if no job has run**; a sweeper writes idempotent `Expire` rows **only** for the accounting record, valued at each batch's **own** rate. Four consequences are binding because each is a silent-wrongness risk: **(a)** the ledger stores a **count of gems, never pence** — the rate is a portal setting, and a pence balance would either re-value all history or fail to, depending on which figure was written. **(b)** Redemption is a **basket-wide discount** of `gems × PencePerPoint`, reusing `DiscountApportionment.Across` + `VatLineMath.ForLine`, so a mixed-VAT basket apportions right for free; ⚠ `Across` **throws** above basket value, so the till caps the offer or ingest quarantines the sale. **(c)** Expiry is **per earn-entry**, consumed **oldest-expiring-first**, and changing `ExpiryMonths` **never retro-expires**. **(d)** ⚠⚠ A refund must **claw back the earn** *and* **restore the burn** — the earn alone leaves a gem printer (buy £1,000, refund, keep 100 gems); the burn alone loses the member gems they paid with. Balance may go negative; redemption blocks while it is. ⚠ **Earn base:** gross inc-VAT **actually paid** — after tier discount, after redemption, **excluding gift-card activation** (a liability, not a supply — earning there pays out twice). Rounding **floors per sale**. Reasoning and edge cases: [`Loyalty Update across all tills.md`](To%20do/Loyalty%20Update%20across%20all%20tills.md) §18. ⚠ **GEMS ARE GRANDFATHERED** (§18.8): each batch carries `PencePerPointAtEarn`, consumption is **oldest-first**, so a rate change touches future earns only and the old-rate cohort liquidates itself. Two consequences bind the tills: the member-facing figure is **money, not a count** (*"you have £23.50 in gems"* — a count has no single value once batches differ, and a money-denominated redemption makes oldest-first value-neutral to the member), and ⚠⚠ **NO TILL EVER HOLDS `PencePerPoint`** — it receives a money balance and sends a money redemption, so this is **a C2 twin that never gets created**, and MAUI's offline `LoyaltyCache` hint is correct by construction since a cached *value* needs no rate to interpret. A redemption is **one ledger row per source batch** (a refund must restore the same batches at the same rates). The portal still previews, audits and type-to-confirms a rate change (§18.7) — the hard `danger` warning moves to shortening `ExpiryMonths`, the one edit that still destroys value. ✅ **NO LONGER GATED — §14 decision 1 settled by Matt, 2026-08-14: a redemption is a DISCOUNT**, *"only ever earned, never purchased, not transferable to cash"*. ⚠ That reasoning, not the Clubcard precedent, is what to cite: nothing was ever owed, so there is no liability for a tender to discharge — which is precisely the line that separates a gem from a **gift card**, and the reason the two must never share a code path. | programme phase A/B, not 27 |
+| **22** | ✅ **CONFIRMED — Matt, 2026-08-13, three rulings on discounts.** **(a)** *"You cannot have a discount greater than the basket."* **(b)** *"Discount levels should be a setting that is configurable by the owner, and over certain levels (which can be added and configurable) need approval from a supervisor or higher."* **(c)** *"All discounts need to be tracked — till, logged-in employee and reason."* ⚠ **(a) IS BUILT** — `SharedKernel/BasketDiscounts.cs`, the same shape as `RefundRules` (a verdict plus amounts, with **no money baked into a string** — `RefundDecision` already settled that formatting is a client concern, wrong the first time a tenant trades in another currency and unlocalisable for MAUI's `I18N_L10N`; I had written `£` into it and that decision caught me). Headroom is **net of what is already off**, because the commit-time apportioner judges it that way and a gate that disagrees passes a basket through one and throws at the other. ⚠ **The boundary is INCLUSIVE** — a 100% staff discount is legitimate, and only *more* than everything is refused. Returns are **not** headroom. 15 tests, mutation-checked. ⚠ **(b)'s open question is ANSWERED — Matt, 2026-08-14: "Base it on roles."** A discount **level IS a role's `pos.discount` ceiling** (`MaxPence`): Cashier £5, Supervisor £50, Manager unlimited. So *"configurable by the owner"* is `AdminController.cs:306`, which already edits `maxPence`; *"levels which can be added"* is **adding a role**; and *"over certain levels need approval from a supervisor or higher"* is the step-up that `RequestSupervisorOverrideAsync` already performs. ⚠⚠ **No new entity, no new portal screen, and — critically — no SECOND place a money limit lives.** A parallel "discount tier" table would have meant a cashier's ceiling was stated twice, and the day the two disagreed the till would enforce one and the portal display the other. **Roles were already the answer; the ruling makes it the answer on purpose.** ⚠ What (b) still needs is therefore **only** what the gate could not say: the authorisation must reach the **platform** — see (c), which is the same wire change. **(c) is NOT built.** | 27, and the discount path generally |
+| **18** | **Additive feed fields are allowed.** `CatalogueItemDto` gained `Brand`, `Description`, `CostPence?`, `StockQty?` (nullable, so old servers stay compatible). ⚠ **`Barcodes[]` CANNOT be wired and that is settled**: there is no barcode entity in `Plutus.Entities` at all — **`IdOne` IS the barcode**, and multi-barcode items are not something the platform models. `FindByBarcodeAsync`'s alias path is dead **by design, not omission**; adding it is a platform decision, not a till task. `PriceSchedule` is likewise unpopulated but harmless — the effective-dated timeline rides in `BandData` from the feed, so scheduled prices work. The store-info screen **drops the logo** (no contract field). | 10, 20, 25 |
+
+
+## 14. How long a cached login lasts (the numbers, and why)
+
+Matt asked for a recommendation. **The recommendation is to stop asking for one number**, because
+three constraints pull in different directions and any single value loses two of them:
+
+| Constraint | What it wants |
+|---|---|
+| **Keep selling** | A shop whose till refuses logins during an outage falls back to a cash tin and paper — a *worse* compliance event than a stale staff roster, because it produces no HMRC-attributable records at all |
+| **Shrink the theft** | A stolen till holds operators' **platform** passwords at PBKDF2-HMAC-SHA1 / 101,010 iterations — ~13× below current OWASP guidance for that PRF — and they work on the web till too |
+| **Reach the leaver** | Nothing can be *pushed* to an offline till (risk 5). **Expiry is the only mechanism that ever revokes a dismissed employee on one**, so this horizon *is* the erasure SLA you can put in a DPA |
+
+Tiering by what the permission can *do* satisfies all three. Ringing up sales is how a shop survives
+an outage and is worth almost nothing to a thief — the money lands in the ledger. Refunds, cash-out
+and price overrides are how a stolen till becomes cash, and are what a shop can live without for a
+few days.
+
+| Lifetime | Value | Why that number |
+|---|---|---|
+| **Money-out** (refund, void, discount, no-sale, price override, all admin) | **7 days** since the last operator sync | Covers the realistic UK worst case — a Friday-night line fault on an end-of-next-working-day care level over a bank holiday is ~5 days — and is short enough to state as an erasure SLA inside the UK GDPR Art 12(3) one-month window **even if the request lands on day one of an outage** |
+| **Selling** (`pos.sell`, `support.tickets`) | **30 days** | The alternative to a stale roster is a shop that cannot trade. Covers the two cases that actually meet this boundary: the spare till from the cupboard, and a convention/pop-up till offline for a planned week |
+| **Warning** | from **3 days** | A warning that first appears an hour before the cliff is decoration. Its job is to get someone to plug the cable in while that is still enough |
+| **Idle lock** | **15 min** | PCI-DSS 8.2.8's figure, and right on its merits for an unattended shop-floor device. ⚠ It **locks, it does not log out** — the basket survives, unlock is one password entry. That is what makes it cost seconds rather than sales |
+| **Absolute session** | **min(12h, business-day rollover, Z-close)** | Matches the server's token TTL. **The rollover is the load-bearing half**: a session spanning two days attributes the incoming shift's sales to the outgoing operator — silently, in exactly the records HMRC would ask about |
+| **Server operator token** | **keep 12h** | The TTL is not the problem; **irrevocability** is |
+
+**At every boundary the till degrades, it never bricks.** Past 7 days: sells normally, refunds and
+manager functions withheld, screen says so in shop English. Past 30 days: offline sign-in refused,
+with a manager break-glass extension as the escape hatch. The floor set is an **allow-list**
+(`OfflineCredentials.SellFloor`), so a permission added to the catalogue next year is withdrawn when
+stale until someone deliberately says otherwise.
+
+⚠ **Two server-side findings that make these numbers enforceable:**
+
+1. ✅ **`POST /api/Auth/Login` not checking `Employee.Active`** — found 2026-08-08, and it turned out
+   to be **already fixed** when step 19 went to bundle it. An offline expiry policy is theatre while
+   the online path lets a deactivated user straight back in.
+2. ⚠ **There is no server-side session revocation for any principal.** Tokens are HMAC bearer tokens
+   checked for signature and `exp` only — no denylist, no DB lookup. Revoking a device or resetting a
+   password stops the *next* sign-in and **does not eject a live session**. The cheap fix is a
+   per-user `TokenEpoch` integer emitted as a claim and compared per request (one indexed, cacheable
+   lookup), turning 12 hours of irrevocability into seconds. **Recommended, not scheduled — Matt's
+   call.**
+
+
+## 15. Pitfalls that have each cost a session
+
+All still live. These are the MAUI/cutover ones; [`repo-runbook.md`](repo-runbook.md) holds the
+platform-wide list and **both apply**.
+
+- **Green build ≠ working EF.** The EF-9 break compiled clean and died at runtime. Same lesson as a
+  deploy: verify columns and behaviour, not history tables or build output.
+- **`Microsoft.Data.Sqlite` POOLS connections from v6** — disposing a context does not release the
+  file. `SqliteConnection.ClearAllPools()` before any copy/move/delete of a database file; the cutover
+  archive is the case that matters.
+- **EF 9 does not value-generate string keys** the way 3.1 apparently did: always set legacy `Id`s
+  explicitly (`Guid.NewGuid().ToString()`).
+- **EF 3.1-era `DbSet` + .NET 10 = ambiguous `Where`** (`IAsyncEnumerable` vs `IQueryable`) —
+  disambiguate with `.AsQueryable()`.
+- **Never mutate `HttpClient.BaseAddress`** — one client per address via `PlutusHttp.TryFor`.
+- **`ShellContent` does not inherit Title/Icon from its page** — copy them (`AppShell.Tab(...)`).
+- **A viewmodel constructor that can throw takes down whatever constructs it** — `AppShell` builds
+  every tab eagerly. Null-guard reads; never dereference app state in a ctor.
+- **Debug now validates XAML** (XamlC validate-only) — a bad property fails the BUILD, by design.
+- **The device is what "enrolled" means; the till id is a separate, recoverable fact**
+  (`GET devices/{id}/status` returns it). **Never tell an enrolled till it isn't paired.**
+- ⚠ **Tested components are not a working feature until something calls them.** WP5's entire sync
+  spine sat unreferenced while the till showed no stock. **Every VERIFY must include the call site**,
+  not just the library. (Seven such components found so far — §7.)
+- ⚠ **MAUI bindings fail silently.** A binding onto a member that no longer exists renders blank
+  instead of failing. Enumerate bindings before changing a bound type, and hand-run every row type.
+- ⚠⚠ **`Services.UIHandeling.Modal` is a NON-REENTRANT gate, and `InputAlertHelper` already goes
+  through it.** Wrapping an input alert in `Modal.ShowAsync` at the call site takes the same
+  `SemaphoreSlim(1,1)` twice on one flow and **deadlocks for ever** — no exception, no log, and every
+  dialog in the app dead behind it. That is finding **U**: it stopped the till taking a sale on
+  1.48.0. **Call `LaunchInputAlertAsync` bare; wrap only raw `DisplayActionSheet`/`DisplayAlert`.**
+- ⚠⚠ **A `finally` does not run when the `try` body deadlocks.** "`IsBusy` is safe, every set has a
+  `finally`" was used to rule `IsBusy` out of finding Q, and it was wrong: the flag stayed set because
+  the method never got that far. **When a flag is stuck, ask whether the body can hang — not whether
+  the cleanup exists.**
+- ⚠ **`ALTER TABLE … ADD COLUMN` has no `IF NOT EXISTS` in SQLite** — the first draft of the v5 step
+  threw *"duplicate column name"* at start-up on any store built from the current model: a till that
+  would not open. Pinned by `Running_the_upgrade_twice_is_harmless`.
+- ⚠ **`TillStore` has TWO hand-written upsert branches.** A field copied into one and not the other
+  reaches only brand-new items — exactly the `StockUntracked` bug. `CatalogueUpsertTests` fails if
+  either forgets.
+- ⚠ **Grep for the ROUTE STRING, not the attribute form.** `grep -rn '"api/v1/sales'` finds both
+  forms; `Route("api/v1/sales"` finds one. Getting this wrong once caused a **duplicate endpoint to
+  be built and deployed**, and because a constrained parameter (`{saleId:guid}`) outranks an
+  unconstrained one, the server served sale detail from a **device-gated** handler in place of the
+  operator-gated one for ~20 minutes.
+- ⚠ **Ask the running server.** It answered 401-not-404 from the start and that was explained away.
+  `/swagger/v1/swagger.json` **through Caddy returns the portal's HTML** — hit
+  `http://127.0.0.1:5100/swagger/v1/swagger.json` on the Mac instead.
+- ⚠ **A log a person cannot attribute at a glance is worse than no log, because it is believed.** 60
+  `JsonException`s read as a till fault and were **the test suite**: `CrashLog` fell back to the
+  system temp directory with the *same filename* as a real till's log. The test-host log is now named
+  `plutus-NOT-A-TILL-testhost-*.log`.
+
+
+## 22. VAT — settled, and not to be re-derived
+
+**The governing principle: ALL VAT GUIDANCE COMES FROM THE PORTAL, DOWN TO THE TILLS.** A till — web
+or MAUI — never decides a VAT rule. It receives bands, applies them, and reports what it charged.
+Same shape as receipt templates and themes. ✅ **True of the platform since 2026-08-08** (WP2c).
+Live rules and their homes: [`till-design.md`](till-design.md) **C1/C2**.
+
+### The law (HMRC, checked 2026-08-08)
+
+| Class | Rate | Taxable supply? | Input tax recoverable? |
+|---|---|---|---|
+| Standard | 20% | yes | yes |
+| Reduced | 5% | yes | yes |
+| **Zero-rated** | 0% | **yes** | **yes** |
+| **Exempt** | none | **no** | **NO** |
+| Outside scope | none | no | n/a |
+
+⚠ **Zero-rated and exempt are not the same thing**, even though both charge the customer nothing.
+Zero-rated is a taxable supply at 0% with full input-tax recovery; exempt is not a taxable supply and
+*blocks* recovery of attributable input tax (partial exemption). **Different boxes, different money.**
+
+**Rounding.** HMRC's rounding-*down* concession is **explicitly not appropriate for retailers**
+(VATREC12020). Permitted: round up and down to the nearest 1p, or a published/bespoke retail scheme.
+Plutus prices **VAT-inclusive**, so the tax-inclusive price is what the customer sees and the net is
+derived. **Tax point:** VAT is accounted at the rate in force when the tax point occurs — for retail,
+the sale itself, which is why a line is judged against `OccurredAtUtc` and never against "now".
+
+### The four defects fixed 2026-08-08 (Matt: *"Whatever the UK government VAT rules are need to be followed"*)
+
+| Was broken | Fixed |
+|---|---|
+| **The VAT return summed per-line VAT.** Notice 727 §3.4.1 requires output tax = VAT fraction × takings at each rate; summing thousands of penny-rounded lines understates it | `/api/v1/reports/vat` applies the fraction to takings and reports `vatChargedPence` + `roundingDifferencePence` alongside for reconciliation. **On live Kapow data the return was £10.77 light** |
+| **Takings were bucketed by DERIVED rate.** A till computes each line's rate from its price pair, so one 20% band arrived as 1993–2004bp — Kapow's return was split across **six** standard-rate buckets | Takings group by **band**; derived rates snap to the published band within 25bp |
+| **Off-band takings would have been folded into a real band** (Kapow has a genuine 2500bp line) | Reported as `unclassified` in its own bucket — never merged, never given an invented rate |
+| **Comics were classified Exempt.** Notice 701/10 zero-rates books, comics, magazines; exempt **blocks** input-tax recovery | `VatClass` added (Zero ≠ Exempt at the same 0%). Kapow's 14,740-item band reclassified **zero-rated**. **No money moved** — both are 0% output tax; only the recovery position changes, in Kapow's favour |
+
+**Past returns were restated, not estimated.** `GET /api/v1/reports/vat-corrections` re-runs both
+methods over the same rollups per VAT period, reporting Box 1 as filed, Box 1 restated, and the net
+error. ⚠ **Periods follow the business's HMRC stagger group**, not calendar quarters — attributing a
+correction to the wrong return is the easy way to get this wrong, and it looks fine on screen. At
+£10.77 the arithmetic points at an adjustment on the next return, not a VAT652. ⚠ **Plutus does the
+arithmetic half only and says so on the screen** — whether the original error was *careless* (which
+forces a VAT652 however small) is Matt's and his accountant's judgement, and the software must never
+appear to have made it. **It files nothing.**
+
+### The three things a till must never re-derive
+
+1. ✅ **Kapow sells NOTHING exempt** (Matt, 2026-08-08). Every item is standard-rated (5,603) or
+   zero-rated (14,740); the reduced band exists but is unused. **Partial exemption does not apply to
+   Kapow** — all supplies are taxable, so input tax is recoverable in full. ⚠ `VatClass.Exempt` stays
+   in the model because **other tenants will need it** and it is a real UK class, but it must **never**
+   be assigned to a Kapow band. Anything that reintroduces it is a bug.
+2. ⚠ **`vatRateBp` comes from the PRICE PAIR, always** — `round((unitInc/unitEx − 1) × 10000)`, so
+   wobbled values like 2002bp are **correct and expected**. Never send the catalogue's snapped-clean
+   band; never use rate arithmetic (`gross × bp/(10000+bp)`), which disagrees with the receipt.
+   `vatAmountPence` = `lineGross − lineEx`, where `lineEx` scales the discount by the ex/inc ratio.
+   **`api.ts:958–1019` is the reference implementation — mirror it exactly, never "improve" it.**
+3. ⚠ **Consistency is STRUCTURAL, not per-client** (Matt asked whether the bands were consistent
+   across tills, "also future tills based on Mac and Linux"). `VatBandStamp` backfills the band
+   server-side for any line arriving without one, in `SalesIngestService` — the single choke point
+   **every channel passes through, including the webstore connector**, whose Woo mapper sent no band at
+   all. A till on any platform is therefore correct by default before it implements band awareness.
+   ⚠ **A band the client STATED is never overwritten** (the voucher treatment overrides the catalogue
+   for gift cards). And `VatAccounting.BandFor` **returns null on a TIE** rather than "nearest, first
+   wins" — that silent arbitrary pick would have attributed 0% takings to whichever band sorted first,
+   corrupting the exact number the work exists to produce.
+

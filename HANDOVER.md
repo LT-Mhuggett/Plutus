@@ -3,8 +3,10 @@
 > ⚠ **This document is ONE DAY LONG, on purpose.** Matt, 2026-08-17: *"I only want the handover to be
 > for the following day."*
 >
-> Everything durable — deploy state, every ruling, open items, the plan, the estimates — lives in
-> **[`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) §0**. The day-by-day narrative back
+> Everything durable now lives in **[`Build/till-design.md`](Build/till-design.md) Part E** (Matt's
+> rulings, the binding defaults, the pitfalls, the VAT settlement) and
+> **[`Build/MAUI_finaltest.md`](Build/MAUI_finaltest.md)** (what is still unproven). The MAUI retrofit
+> finished and was **archived 2026-08-23**. The day-by-day narrative back
 > to 2026-07-28 is kept verbatim in
 > [`archive/handover-history-to-2026-08-17.md`](Build/archive/handover-history-to-2026-08-17.md).
 > **Do not grow this file back into a history.** Rewrite it; the commits are the record.
@@ -286,7 +288,7 @@ is **one real build** (step 11b, 4d), **one hardening pass** (step 28, 2–3d) a
 
 | | For |
 |---|---|
-| ⚠⚠ [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) | **THE plan.** §0 the live state and every ruling · §3 the open steps · §5c the parity findings · §7 what is left · §10 what comes out afterwards |
+| [`Build/archive/MAUI-retrofit.md`](Build/archive/MAUI-retrofit.md) | ✅ **ARCHIVED 2026-08-23 – history only.** Live successors: `till-design.md` Part E and `MAUI_finaltest.md`. Was: §0 the live state and every ruling · §3 the open steps · §5c the parity findings · §7 what is left · §10 what comes out afterwards |
 | [`Build/Test Maui.md`](Build/Test%20Maui.md) | The hand-run script — **run order at the top**. §G69–§G71 are new and need builds first |
 | [`Build/till-design.md`](Build/till-design.md) | **A0** parity at a glance · **B** the capability register · **C** the money rules and what stops them drifting · **D4** the dialog contract, now 5/5 |
 | [`Build/repo-runbook.md`](Build/repo-runbook.md) | Build, test, migrate, deploy — and the pitfalls that have each cost a session |

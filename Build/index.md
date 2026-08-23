@@ -15,21 +15,29 @@ the following day."* So:
 | | Is now |
 |---|---|
 | [`HANDOVER.md`](../HANDOVER.md) | **ONE DAY LONG.** What to do next session, and nothing else. ⚠ Do not let it grow back into a history — rewrite it; the commits are the record |
-| [`To do/MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) **§0** | **The living state** — what is deployed, every one of Matt's rulings, open items, and the lesson about stale status markers |
+| [`MAUI_finaltest.md`](MAUI_finaltest.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT.** The retrofit is built and archived (2026-08-23); what remains is a hand-run. **What is unproven and why** — 41 🟡 rows, two 🟠, the USER-VERIFY gate, and the record of what previous hand-runs found. ⚠ Matt's rulings and the binding defaults moved to `till-design.md` **Part E** |
 | [`To do/WP-signup.md`](To%20do/WP-signup.md) | **WP-SIGNUP** — self-serve tenancy, and the DPA acceptance that must ship with it. ⚠ Plan only; blocked on the DPA text. |
 | [`archive/handover-history-to-2026-08-17.md`](archive/handover-history-to-2026-08-17.md) | The old handover's day-by-day narrative back to 2026-07-28, **verbatim, dropped from nothing**. ⚠ History, not instruction: every "START HERE" in it is superseded and its version numbers were true on their date. Read it for the reasoning — how fourteen faults were found on 2026-08-10, six invisible to every automated test — never for the state |
 
-⚠⚠ **For the MAUI till there is exactly ONE document:
-[`To do/MAUI-retrofit.md`](To%20do/MAUI-retrofit.md)** — what remains, how to build it, what is done,
-and what comes out afterwards. **Consolidated 2026-08-12 from five** (both `To do/` MAUI plans,
-`maui-whats-left.md`, `MAUI-parity.md`, `legacy-removal.md`), at Matt's instruction: *"I do not know
-why its splintered into so many."* All five are in [`archive/`](archive/) with banners.
+⚠⚠ **For the MAUI till there is exactly ONE LIVE document:
+[`MAUI_finaltest.md`](MAUI_finaltest.md)** — what is still unproven, and why it matters. The build it
+tested is finished, so [`archive/MAUI-retrofit.md`](archive/MAUI-retrofit.md) was **archived
+2026-08-23**; the rulings, binding defaults, pitfalls and VAT settlement that still bind a build moved
+into [`till-design.md`](till-design.md) **Part E** rather than going with it.
 
-⚠ **It lives in `To do/`, not at this level**, because it has unbuilt work in it — the folder rule
-decides, not how often the document is opened. When its last step closes it moves to `archive/`.
-⚠ **Before that happens, lift the parts that outlive the retrofit up to this level** — binding
-defaults 1–18, the pitfalls, the item-identity seam — per *Keeping this honest* below. Archiving them
-unlifted is how the useful half gets buried with the finished half.
+⚠ **`Test Maui.md` is not a second MAUI document** — it is the executable script, §A–§G. The split is
+deliberate and narrow: `MAUI_finaltest.md` says *what is unproven*, `Test Maui.md` says *what to click*.
+
+⚠⚠ **DO NOT START A NEW MAUI PLAN.** Five documents were consolidated into one on 2026-08-12 at Matt's
+instruction — *"I do not know why its splintered into so many"* — and that one is now archived because
+its work is done. A new plan is how the splinter comes back.
+
+✅ **AND THAT LIFT HAPPENED, 2026-08-23.** This paragraph used to say: *"Before that happens, lift the
+parts that outlive the retrofit up to this level — binding defaults 1–18, the pitfalls, the
+item-identity seam. Archiving them unlifted is how the useful half gets buried with the finished
+half."* ⚠ **It was right, and it was followed**: Matt's rulings, the binding defaults, the cached-login
+numbers, the pitfalls and the VAT settlement are now [`till-design.md`](till-design.md) **Part E**, and
+the tests are `MAUI_finaltest.md`. Only the finished half went to `archive/`.
 
 Last audited **2026-08-20** against the code, not against the documents' own headers.
 
@@ -72,7 +80,7 @@ Last audited **2026-08-20** against the code, not against the documents' own hea
 > | `kapow-db-gap-analysis.md` | ✅ **Archived.** Findings F1/F2/F3/F5 fixed, F4 consciously rejected, §5 superseded by the NatApp doc, and it analyses a backup two snapshots old |
 > | [VAT-FixLater-Report](VAT-FixLater-Report-2026-07-23.md) | ⛔ **Kept — it is exactly current.** The live endpoint answers **47**, the same 47 items, the same 20/27 split: **nothing corrected in 28 days.** A live worklist, not history. ⚠ It *did* have a real fault — 27 rows labelled `Exempt` where the live band is `Zero rated (books)` — now fixed |
 > | [Loyalty Update across all tills.md](To%20do/Loyalty%20Update%20across%20all%20tills.md) | ⛔ **Kept — ZERO implementation.** Every one of its own types returns **0 references** and `IngestSaleRequest` still has no `CustomerId`, so no sale can be earned against. **Not stale — untouched.** ~45–55 days of unbuilt design; archiving it would file an unstarted programme under *Delivered* |
-> | [MAUI-retrofit.md](To%20do/MAUI-retrofit.md) | ⛔⛔ **Kept — the single most active document in the repo.** **≈10–15 working days left** (re-costed 2026-08-20; its own §6/§7 said 35–40 and were three days stale), and **§0 is the living state** — its deploy table was updated hours before this was proposed. `CLAUDE.md` mandates reading it for any MAUI work, in three places. Archiving it would file the **current deploy state** under *Delivered* and bury §0.3b — **17 dialogs that can crash a till on back-out** |
+> | [MAUI-retrofit.md](archive/MAUI-retrofit.md) | ✅ **ARCHIVED 2026-08-23 — and it WAS the most active document in the repo right up to the day it finished.** Its last estimate said ≈2–4 days; the real answer turned out to be **0 days of build**. ⚠ Archived only after its still-binding half was lifted into `till-design.md` **Part E** — see the ✅ note near the top of this page |
 >
 > ⚠⚠ **THE DISTINCTION WORTH KEEPING: "OLD" IS NOT "STALE".** A document nobody has touched for weeks
 > because the work has not started is **live and unbuilt**; a document nobody has touched because its
@@ -119,17 +127,17 @@ it reads as authoritative.
 
 ⚠ **`Shrink MAUI Build.md` is not a sixth MAUI document** and must not become one. It holds artefact
 size, the Syncfusion footprint and removal order — no capability status, no deploy state, no rulings.
-If a status claim ever appears in it, fold it into `MAUI-retrofit.md` and delete it: that is precisely
+If a status claim ever appears in it, fold it into `till-design.md` and delete it: that is precisely
 how the five consolidated documents splintered in the first place.
 
 | Document | What's left |
 |---|---|
-| [MAUI-retrofit.md](To%20do/MAUI-retrofit.md) | ⚠⚠ **THE ONE MAUI DOCUMENT.** Part 1 what remains (open faults, the open steps with bodies and DoDs, the ⬜ rows, the risks, and the L1–L10 legacy-removal register Matt actions last) · Part 2 how to work (protocol, binding defaults 1–18, offline horizons, pitfalls, the item-identity seam) · Part 3 what is done (the step and WP records, VAT, the hand-run). **≈10–15 working days left** — re-costed 2026-08-20. ⚠ Steps 26 and 27, once two thirds of the estimate, have both LANDED; §6/§7 said 35–40 for three days after §0 was corrected, which is how it came to read as unfinished when it is nearly done. Consolidated 2026-08-12 from five documents, all now archived. |
+| [MAUI_finaltest.md](MAUI_finaltest.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT.** Nothing is left to BUILD — 41 A0 rows are 🟡 (built, never run by a person) and two are 🟠. What is left is the hand-run, and only a person closes it |
 | [Loyalty Update across all tills.md](To%20do/Loyalty%20Update%20across%20all%20tills.md) | **The loyalty programme design** (Matt, 2026-08-13) — a configurable credit currency ("gems"), earning rules, an append-only loyalty ledger with holds, rewards, tiers with auto-qualification, and a member-facing portal. §16 pins the surfaces (**every till + webstore + both portals**) and the rule that **earning is computed at ingest, never on a till**; §17 is the gap analysis against what is already live and the four-phase sizing (~45–55d). ⚠⚠ **NOT STARTED — nothing in it is implemented** (verified against the code 2026-08-17: every one of its own types returns zero references, and `IngestSaleRequest` still carries no `CustomerId`, so no sale can be earned against). ✅ Its decision 1 (discount vs tender) was **settled 2026-08-14 — a discount** — so it is no longer gated; ⚠ but **9 of its 21 decisions are still open or merely proposed**, including refund symmetry, which is a cash-out exploit if got wrong. ⚠ Retrofit step 27 is the **parity** slice this builds on, not this programme. |
-| [NatApp data translation agent and scripts.md](To%20do/NatApp%20data%20translation%20agent%20and%20scripts.md) | **The data migration — now a RUNBOOK as much as a plan, and it has been EXECUTED TWICE.** The bridge run (top-up, 2026-08-17, §7) and the **full replace** from the 19_08 backup (2026-08-20, §8, which carries the no-questions rerun script `~/PLUTUS/natapp-replace.sh` on the Mac). ⚠ **Which one to reach for:** a periodic top-up while the till still trades = the **bridge** (never touches what exists); a fresh backup that should *become* the truth = the **replace**. ⚠ **It stays in `To do/` because the one that matters has not happened**: the cutover run, a replace taken after the physical till's last sale. Meets the retrofit at **item identity** ([`MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) §16) — the barcode is the invariant, not the GUID. |
+| [NatApp data translation agent and scripts.md](To%20do/NatApp%20data%20translation%20agent%20and%20scripts.md) | **The data migration — now a RUNBOOK as much as a plan, and it has been EXECUTED TWICE.** The bridge run (top-up, 2026-08-17, §7) and the **full replace** from the 19_08 backup (2026-08-20, §8, which carries the no-questions rerun script `~/PLUTUS/natapp-replace.sh` on the Mac). ⚠ **Which one to reach for:** a periodic top-up while the till still trades = the **bridge** (never touches what exists); a fresh backup that should *become* the truth = the **replace**. ⚠ **It stays in `To do/` because the one that matters has not happened**: the cutover run, a replace taken after the physical till's last sale. Meets the retrofit at **item identity** ([`MAUI-retrofit.md`](archive/MAUI-retrofit.md) §16) — the barcode is the invariant, not the GUID. |
 
 Nothing on the web till or the portal is outstanding **as a plan**. ⚠ Two smaller items are tracked
-inside `MAUI-retrofit.md` §0 rather than as plans of their own, and neither should be forgotten because
+inside `till-design.md` Part E rather than as plans of their own, and neither should be forgotten because
 of where it lives: the **13 portal dialogs still missing a close ✕** (§0.3e, ≈half a day, mechanical)
 and the **17 MAUI input-alerts that crash on back-out** (§0.3b, the serious one).
 
@@ -166,7 +174,7 @@ reasoning and the options that were weighed and rejected.
 |---|---|
 | 🆕 [syncfusion-footprint.md](archive/syncfusion-footprint.md) | [Shrink MAUI Build.md](archive/Shrink%20MAUI%20Build.md) **§4**, 2026-08-20 — all of it: the licence hazard into §4.0, the swap table into §4.5, the hand-run watch-list into §4.6. ⚠ **Two documents were describing the same 76 MB from opposite ends**, and the removal ORDER in one was load-bearing *because of* the trial-dialog hazard explained in the other. ⚠ It moved into `To do/` rather than staying at this level because the work is **unbuilt** — the folder rule decides. ⚠ **The line worth carrying:** `SfNumericEntry`'s `Minimum="1"` lived in the control's markup, so it left with the control — and a quantity of 0 rings a line that charges nothing and looks exactly like a sale. **A rule in a control's markup leaves with the control.** |
 | 🆕 [plutus-catalogue-sync-design.md](archive/plutus-catalogue-sync-design.md) | Nothing — **it was a greenfield DESIGN STUDY, never a plan**, and it is archived rather than promoted to reference for one reason: ⚠⚠ **its central recommendation was deliberately REJECTED and following it would break the platform.** §3.1 proposes `item_id UUID PRIMARY KEY` with the barcode demoted to an alias row, and calls barcode-as-primary-key *"the single most common design mistake in POS databases"* — which is **exactly what Plutus does, knowingly**: `Item.IdOne` seeds a frozen deterministic-GUID vector, is half a composite PK with five FK families on it, and sits on every historical sale line. Re-keying was never a migration; it was a rewrite of the sale history. ✅ **What WAS adopted** (aliases resolving to one item, both codes live through a supplier changeover, snapshot sale lines, change-log delta pull, single-writer) is in the banner, alongside what was not (global barcode PK — Plutus is multi-tenant; `pack_qty` case barcodes — **not built**). It produced [Multi-barcode plan.md](archive/Multi-barcode%20plan.md). |
-| [MAUI-Cutover-Plan-2026-08-09.md](archive/MAUI-Cutover-Plan-2026-08-09.md) | [MAUI-retrofit.md](To%20do/MAUI-retrofit.md), 2026-08-12. The 28-step execution order, its bodies and DoDs and binding defaults 10–18. ⚠ **Not delivered** — steps 11b, 22, 24, 26, 27, 28 were still open; they are Part 1. ⚠ Its status board was wrong when archived (23 and 25 shown unticked after shipping) — read it as history. |
+| [MAUI-Cutover-Plan-2026-08-09.md](archive/MAUI-Cutover-Plan-2026-08-09.md) | [MAUI-retrofit.md](archive/MAUI-retrofit.md), 2026-08-12. The 28-step execution order, its bodies and DoDs and binding defaults 10–18. ⚠ **Not delivered** — steps 11b, 22, 24, 26, 27, 28 were still open; they are Part 1. ⚠ Its status board was wrong when archived (23 and 25 shown unticked after shipping) — read it as history. |
 | [MAUI-Retrofit-Plan-2026-08-07.md](archive/MAUI-Retrofit-Plan-2026-08-07.md) | Same. The WP bodies and DoDs, binding defaults 1–9, the risk register, the item-identity seam. It had itself replaced six earlier documents. |
 | [maui-whats-left.md](archive/maui-whats-left.md) | Same. Superseded twice in two days, which is the argument for one document. |
 | [MAUI-parity.md](archive/MAUI-parity.md) | Same. It lived one day — its remains-first / completed-at-the-bottom shape became Parts 1 and 3. |
@@ -212,7 +220,7 @@ the hard way on **2026-08-20**, when eight documents sat in a folder this index 
   stale claim found in the 2026-08-20 audit was one of those two. Two plans said *"Nothing is deployed
   yet"* while live in a shop; `shop-day-test.md` said it was *"the fuller reference"* long after the
   document it deferred to had grown seventeen times larger; and this index said *"five documents"* over
-  a folder of eight. **Deploy state belongs in exactly one place** — `MAUI-retrofit.md` §0.1 — and a
+  a folder of eight. **Deploy state belongs in exactly one place** — `Build/repo-runbook.md`, since the retrofit was archived 2026-08-23 — and a
   plan should point at it rather than restate it.
 - ⚠ **A "keep these in sync" note is not a mechanism.** The same day, a twin-file comment that had
   asked two frontends to stay byte-identical was found to have been violated for months, costing every

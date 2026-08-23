@@ -592,7 +592,7 @@ here would have told you not to report them, so you would not have tested them. 
 
 Write your findings up **in the order you hit them**, with the three lines each (did / expected /
 happened). Send them over however is easiest — they get recorded in
-[`To do/MAUI-retrofit.md`](To%20do/MAUI-retrofit.md) §1 and worked through from there. (Older runs live
+[`MAUI_finaltest.md`](MAUI_finaltest.md) §1 and worked through from there. (Older runs live
 in `archive/handrun-2026-08-11.md`.)
 
 ⚠ **If the app closes, the crash log is worth more than any description**, and it writes itself:
@@ -1777,7 +1777,7 @@ setting**, **Loyalty → add member**.
 
 ⚠⚠ **BUT — REPORT ANY CRASH HERE IMMEDIATELY.** Only the adjust dialog's back-out was fixed;
 **17 other call sites still mishandle a cancelled dialog** and may take the till down. The full list is
-in `MAUI-retrofit.md` **§0.3b**, and the risky ones are **Refund**, **selling a gift card**, **Cash**,
+in `MAUI_finaltest.md` **§0.3b**, and the risky ones are **Refund**, **selling a gift card**, **Cash**,
 the **supervisor prompt** and **checkout**. If one of those dies when you cancel, that is a known and
 recorded fault, not a new mystery — tell me which, and it gets fixed with the right meaning for that
 flow rather than a blanket "do nothing".
@@ -1807,7 +1807,7 @@ Open each and look for the **✕** in the top-right corner, then press it:
 stays alive**.
 
 ⚠⚠ **REPORT ANY CRASH.** The ✕ is deliberately wired to the **Cancel** path, which is the safe one —
-but **17 call sites still mishandle a back-out** (`MAUI-retrofit.md` §0.3b), and the risky ones are
+but **17 call sites still mishandle a back-out** (`MAUI_finaltest.md` §0.3b), and the risky ones are
 **refund, gift-card sale, cash, the supervisor prompt and checkout**. If one dies, that is a *known and
 recorded* fault, not a new mystery: tell me which and it gets the right per-flow fix.
 

@@ -51,7 +51,7 @@ cheap path, not the disciplined one.
 |---|---|
 | Add or change a till capability | Fill its Part B row for **every** till, same commit — see D3 |
 | Ship a feature to one till only | Give the others a ⬜ **with a WP number and a reason**; add the WP if none covers it |
-| Work on the MAUI till at all | Read [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) — the one document — and update it in the same commit |
+| Work on the MAUI till at all | The retrofit is **finished and archived** (2026-08-23). Everything that still binds a build moved into `till-design.md` **Part E** — Matt's rulings, the binding defaults, the pitfalls, the VAT settlement. What is left to PROVE is [`Build/MAUI_finaltest.md`](Build/MAUI_finaltest.md) |
 | Write a rule that could live in more than one place | Put it in `Plutus.SharedKernel`; add a row to C1 |
 | Find yourself copying logic between TypeScript and .NET | Add a row to C2 saying what pins the copies — or state honestly that nothing does |
 | Add a new till surface or platform | Follow D2, then add its column to Part B |
@@ -63,10 +63,10 @@ cheap path, not the disciplined one.
 
 | Document | For |
 |---|---|
-| [`HANDOVER.md`](HANDOVER.md) | **Next session only — one day long** (Matt, 2026-08-17). Start here for *what to do now*. ⚠ The **living state** moved to `MAUI-retrofit.md` **§0**: deploy state, every ruling, open items. Do not let the handover grow back into a history. |
+| [`HANDOVER.md`](HANDOVER.md) | **Next session only — one day long** (Matt, 2026-08-17). Start here for *what to do now*. ⚠ The **rulings and binding defaults** are `till-design.md` **Part E** (they moved there when the retrofit was archived, 2026-08-23); deploy state is `Build/repo-runbook.md`. Do not let the handover grow back into a history. |
 | [`Build/repo-runbook.md`](Build/repo-runbook.md) | Build, test, migrate, deploy — and the codebase pitfalls that have each cost a session. Read before writing code. |
 | [`Build/plutus-platform-architecture.md`](Build/plutus-platform-architecture.md) | **Wins on any design conflict** with a plan. |
 | [`Build/till-design.md`](Build/till-design.md) | Tills — see above. **A0** = functional parity at a glance; **B** = the capability register; **C** = the money rules and what stops them drifting. |
-| [`Build/To do/MAUI-retrofit.md`](Build/To%20do/MAUI-retrofit.md) | ⚠⚠ **THE ONE MAUI DOCUMENT.** What remains (Part 1, including the legacy-removal register Matt actions last), how to build it — protocol, binding defaults, DoDs, pitfalls (Part 2), and what is done (Part 3). **Consolidated 2026-08-12 from five documents** (both `To do/` plans, `maui-whats-left.md`, `MAUI-parity.md`, `legacy-removal.md`), all now in `Build/archive/`. **Do not start a sixth** — if a MAUI question has no answer in here, the answer belongs in here. |
+| [`Build/MAUI_finaltest.md`](Build/MAUI_finaltest.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT, since 2026-08-23.** The retrofit is built — what is left is a hand-run. This page says **what is unproven and why**; [`Build/Test Maui.md`](Build/Test%20Maui.md) says **what to click**. ⚠ `MAUI-retrofit.md` is **archived**; its rulings, binding defaults, pitfalls and VAT settlement are `till-design.md` **Part E**. **Do not start a new MAUI plan** — five became one, one became none, and a sixth is how that unwinds. |
 | [`Build/table-standard.md`](Build/table-standard.md) | Every data table in all three surfaces. |
 | [`Build/index.md`](Build/index.md) | What every other document is for, and which are archived. |

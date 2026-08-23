@@ -54,8 +54,8 @@ The four you'll reach for most often:
 - [table-standard.md](Build/table-standard.md) — the shared `DataTable` (sort / search / 25-50-100 / pagination) all tables must use, across till, portal, and operator console.
 
 Two bodies of work are open, both about the **native till**:
-[MAUI-retrofit.md](Build/To%20do/MAUI-retrofit.md) — **the one MAUI document**, consolidated 2026-08-12 from
-five (what remains, how to build it, what is done, and what comes out afterwards) — and
+[MAUI_finaltest.md](Build/MAUI_finaltest.md) — **the one live MAUI document**. The retrofit itself
+is **built and archived** (2026-08-23); what remains is a hand-run. And
 [NatApp-Translation-Agent](Build/To%20do/NatApp data translation agent and scripts.md) (move the
 legacy shop data in). Everything else lives in [Build/archive/](Build/archive/), banner-stamped with
 what shipped, what was gated, or what later document superseded it.
