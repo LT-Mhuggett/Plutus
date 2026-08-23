@@ -11,14 +11,34 @@ namespace Plutus.Tenancy
 
     /// <summary>
     /// T1.2 tenant provisioning: creates a Tenant plus its default Company (Business), default
-    /// Store ("Main") and an admin user (Employee + WebCredential login). Runs as platform-admin,
-    /// so TenantId is stamped EXPLICITLY on the tenant-owned rows (the ambient context is
-    /// unscoped and does not auto-stamp).
+    /// Store ("Main"), an admin user (Employee + WebCredential login) — and, since 2026-08-23, the
+    /// tenant's built-in ROLES with that admin assigned **Owner**. Runs as platform-admin, so
+    /// TenantId is stamped EXPLICITLY on the tenant-owned rows (the ambient context is unscoped and
+    /// does not auto-stamp).
+    ///
+    /// ⚠⚠ THE ROLE STEP WAS MISSING UNTIL 2026-08-23, AND THAT MADE EVERY TENANT THIS CREATED
+    /// UNUSABLE. Without an assignment `ResolveLoginScopesAsync` falls to its legacy branch and
+    /// hands the admin `pos.sell` and nothing else — so the person the shop was created for could
+    /// sign in and then not create a till, add a user, or manage the company. **`Demo Store`, with
+    /// its 0 stores / 0 tills / 0 employees, is what this endpoint used to produce.**
     /// </summary>
     public sealed class ProvisioningService
     {
         private readonly MySqlDbContext _db;
-        public ProvisioningService(MySqlDbContext db) => _db = db;
+        private readonly ITenantRoleProvisioner _roles;
+
+        /// <summary>
+        /// ⚠⚠ `roles` IS REQUIRED, DELIBERATELY. It was tempting to make it optional so existing
+        /// call sites kept compiling — but "provisioning silently produces a tenant nobody can
+        /// configure" is the exact bug being fixed, and an optional dependency is how it would come
+        /// back. A host that registers Tenancy without Identity now fails loudly at construction.
+        /// </summary>
+        public ProvisioningService(MySqlDbContext db, ITenantRoleProvisioner roles)
+        {
+            _db = db;
+            _roles = roles ?? throw new ArgumentNullException(nameof(roles),
+                "Provisioning must be able to seed roles, or it creates tenants nobody can configure.");
+        }
 
         public async Task<ProvisionResult> ProvisionAsync(ProvisionRequest req, string actingUser)
         {
@@ -98,6 +118,13 @@ namespace Plutus.Tenancy
             });
 
             await _db.SaveChangesAsync();
+
+            // ⚠⚠ INSIDE THE TRANSACTION, AND THAT IS THE WHOLE POINT. A tenant that commits with an
+            // admin but no Owner role is precisely the half-built state this call was added to
+            // prevent — it would look provisioned, sign in, and be unable to do anything. Either
+            // both land or neither does.
+            await _roles.EnsureRolesAndOwnerAsync(tenantId, business.Id, admin.Id);
+
             await tx.CommitAsync();
 
             return new ProvisionResult(tenantId, business.Id, store.Id, admin.Id);

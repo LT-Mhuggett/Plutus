@@ -43,6 +43,17 @@ namespace Plutus.Identity
                         "Password reset requires the MySqlDbContext (server build), not the SQLite dev context.");
                 return new PasswordResetService(ctx);
             });
+            // Gives a newly provisioned tenant its built-in roles and makes its first admin an
+            // Owner. ⚠ Registered HERE, consumed by Plutus.Tenancy through the SharedKernel
+            // interface — Tenancy must not reference Identity, and the role catalogue must not be
+            // copied into Tenancy to work around that. See ITenantRoleProvisioner.
+            services.AddScoped<ITenantRoleProvisioner>(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "Tenant role provisioning requires the MySqlDbContext (server build), not the SQLite dev context.");
+                return new TenantRoleProvisioner(ctx);
+            });
             services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
             services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
 

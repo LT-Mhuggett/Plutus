@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Plutus.Entities;
 using Plutus.Entities.Tenancy;
 using Plutus.SharedKernel;
+using Plutus.Identity;
 using Plutus.Tenancy;
 using Xunit;
 
@@ -27,7 +28,7 @@ public class ProvisioningServiceTests
 
         ProvisionResult res;
         using (var ctx = Ctx(conn, Guid.Empty, "platform-admin")) // unscoped platform-admin
-            res = await new ProvisioningService(ctx).ProvisionAsync(
+            res = await new ProvisioningService(ctx, new TenantRoleProvisioner(ctx)).ProvisionAsync(
                 new ProvisionRequest("Acme Comics", "standard", "admin@acme.test", "S3cret!"), "platform-admin");
 
         Assert.NotEqual(Guid.Empty, res.TenantId);
@@ -71,7 +72,7 @@ public class ProvisioningServiceTests
 
         using var c2 = Ctx(conn, Guid.Empty, "platform-admin");
         var ex = await Assert.ThrowsAsync<EnrolmentException>(() =>
-            new ProvisioningService(c2).ProvisionAsync(new ProvisionRequest("", "standard", "a@b.c", "pw"), "platform-admin"));
+            new ProvisioningService(c2, new TenantRoleProvisioner(c2)).ProvisionAsync(new ProvisionRequest("", "standard", "a@b.c", "pw"), "platform-admin"));
         Assert.Equal(400, ex.StatusCode);
         conn.Dispose();
     }

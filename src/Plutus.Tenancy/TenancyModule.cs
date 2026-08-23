@@ -50,7 +50,7 @@ namespace Plutus.Tenancy
                 var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
                     ?? throw new InvalidOperationException(
                         "Provisioning requires the MySqlDbContext (server build), not the SQLite dev context.");
-                return new ProvisioningService(ctx);
+                return new ProvisioningService(ctx, sp.GetRequiredService<ITenantRoleProvisioner>());
             });
 
             // Phase 10: entitlements, billing seam, tenant lifecycle, retention sweeper.
