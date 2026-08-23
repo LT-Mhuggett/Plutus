@@ -47,11 +47,19 @@ public class SignOutLoopTests
         var reload = body.IndexOf("window.location.reload()", StringComparison.Ordinal);
         if (reload < 0) return; // no reload at all — the loop is impossible by construction
 
-        var guard = body.IndexOf("getSession()", StringComparison.Ordinal);
+        // ⚠⚠ `everHadAToken`, NOT `getSession()` — CORRECTED 2026-08-23. This pin originally demanded
+        // a `getSession()` check, and that check was itself the bug: `getSession()` returns null for an
+        // EXPIRED session, so the guard fired exactly when an operator's token died mid-shift and
+        // suppressed the reload that should have returned them to the login screen. The till stayed up
+        // with a dead token and every call answered 401. A pin can enforce the wrong rule as
+        // confidently as the right one.
+        var guard = body.IndexOf("everHadAToken", StringComparison.Ordinal);
         Assert.True(
             guard >= 0 && guard < reload,
             $"{relativePath}: `signOut()` reaches `window.location.reload()` without first checking "
-            + "`getSession()`. An authed call made before sign-in will 401, reload, and 401 again — "
-            + "the portal lockout of 2026-08-22. Return early when there is no session to end.");
+            + "`everHadAToken`. The question is NOT \"is there a session\" — `getSession()` answers "
+            + "null for an expired one — but \"was there ever a token on this page\". A 401 after a "
+            + "token has been in play means it died, and the operator must be returned to the login "
+            + "screen; a 401 with no token ever means we are already there, and reloading would loop.");
     }
 }

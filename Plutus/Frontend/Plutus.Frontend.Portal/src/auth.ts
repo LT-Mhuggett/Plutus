@@ -12,8 +12,33 @@ export { oidcMode, oidcConfigured };
 /** The bearer token for API calls. The portal is email-first, so BOTH session kinds can occur in
  *  one build: an OIDC login holds its token in memory; a password login stores a Session. Prefer
  *  the in-memory OIDC token (the active kind right after a Keycloak sign-in), else the stored one. */
+/**
+ * ⚠⚠ HAS A TOKEN EVER EXISTED ON THIS PAGE? — added 2026-08-23, and it is the difference between
+ * two situations that look identical to `getSession()`.
+ *
+ * `signOut()` reloads, and it must: an expired session has to put the operator back at the login
+ * screen. But it must NOT reload when nobody has signed in yet, or a stray authed call on the login
+ * screen becomes login → 401 → reload → login, for ever.
+ *
+ * ⚠ THE FIRST ATTEMPT AT THAT GUARD USED `!getSession()` AND WAS WRONG IN THE WORST WAY.
+ * `getSession()` returns **null for an EXPIRED session** — it deletes it and answers null — so the
+ * guard fired precisely when an operator's token died mid-shift. Instead of being returned to the
+ * login screen they were left looking at a live-looking " . $app . " whose every call answered 401.
+ * Matt hit it retrieving a parked basket: *"Error: API 401"*.
+ *
+ * ⚠ So the question is not "is there a session" but "was there ever one on this page". A 401 after a
+ * token has been in play means it died → reload. A 401 with no token ever → we are already at the
+ * login screen → do not reload.
+ */
+let everHadAToken = false;
+
 export function accessToken(): string | null {
-  return oidcToken() ?? getSession()?.token ?? null;
+  // ⚠ THE ONLY PLACE EVERY TOKEN PASSES THROUGH, which is why the latch lives here rather than at
+  // each sign-in path. It records that authentication has happened at least once on this page — see
+  // `everHadAToken` for the bug that makes the distinction matter.
+  const token = oidcToken() ?? getSession()?.token ?? null;
+  if (token) everHadAToken = true;
+  return token;
 }
 
 /** True when the current session came from the IdP (Keycloak) — used to show self-service links
@@ -111,7 +136,7 @@ export function stopImpersonation(): void {
  */
 export function signOut(): void {
   // ⚠ No session → nothing to sign out of, and reloading would only re-run whatever 401'd.
-  if (!getSession() && !isOidcSession()) { clearSession(); return; }
+  if (!everHadAToken) { clearSession(); return; }
   if (isOidcSession()) {
     void oidcLogout(); // redirects to the IdP end-session endpoint
     return;

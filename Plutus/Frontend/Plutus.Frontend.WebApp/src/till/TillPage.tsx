@@ -51,6 +51,11 @@ export default function TillPage() {
   /** A scan that matched nothing — offers "Add this item" with the barcode carried over. */
   const [unknownScan, setUnknownScan] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>("none");
+  // ⚠ THE NAME A RETRIEVED BASKET CAME IN UNDER — Matt, 2026-08-23. Retrieving un-parks the row, so
+  // re-saving used to open an EMPTY name box: a basket held for one customer across three visits got
+  // a different name each time, or "Unnamed". ⚠ Cleared on save and on clear, so it can never
+  // attach itself to the next customer.
+  const [parkedName, setParkedName] = useState("");
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [printOnShow, setPrintOnShow] = useState(false);
   // "Sale complete ✓" banner: shows on completion, fades after 3s (or on its ✕).
@@ -434,12 +439,15 @@ export default function TillPage() {
     setEditingKey(null);
   }
 
+  /// ⚠ What this basket was parked as, if it was retrieved rather than rung up fresh. Cleared
+  /// whenever the basket is, so it can never attach itself to the next customer.
   async function saveTransaction() {
     const name = await ask.prompt({
       title: "Save this transaction",
       body: <p className="muted small">Give it a name so you can find it again from “Retrieve Transaction”.</p>,
       label: "Name",
       placeholder: "e.g. the customer's name",
+      initial: parkedName,
       confirmLabel: "Save transaction",
       required: false,
     });
@@ -447,6 +455,7 @@ export default function TillPage() {
     setBusy(true);
     try {
       await parkTransaction(name.trim() || "Unnamed", JSON.stringify(basket));
+      setParkedName("");   // ⚠ It belongs to the basket just saved, not to the next one.
       dispatch({ type: "clear" });
       setRefundTenders([]);   // finding Y: a fresh basket has no refund caps
       setNotice("Transaction saved.");
@@ -760,7 +769,7 @@ export default function TillPage() {
           Retrieve Transaction
         </button>
         <button className="action cancel" disabled={basket.lines.length === 0}
-          onClick={() => { dispatch({ type: "clear" }); setRefundTenders([]); }}>
+          onClick={() => { dispatch({ type: "clear" }); setRefundTenders([]); setParkedName(""); }}>
           Cancel Transaction
         </button>
         <button
@@ -872,8 +881,14 @@ export default function TillPage() {
       {dialog === "parked" && (
         <ParkedDialog
           onClose={() => setDialog("none")}
-          onLoad={(state: BasketState) => {
+          // ⚠ THE NAME COMES BACK WITH THE BASKET — Matt, 2026-08-23: *"if you retreive a basket and
+          // want to save it again, the name it was initially saved as needs to be entered into the
+          // name of the basket for ease."* Retrieving un-parks the row, so re-saving was a fresh
+          // Save with an empty box — and a basket held for one customer across three visits got a
+          // different name each time, or "Unnamed".
+          onLoad={(state: BasketState, name: string) => {
             dispatch({ type: "restore", state });
+            setParkedName(name);
             setDialog("none");
           }}
         />

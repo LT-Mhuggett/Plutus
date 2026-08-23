@@ -4,7 +4,9 @@ import { deleteParked, fetchParked, type ParkedTransaction } from "../api.ts";
 import type { BasketState } from "./basket.ts";
 
 interface Props {
-  onLoad: (state: BasketState) => void;
+  // ⚠ The NAME travels with the basket — see TillPage. Retrieving un-parks the row, so this is
+  // the only moment the name is still known.
+  onLoad: (state: BasketState, name: string) => void;
   onClose: () => void;
 }
 
@@ -27,7 +29,7 @@ export default function ParkedDialog({ onLoad, onClose }: Props) {
     try {
       const state = JSON.parse(p.data) as BasketState;
       await deleteParked(p.id); // un-park on retrieval, like the native till
-      onLoad(state);
+      onLoad(state, p.name ?? "");
     } catch (e) {
       setError(String(e));
       setBusy(false);
