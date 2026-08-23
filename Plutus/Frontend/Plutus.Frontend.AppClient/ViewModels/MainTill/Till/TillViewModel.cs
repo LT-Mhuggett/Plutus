@@ -2083,11 +2083,20 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Till
                 // remaining sign-in path.
                 var auditUser = App.GetViewModel().SignedInOperator?.UserId.ToString();
 
-                using (var db = new Helpers.Database.Database(databaseProvider, auditUser))
-                {
-                    foreach (var discount in db.Get<DiscountModel>())
-                        Alterations.Add(discount);
-                }
+                // ⚠⚠ THE LAST LEGACY DATABASE READ ON THIS TILL IS GONE — L5, 2026-08-23, and it
+                // changes nothing an operator sees. The comment below already recorded why: *"The
+                // legacy Discounts table is empty on a portal till and was never seeded even on
+                // legacy ones."* This loop has been adding nothing to an empty list.
+                //
+                // ⚠ SO THE PICKER STILL OPENS EMPTY, exactly as it did yesterday, and the guard
+                // below still catches it. That is a removal, not a regression.
+                //
+                // ⚠ WIRING THE REAL MANUAL DISCOUNTS IS A FEATURE, NOT THIS. `/api/v1/discounts/rules`
+                // already carries them — `DiscountRuleDto.AutoApply == false` is documented as "a
+                // catalogue entry an operator picks" — and this till already fetches that endpoint
+                // for the AUTOMATIC half (`LoadDiscountRulesAsync`). Filling this list from the
+                // manual half would give MAUI a capability it has never actually had, which is a
+                // parity job with its own row, not something to slip into a legacy sweep.
 
                 // ⚠ THE PICKER MUST NOT OPEN EMPTY. This was an `SfPicker`, whose `SelectedIndex` on
                 // a column with no rows is 0, not null, so the view's SelectionChanged fired

@@ -59,7 +59,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// <see cref="ItemGroups"/>; this is the source it is rebuilt from, so a search narrows the
         /// view without losing the rows.
         /// </summary>
-        public ObservableCollection<ItemModel> Items { get; private set; } = new ObservableCollection<ItemModel>();
+        public ObservableCollection<Models.InventoryRow> Items { get; private set; } = new ObservableCollection<Models.InventoryRow>();
 
         /// <summary>
         /// The A–Z groups the list actually renders.
@@ -119,9 +119,9 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// expects — it enumerates each group directly, so a wrapper with an `Items` property
         /// renders empty rows and, as ever with MAUI bindings, says nothing about why.
         /// </summary>
-        public sealed class ItemGroup : List<ItemModel>
+        public sealed class ItemGroup : List<Models.InventoryRow>
         {
-            public ItemGroup(string key, IEnumerable<ItemModel> items) : base(items) => Key = key;
+            public ItemGroup(string key, IEnumerable<Models.InventoryRow> items) : base(items) => Key = key;
             public string Key { get; }
         }
 
@@ -201,7 +201,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
             _ = Task.Run(async () =>
             {
-                var loaded = new List<ItemModel>();
+                var loaded = new List<Models.InventoryRow>();
                 try
                 {
                     // ⚠ TIMED OUT, because the store is SHARED. `TillStoreAccess` serialises every
@@ -234,10 +234,12 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         .Where(c => !SharedKernel.CarrierBags.IsBagId(c.IdOne))
                         .ToList();
 
-                    // ⚠ Mapped to the legacy `ItemModel` because that is what the list view binds
-                    // to, and MAUI bindings fail SILENTLY — swapping the bound type would blank the
-                    // rows rather than fail. The model goes when the inventory screen is reshaped.
-                    loaded = sellable.Select(c => new ItemModel
+                    // ⚠ THE RESHAPE HAPPENED — L5, 2026-08-23. This comment used to say the legacy
+                    // `ItemModel` was kept "because that is what the list view binds to... the model
+                    // goes when the inventory screen is reshaped". `InventoryRow` is that reshape: a
+                    // browse row with no database behind it, carrying the notifying `StockDisplay`
+                    // the entity had been apologising for.
+                    loaded = sellable.Select(c => new Models.InventoryRow
                     {
                         Id = c.IdOne,
                         Name = c.Name,
@@ -254,7 +256,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
                         // query differently.
                         Brand = c.Brand,
                         Desc = c.Desc,
-                        Cost = c.CostPence / 100m,
+                        // ⚠ `Cost` dropped with the legacy model — nothing on this screen showed it.
+                        VatName = string.Empty,
                     }).ToList();
 
                     // ⚠ THE STOCK COLUMN WAS BLANK ON EVERY ROW, and blank reads as ZERO.
@@ -297,7 +300,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
                     try
                     {
-                        Items = new ObservableCollection<ItemModel>(loaded);
+                        Items = new ObservableCollection<Models.InventoryRow>(loaded);
                         OnPropertyChanged(nameof(Items));
                         RebuildGroups();
 
@@ -409,30 +412,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
 
         #region Execute Command
         #region Search & Filter
-        /*
-        private async void ExecuteItemSearch()
-        {
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-            using (var db = new Helpers.Database.Database(databaseProvider))
-            {
-                db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
-                Items.AddRange(db.Get<ItemModel>()
-                    .Include(i => i.Stock)
-                    .Include(i => i.Vat)
-                    .OrderBy(i => i.Name)
-                    .Where(i => i.Name.Contains(
-                        SearchText,
-                        StringComparison.OrdinalIgnoreCase) ||
-                        (i.Brand != null ? i.Brand.Contains(
-                            SearchText,
-                            StringComparison.OrdinalIgnoreCase) : false) ||
-                        (i.Desc != null ? i.Desc.Contains(
-                            SearchText,
-                            StringComparison.OrdinalIgnoreCase) : false))
-                    .Where(item => !Items.Contains(item))
-                    .Select(item => item));
-            }
-        }*/
+        // ⚠ L5, 2026-08-23 — a commented-out legacy read was here (private async void ExecuteItemSearch()). It opened the
+        // legacy SQLite database directly; the live list has read the v2 catalogue for some time.
 
         // ⚠ A straight rebuild now. This used to hand a predicate to Syncfusion's `DataSource` and
         // call `RefreshFilter()`; with the licence going (Matt, 2026-08-10) the filtering is the
@@ -463,7 +444,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// edit prompt) — and two modals in quick succession is what threw a COMException and closed
         /// the till at the payment prompt.
         /// </summary>
-        public async void RowTapped(ItemModel item)
+        public async void RowTapped(Models.InventoryRow item)
         {
             if (item?.Id is null) return;
 
@@ -676,7 +657,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// `IX_ItemBarcodes_TenantId_Code` on the server; two offline tills adding the same alias would
         /// both believe they had succeeded. Same reasoning as adding a member.
         /// </summary>
-        private async void ExecuteOpenItemDetail(ItemModel item)
+        private async void ExecuteOpenItemDetail(Models.InventoryRow item)
         {
             if (item?.Id is null) return;
 
@@ -1124,7 +1105,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// correction is indistinguishable from shrinkage being hidden, which is the entire reason
         /// this is gated at supervisor level rather than cashier.
         /// </summary>
-        private async void ExecuteAdjustStock(ItemModel item)
+        private async void ExecuteAdjustStock(Models.InventoryRow item)
         {
             try
             {
@@ -1284,7 +1265,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// history, and past sale lines still resolve. The confirmation says that too — an operator
         /// who thinks this is permanent will not use it when they should.
         /// </summary>
-        private async void ExecuteBinItem(ItemModel item)
+        private async void ExecuteBinItem(Models.InventoryRow item)
         {
             try
             {
@@ -1734,7 +1715,7 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
         /// ⚠ It also honours `MatchAllWordsSetting`, which the local copy ignored — so the browse
         /// list and the scan box now answer to the same preference.
         /// </summary>
-        private bool FilterItem(ItemModel item)
+        private bool FilterItem(Models.InventoryRow item)
         {
             if (string.IsNullOrWhiteSpace(SearchText)) return true;
             if (item is null) return false;
@@ -1742,24 +1723,8 @@ namespace Plutus.Frontend.AppClient.ViewModels.MainTill.Inventory.Items
             return ItemSearch.Matches(
                 SearchText, App.GetViewModel().MatchAllWordsSetting, item.Name, item.Id, item.Brand);
         }
-        /*
-        private void LoadItems()
-        {
-            Enum.TryParse(DatabaseProviderSetting, out Database.Enums.DatabaseProvider databaseProvider);
-            using (var db = new Helpers.Database.Database(databaseProvider))
-            {
-                db.SetTrackingBehavior(QueryTrackingBehavior.NoTracking);
-                foreach (var item in db.Get<ItemModel>()
-                    .Include(i => i.Stock)
-                    .Include(i => i.Vat)
-                    .OrderBy(i => i.Name)
-                    .Skip(Items.Count)
-                    .Where(item => !Items.Contains(item))
-                    .Take(_limit)
-                    .Select(item => item))
-                    Items.Add(item);
-            }
-        }*/
+        // ⚠ L5, 2026-08-23 — a commented-out legacy read was here (private void LoadItems()). It opened the
+        // legacy SQLite database directly; the live list has read the v2 catalogue for some time.
         #endregion
 
         #region Disposeable Implementation

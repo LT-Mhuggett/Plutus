@@ -49,7 +49,7 @@ namespace Plutus.Frontend.AppClient.Views.MainTill.Inventory.Items
         /// </summary>
         private void OnRowSelected(object sender, SelectionChangedEventArgs e)
         {
-            var item = e?.CurrentSelection?.FirstOrDefault() as Database.Models.ItemModel;
+            var item = e?.CurrentSelection?.FirstOrDefault() as Plutus.Frontend.AppClient.Models.InventoryRow;
 
             if (sender is CollectionView list) list.SelectedItem = null;
 
