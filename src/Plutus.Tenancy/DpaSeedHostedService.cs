@@ -31,23 +31,49 @@ namespace Plutus.Tenancy
             _log = log;
         }
 
+        /// <summary>
+        /// ⚠⚠ IT RETRIES, BECAUSE IT RACES THE MIGRATION AND LOST — observed on the 1.30.0 deploy.
+        /// Migrations auto-apply during start-up while hosted services start alongside them, so the
+        /// first attempt hit "table DpaDocuments doesn't exist", the catch swallowed it exactly as
+        /// designed, and the draft never appeared. Safe because the catch made it a warning rather
+        /// than an outage — but a seeder that only works on the SECOND boot is a seeder nobody can
+        /// rely on, and the next new table would hit the same thing.
+        /// </summary>
+        private const int Attempts = 10;
+        private static readonly TimeSpan Gap = TimeSpan.FromSeconds(3);
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await Task.Yield();
-            try
-            {
-                using var scope = _scopes.CreateScope();
-                if (scope.ServiceProvider.GetService<RepositoryContext>() is not MySqlDbContext db) return;
 
-                if (await DpaSeeder.SeedAsync(db, stoppingToken))
-                    _log.LogInformation(
-                        "Seeded DPA {Version} as an UNPUBLISHED DRAFT. It cannot be served or accepted "
-                        + "until it is corrected and published — see DpaSeeder for the two blockers.",
-                        DpaSeeder.DraftVersion);
-            }
-            catch (Exception ex)
+            for (var attempt = 1; attempt <= Attempts && !stoppingToken.IsCancellationRequested; attempt++)
             {
-                _log.LogWarning(ex, "DPA seed skipped; signup will report no published agreement until one exists.");
+                try
+                {
+                    using var scope = _scopes.CreateScope();
+                    if (scope.ServiceProvider.GetService<RepositoryContext>() is not MySqlDbContext db) return;
+
+                    if (await DpaSeeder.SeedAsync(db, stoppingToken))
+                        _log.LogInformation(
+                            "Seeded DPA {Version} as an UNPUBLISHED DRAFT. It cannot be served or accepted "
+                            + "until it is corrected and published — see DpaSeeder for the two blockers.",
+                            DpaSeeder.DraftVersion);
+                    return;   // seeded, or already present — either way there is nothing more to do
+                }
+                catch (Exception ex) when (attempt < Attempts)
+                {
+                    // Almost always "the table is not there yet". Debug, not warning: a retry that is
+                    // expected to happen must not read as a fault in the log.
+                    _log.LogDebug(ex, "DPA seed attempt {Attempt} failed; retrying after the migration.", attempt);
+                    try { await Task.Delay(Gap, stoppingToken); } catch (OperationCanceledException) { return; }
+                }
+                catch (Exception ex)
+                {
+                    _log.LogWarning(ex,
+                        "DPA seed gave up after {Attempts} attempts; signup will report no published "
+                        + "agreement until one is created in Platform → DPA.", Attempts);
+                    return;
+                }
             }
         }
     }
