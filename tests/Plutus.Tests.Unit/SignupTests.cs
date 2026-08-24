@@ -573,4 +573,181 @@ public class SignupTests
 
         conn.Dispose();
     }
+
+    // ── the front door's switch, and the audit trail ─────────────────────────────────────────────
+
+    /// <summary>
+    /// ⚠⚠ CLOSED IS THE DEFAULT, AND IT IS THE OPPOSITE OF EVERY OTHER PlatformFlag.
+    ///
+    /// The rest are kill switches — absent means the feature works. A front door read that way is
+    /// OPEN until somebody remembers to close it, which is exactly the state this was written to
+    /// end: the signup API was live and public the moment it shipped, with no landing page anywhere,
+    /// and a POST from outside created an application on 2026-08-23.
+    /// </summary>
+    [Fact]
+    public async Task The_front_door_is_closed_when_no_flag_exists()
+    {
+        var conn = NewDb();
+        using var db = Ctx(conn);
+        Assert.False(await new SignupGate(db).IsOpenAsync(),
+            "With no flag row at all the door must be CLOSED. Absent must not mean open — that is "
+            + "how an unauthenticated endpoint ends up live before anybody decided it should be.");
+        conn.Dispose();
+    }
+
+    [Theory]
+    [InlineData(false, false)]   // explicitly disabled
+    [InlineData(true, true)]     // deliberately opened
+    public async Task The_front_door_follows_the_flag(bool enabled, bool expectedOpen)
+    {
+        var conn = NewDb();
+        using var db = Ctx(conn);
+        db.PlatformFlags.Add(new PlatformFlag
+        {
+            FlagName = SignupGate.FlagName, Enabled = enabled, UpdatedAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(expectedOpen, await new SignupGate(db).IsOpenAsync());
+        conn.Dispose();
+    }
+
+    /// <summary>⚠ A different flag name must not open this one. Pinned because "signup" and
+    /// "signup.public" are one typo apart and the failure would be silent and open.</summary>
+    [Fact]
+    public async Task Another_flag_being_on_does_not_open_signup()
+    {
+        var conn = NewDb();
+        using var db = Ctx(conn);
+        db.PlatformFlags.Add(new PlatformFlag { FlagName = "signup", Enabled = true, UpdatedAtUtc = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+        Assert.False(await new SignupGate(db).IsOpenAsync());
+        conn.Dispose();
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE DoD LINE "every state change is audited", which was NOT done when WP-signup first
+    /// shipped — all three controllers had zero audit calls while Platform → Quarantine, the screen
+    /// §6 says to model on, uses the helper.
+    ///
+    /// ⚠ And the audit row must land in the SAME SaveChanges as the mutation. `AuditExtensions.Audit`
+    /// only ADDS to the change tracker on purpose — *"so the trail can never disagree with the
+    /// data"* — so auditing from a controller after the service returned would leave the row unsaved.
+    /// That is why these live in the services, and why this test reads the database rather than a mock.
+    /// </summary>
+    [Fact]
+    public async Task Approving_and_rejecting_are_audited()
+    {
+        var conn = NewDb();
+        var approved = await VerifiedApplicationAsync(conn, "Audit Shop");
+        var refused = await VerifiedApplicationAsync(conn, "Refused Shop");
+        await PublishDpaAsync(conn);
+        using (var db = Ctx(conn)) await Svc(db).AcceptDpaAsync(approved, "2026-01", "198.51.100.1", "ua");
+
+        using (var db = Ctx(conn))
+        {
+            var (prov, dpa) = Services(db);
+            await Svc(db).ApproveAsync(approved, prov, dpa, "matt", "password1");
+        }
+        using (var db = Ctx(conn)) await Svc(db).RejectAsync(refused, "Not a real shop.", "matt");
+
+        using var check = Ctx(conn);
+        var actions = await check.AuditLogs.AsNoTracking().Select(a => a.Action).ToListAsync();
+
+        Assert.Contains("signup.application.approved", actions);
+        Assert.Contains("signup.application.rejected", actions);
+        Assert.Contains("signup.dpa.accepted", actions);
+        Assert.Contains("dpa.published", actions);
+        conn.Dispose();
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE TWO DPA ROUTES MUST NOT FLATTEN INTO ONE ACTION NAME. An audit trail that records
+    /// "the operator wrote this down" and "the client agreed" identically has destroyed the
+    /// distinction the whole work package exists to make.
+    /// </summary>
+    [Fact]
+    public async Task The_client_route_and_the_operator_route_audit_differently()
+    {
+        var conn = NewDb();
+        var clientTenant = Guid.NewGuid();
+        var paperTenant = Guid.NewGuid();
+        using var db = Ctx(conn);
+        var dpa = new DpaService(db);
+        await dpa.SaveDraftAsync("2026-01", "DPA", "Text.", null, "op");
+        await dpa.PublishAsync("2026-01", "op");
+
+        await dpa.AcceptAsync(clientTenant, null, "owner@shop.co.uk", "203.0.113.9", "a-browser");
+        await dpa.RecordManuallyAsync(paperTenant, "2026-01", "matt", "Signed copy in the folder.");
+
+        var actions = await db.AuditLogs.AsNoTracking().Select(a => a.Action).ToListAsync();
+        Assert.Contains("dpa.accepted", actions);
+        Assert.Contains("dpa.recorded-manually", actions);
+        conn.Dispose();
+    }
+
+    /// <summary>
+    /// ⚠⚠ THE SWEEP MUST RAISE dpa-missing FOR A TENANT THAT ACCEPTED AN OLDER VERSION. The DoD line
+    /// says *"publishing a new version re-raises dpa-missing for tenants that have not accepted it"*,
+    /// and until this test existed only the STATUS was proven — which is not the same as proving the
+    /// signal fires. A re-issued DPA silently treated as already agreed is worse than never asking.
+    ///
+    /// ⚠ The tenant must be non-sandbox and not Closed, or the sweep skips it by design.
+    /// </summary>
+    [Fact]
+    public async Task Publishing_a_new_version_re_raises_dpa_missing_at_sweep_level()
+    {
+        var conn = NewDb();
+        var tenantId = Guid.NewGuid();
+
+        using (var db = Ctx(conn))
+        {
+            db.Tenants.Add(new Tenant
+            {
+                Id = tenantId, Name = "Behind Shop", Status = 1, Plan = "standard",
+                Entitlements = "[]", ConnectionRef = "", CreatedAtUtc = DateTime.UtcNow, IsSandbox = false,
+            });
+            await db.SaveChangesAsync();
+
+            var dpa = new DpaService(db);
+            await dpa.SaveDraftAsync("2026-01", "DPA", "One.", null, "op");
+            await dpa.PublishAsync("2026-01", "op");
+            await dpa.AcceptAsync(tenantId, null, "owner@behind.co.uk", "1.1.1.1", "ua");
+        }
+
+        // Up to date on 2026-01 → the signal must be CLEAR.
+        using (var db = Ctx(conn))
+        {
+            await ComplianceSweep.EvaluateAsync(db, new NullOperatorAlerter(), DateTime.UtcNow);
+            Assert.False(await db.TenantSignals.AsNoTracking()
+                .AnyAsync(s => s.TenantId == tenantId && s.Signal == TenantSignals.DpaMissing && s.ClearedAtUtc == null),
+                "A tenant that has accepted the current version must not be flagged.");
+        }
+
+        // A newer version is published; they have not accepted THAT one.
+        using (var db = Ctx(conn))
+        {
+            var dpa = new DpaService(db);
+            await dpa.SaveDraftAsync("2027-04", "DPA", "Two.", null, "op");
+            await dpa.PublishAsync("2027-04", "op");
+        }
+
+        using (var db = Ctx(conn))
+        {
+            await ComplianceSweep.EvaluateAsync(db, new NullOperatorAlerter(), DateTime.UtcNow);
+            Assert.True(await db.TenantSignals.AsNoTracking()
+                .AnyAsync(s => s.TenantId == tenantId && s.Signal == TenantSignals.DpaMissing && s.ClearedAtUtc == null),
+                "Publishing a new version must re-raise dpa-missing for a tenant that has only "
+                + "accepted an earlier one. Otherwise a re-issued DPA is silently treated as agreed.");
+        }
+        conn.Dispose();
+    }
+
+    /// <summary>An alerter that does nothing — the sweep's keyed alerts are not what is under test.</summary>
+    private sealed class NullOperatorAlerter : IOperatorAlerter
+    {
+        public Task RaiseAsync(string alertKey, string jobName, Guid? tenantId, string kind, string message,
+                               System.Threading.CancellationToken ct = default) => Task.CompletedTask;
+        public Task ClearAsync(string alertKey, System.Threading.CancellationToken ct = default) => Task.CompletedTask;
+    }
 }

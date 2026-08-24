@@ -75,6 +75,15 @@ namespace Plutus.Tenancy
                         "The DPA service requires the MySqlDbContext (server build), not the SQLite dev context.");
                 return new DpaService(ctx);
             });
+            // ⚠⚠ The front door's on/off switch, and it DEFAULTS TO CLOSED — unlike every other
+            // PlatformFlag, which is a kill switch that defaults to on. See SignupGate.
+            services.AddScoped(sp =>
+            {
+                var ctx = sp.GetRequiredService<RepositoryContext>() as MySqlDbContext
+                    ?? throw new InvalidOperationException(
+                        "The signup gate requires the MySqlDbContext (server build), not the SQLite dev context.");
+                return new SignupGate(ctx);
+            });
 
             // Seeds Matt's DPA as an UNPUBLISHED draft on first boot, once. Never fatal — a
             // seeder that can stop the backend booting takes every till offline over a document

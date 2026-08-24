@@ -1,0 +1,208 @@
+# WP-LANDING — the public site, and the front door WP-SIGNUP built the lock for
+
+**Product:** Plutus platform — the public face
+**Author:** Matt Huggett (Leading Talent) with Claude
+**Written:** 24 August 2026
+**Status:** ⚠ **PLAN ONLY — nothing here is built.** ⚠ Verify that against the code before believing
+it: WP-signup's banner said this for a day after it stopped being true, and that is the failure this
+repo keeps re-learning.
+
+> **Matt, 2026-08-21:** *"I need a customer facing landing page, that describes Plutus, with a login
+> screen to take you to the till."*
+>
+> **Matt, 2026-08-24:** *"I would like to build out the landing page, but not have it externally
+> facing for now."*
+
+---
+
+## 0. What already exists, so this does not rebuild it
+
+**WP-SIGNUP is done and deployed** (backend 1.30.2). This page is the *front* of a machine that
+already works:
+
+| Already built | Endpoint |
+|---|---|
+| Apply for a tenancy | `POST /api/v1/signup` |
+| Read the agreement | `GET /api/v1/signup/dpa` |
+| Accept it | `POST /api/v1/signup/dpa/accept` |
+| Confirm the email | `POST /api/v1/signup/verify?token=…` |
+| The on/off switch | `signup.public` in **Platform → Flags**, default **closed** |
+
+⚠⚠ **SO THIS WORK PACKAGE IS A UI, NOT A FEATURE.** If it starts growing endpoints, something has
+gone wrong — the API surface is settled and tested (WP-signup §7, eight of eight).
+
+⚠ **One thing is genuinely blocked and it is not code:** no DPA is published, so signup cannot
+*complete* — `GET /api/v1/signup/dpa` answers 409 by design. The landing page can be built and
+demonstrated against that 409; it cannot take a real customer until the agreement is corrected and
+published (WP-signup §4.3).
+
+---
+
+## 1. ⚠⚠ "Not externally facing" — how, and the trap in the question
+
+**Matt asked whether this can be an operator-portal setting or has to be Caddy. It is BOTH, and they
+gate different things.** Getting this wrong is the difference between a private site and a public one.
+
+| Layer | Controls | Tool | Why |
+|---|---|---|---|
+| **The API** | whether signup *accepts* anything | ✅ **`signup.public` flag** — already built | One switch, audited, no deploy, no SSH, and it lives where the platform's other switches live |
+| **The page** | whether the site is *reachable* | ✅ **Caddy** — do not add the vhost yet | A page that is not served cannot be found. Nothing to configure, nothing to remember |
+| **Who may see a served page** | early-access / staging | ⚠ Caddy `basic_auth` or an IP allow-list | Only once the vhost exists and you want a few people in |
+
+⚠⚠ **AND THE TRAP: THE API WAS ALREADY PUBLIC BEFORE ANY PAGE EXISTED.** Caddy proxies `/api/*` on
+`plutus.huggett.dscloud.me` to the backend, and the signup routes are anonymous — so on 2026-08-23 a
+POST from outside created an application with no landing page anywhere. **"We haven't built the page
+yet" was never the same as "nobody can sign up."** That is why the flag was added to WP-signup rather
+than deferred to here, and why it defaults to closed.
+
+⚠ **Caddy is the wrong tool for the API half.** The till, the web till and the portal all share
+`/api/*` on that host. Gating signup there means a path carve-out — in a file that needs SSH to
+change, invisible from the portal, and a second place to remember. The flag is one line in a UI you
+already open.
+
+### The recommended sequence
+
+1. **Build the site and host it nowhere.** `npm run dev` locally, or deploy to
+   `/srv/apps/PLUTUS/landing/current` with **no Caddy vhost**. Reachable by nobody.
+2. **When you want to show it:** add the vhost with `basic_auth`, or an IP allow-list for the shop.
+3. **When you want signup to work:** enable `signup.public`. ⚠ Two separate decisions, deliberately —
+   a visible site with a dead form is a fine demo; a working form on a site nobody meant to publish
+   is an incident.
+4. **Public launch:** drop the basic auth. The flag stays a kill switch for the day something floods.
+
+---
+
+## 2. Shape — a fourth app, and the smallest one
+
+⚠ **A separate app, not a route in the portal or the till** (architecture §12c, decision of record).
+It is unauthenticated, public and indexable; both existing apps assume a session and neither should
+learn to serve anonymous traffic.
+
+```
+Plutus/Frontend/Plutus.Frontend.Landing/     (new — Vite + React + TS, matching the other two)
+  src/
+    App.tsx              the page
+    Signup.tsx           the form → POST /api/v1/signup
+    Verify.tsx           #verify=<token> → POST /api/v1/signup/verify
+    Dpa.tsx              GET /api/v1/signup/dpa, accept, → POST …/dpa/accept
+    api.ts               ⚠ FOUR calls and no more
+  versions/landing.txt   ⚠ its own version file — Matt, 2026-08-08: "Each till needs a specific
+                         version as they will end up diverging." The rule is per deployable.
+```
+
+| # | Stage | Est. | Ships |
+|---|---|---|---|
+| 1 | **The page** | 1d | What Plutus is, who it is for, a price, and two links. Static, responsive, no session. |
+| 2 | **The two links** | ½d | *Sign in* → the web till · *Manage my shop* → the portal. ⚠ **Links, not a login form** |
+| 3 | **The signup flow** | 1d | Apply → confirm email → read and accept the DPA → "we'll be in touch". Four screens over the four existing endpoints. |
+| 4 | **Deploy, unlisted** | ½d | Build on the Mac, `/srv/apps/PLUTUS/landing/current`, **no vhost**. |
+
+**≈2–3d**, matching architecture §12c. ⚠ Stage 3 is where the estimate will move if the DPA text
+lands late — the screen is cheap, the wording is not.
+
+---
+
+## 3. ⚠⚠ Its "login" is a LINK. Never a third auth implementation
+
+Architecture §12c is explicit and it is the most important line in this document:
+
+> *"Its 'login' is a **link** to the till and the portal, not a third auth implementation. There are
+> two already (`oidc.ts` and the password mode) and a third would be the C2 problem in a place where
+> getting it wrong is a breach rather than an hour."*
+
+⚠ So: **no password field, no token handling, no session, no `localStorage`.** Two `<a>` tags:
+
+| Button | Goes to |
+|---|---|
+| **Sign in to your till** | `https://plutus.huggett.dscloud.me` |
+| **Manage my shop** | `https://admin.plutus.huggett.dscloud.me` |
+
+⚠ **Configurable, not hardcoded** — `VITE_TILL_URL` / `VITE_PORTAL_URL`. The portal already has a
+`VITE_TILL_URL` for exactly this reason and it is unset live, so `tillUrl()` derives it from the
+hostname. Reuse the derivation rather than inventing a second convention.
+
+⚠ **A "forgot password" link belongs to the portal, not here.** It has one
+(`PasswordResetController`, anonymous by necessity). Duplicating it would put a credential path on
+the marketing site.
+
+---
+
+## 4. What the page has to say — and what it must not
+
+⚠ This is the half a plan cannot write: the copy is Matt's. What the plan CAN fix is the constraints.
+
+**Must have:**
+- What Plutus is, in one sentence, above the fold.
+- Who it is for. ⚠ It is a **UK multi-channel retail** POS with real VAT handling — that is the
+  differentiator and it is specific enough to be worth saying.
+- A price, or a reason there isn't one. A SaaS page with no pricing reads as "call us".
+- The two links (§3).
+- The signup call to action — ⚠ **hidden when `signup.public` is off**, so the page never offers a
+  door that answers 404. Read it from `GET /api/v1/signup/dpa`: a 404 means closed, a 409 means open
+  but no agreement published yet, a 200 means ready.
+
+**Must NOT have:**
+- ⛔ **No third-party scripts.** No analytics tag, no chat widget, no font CDN, no CAPTCHA. WP-signup
+  §3.2 refused a CAPTCHA for this reason: *"it puts a third-party script on the front door of a
+  payments product."* The same argument kills the rest.
+- ⛔ **No customer logos or testimonials** until somebody has agreed in writing to appear.
+- ⛔ **No screenshots of real data.** ⚠ Every screenshot must come from a **sandbox** tenant — Demo
+  Store, or a fresh one via Platform → Subscribers with Sandbox ticked. A marketing page showing
+  Kapow's takings is a data-protection incident with a press release attached.
+- ⛔ **No claim about certification the platform does not hold.** Schedule 2 of the DPA template lists
+  Cyber Essentials / ISO 27001 as bracketed placeholders — bracketed because they are **not held**.
+
+---
+
+## 5. Hosting
+
+⚠ **Fourth vhost, and it is the ONLY one that is truly public** — the till and portal are public but
+useless without a credential; this one is meant to be read by strangers and indexed.
+
+```
+plutus.huggett.dscloud.me         → web till          (existing)
+admin.plutus.huggett.dscloud.me   → portal            (existing)
+login.plutus.huggett.dscloud.me   → Keycloak          (existing)
+status.plutus.huggett.dscloud.me  → status page       (existing, and NOT under current/)
+www.???                           → landing           ⚠ NEW — the domain is a decision, not a default
+```
+
+⚠ **The domain is Matt's to choose** and it is not a detail: whatever it is becomes the brand, the
+email sender domain, and the thing printed on receipts. Do not squat `plutus.huggett.dscloud.me/www`
+as a placeholder — a temporary URL in a marketing page outlives every intention.
+
+⚠ **`/srv/apps/PLUTUS/landing/current`**, following the existing layout. ⚠⚠ `/srv/apps/` also holds
+**ETRIE**, which must never be touched.
+
+⚠ **Build ON THE MAC** (Node 26; the Windows box has none) and follow the portal's build discipline
+in `repo-runbook.md`: `PLUTUS_APP_VERSION` set explicitly, and the artefact grepped for
+unsubstituted `__APP_VERSION__` / `__BUILD_TIME__` before it is copied to `current/`. ⚠ That check
+exists because a missing Vite `define` passes `tsc`, passes `vite build`, and blanks the page for
+every visitor.
+
+---
+
+## 6. Definition of done
+
+- [ ] The site builds and serves with **no Caddy vhost** — reachable by nobody, verified by curl.
+- [ ] No password field, no token handling, no session storage anywhere in the bundle. ⚠ Asserted by
+      a test on the built artefact, not by reading the source — the point is what ships.
+- [ ] Zero third-party network origins in the bundle. ⚠ Same reason.
+- [ ] The signup call to action is **hidden** when `signup.public` is off, and the page does not
+      break when the API answers 404 or 409.
+- [ ] Apply → verify → accept works end to end against a **published** DPA on a sandbox tenant.
+- [ ] The artefact carries its version and no `0.0.0`, and no unsubstituted defines.
+- [ ] ⚠ Every screenshot on the page comes from a sandbox tenant, recorded here with which one.
+- [ ] Responsive, and readable with images blocked.
+
+---
+
+## 7. What this does NOT cover
+
+- **The DPA wording.** WP-signup §4.3. Blocked on Matt and a solicitor, not on code.
+- **Billing / taking a card at signup.** A different work package and a different set of obligations.
+- **SEO beyond a title, description and sitemap.** Not a work package; a later afternoon.
+- **A blog, docs site or status page.** ⚠ A status page ALREADY EXISTS and is live:
+  `status.plutus.huggett.dscloud.me`, served from `/srv/apps/PLUTUS/status/` (⚠ no `current/`
+  subdirectory, unlike the till and portal) with a `status.json` that is being written to daily.
+  **Do not rebuild it, and do not fold it into this page.**

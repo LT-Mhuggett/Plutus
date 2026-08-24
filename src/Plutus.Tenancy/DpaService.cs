@@ -49,6 +49,24 @@ namespace Plutus.Tenancy
         }
 
         /// <summary>
+        /// ⚠⚠ THE AUDIT WRITE MUST SHARE THE MUTATION'S SaveChanges. `AuditExtensions.Audit` only
+        /// ADDS the row to the change tracker, deliberately — *"callers save it in the SAME
+        /// SaveChanges as the mutation, so the trail can never disagree with the data."* Auditing
+        /// from the controller after the service returned would leave the row unsaved, which is a
+        /// worse outcome than not auditing: the mutation lands and its record does not.
+        ///
+        /// ⚠ The actor arrives as a STRING (a name or a subject id, depending on the token), so it
+        /// is parsed when it is a Guid and carried in the detail either way. An unattributed audit
+        /// row is still better than none, and Guid.Empty is the honest value for "the front door".
+        /// </summary>
+        private void AuditRow(Guid tenantId, string actor, string action, string entityType, string entityId, object detail = null)
+        {
+            var actorId = Guid.TryParse(actor, out var g) ? g : Guid.Empty;
+            _db.Audit(tenantId, actorId, action, entityType, entityId,
+                      new { actor = actor ?? "signup", detail });
+        }
+
+        /// <summary>
         /// The DPA a client is asked to accept, or null if none is published.
         ///
         /// ⚠⚠ A DRAFT IS NEVER SERVED. `PublishedAtUtc == null` means the wording is not agreed yet,
@@ -126,6 +144,8 @@ namespace Plutus.Tenancy
                 other.IsCurrent = false;
 
             doc.IsCurrent = true;
+            AuditRow(Guid.Empty, actor, "dpa.published", "DpaDocument", doc.Version,
+                     new { doc.Title, doc.PublishedAtUtc });
             await _db.SaveChangesAsync(ct);
             return doc;
         }
@@ -165,6 +185,8 @@ namespace Plutus.Tenancy
 
             // The legacy fields stay in step so the existing signal and the Subscribers screen agree.
             await StampTenantAsync(tenantId, doc.Version, row.AcceptedAtUtc, ct);
+            AuditRow(tenantId, email, "dpa.accepted", "DpaAcceptance", row.Id.ToString(),
+                     new { doc.Version, row.AcceptedIp, byClient = true });
             await _db.SaveChangesAsync(ct);
             return row;
         }
@@ -201,6 +223,10 @@ namespace Plutus.Tenancy
             };
             _db.DpaAcceptances.Add(row);
             await StampTenantAsync(tenantId, version, row.AcceptedAtUtc, ct);
+            // ⚠ A DIFFERENT ACTION NAME from the client route, on purpose: the audit trail must not
+            // flatten "the operator wrote this down" into "the client agreed".
+            AuditRow(tenantId, operatorName, "dpa.recorded-manually", "DpaAcceptance", row.Id.ToString(),
+                     new { version, note, byClient = false });
             await _db.SaveChangesAsync(ct);
             return row;
         }

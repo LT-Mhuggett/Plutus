@@ -74,6 +74,24 @@ namespace Plutus.Tenancy
             if (string.IsNullOrEmpty(_db.CurrentUser)) _db.CurrentUser = actor;
         }
 
+        /// <summary>
+        /// ⚠⚠ THE AUDIT WRITE MUST SHARE THE MUTATION'S SaveChanges. `AuditExtensions.Audit` only
+        /// ADDS the row to the change tracker, deliberately — *"callers save it in the SAME
+        /// SaveChanges as the mutation, so the trail can never disagree with the data."* Auditing
+        /// from the controller after the service returned would leave the row unsaved, which is a
+        /// worse outcome than not auditing: the mutation lands and its record does not.
+        ///
+        /// ⚠ The actor arrives as a STRING (a name or a subject id, depending on the token), so it
+        /// is parsed when it is a Guid and carried in the detail either way. An unattributed audit
+        /// row is still better than none, and Guid.Empty is the honest value for "the front door".
+        /// </summary>
+        private void AuditRow(Guid tenantId, string actor, string action, string entityType, string entityId, object detail = null)
+        {
+            var actorId = Guid.TryParse(actor, out var g) ? g : Guid.Empty;
+            _db.Audit(tenantId, actorId, action, entityType, entityId,
+                      new { actor = actor ?? "signup", detail });
+        }
+
         // ── stage 1: an application is not a tenant ──────────────────────────────────────────────
 
         /// <summary>
@@ -232,6 +250,8 @@ namespace Plutus.Tenancy
             app.DpaAcceptedByEmail = app.ContactEmail;
             app.DpaAcceptedIp = Truncate(ip, 45);
             app.DpaAcceptedUserAgent = Truncate(userAgent, 400);
+            AuditRow(Guid.Empty, app.ContactEmail, "signup.dpa.accepted", "TenantApplication", app.Id.ToString(),
+                     new { version = current.Version, ip = app.DpaAcceptedIp });
             await _db.SaveChangesAsync(ct);
             return app;
         }
@@ -296,6 +316,8 @@ namespace Plutus.Tenancy
             app.Status = TenantApplicationStatus.Provisioned;
             app.DecidedAtUtc = DateTime.UtcNow;
             app.DecidedBy = actor;
+            AuditRow(result.TenantId, actor, "signup.application.approved", "TenantApplication", app.Id.ToString(),
+                     new { app.BusinessName, app.ContactEmail, tenantId = result.TenantId, isSandbox = true });
             await _db.SaveChangesAsync(ct);
 
             return (result.TenantId, true);
@@ -327,6 +349,8 @@ namespace Plutus.Tenancy
             app.BusinessNameFolded = $"rejected:{app.Id:N}";
             app.EmailVerifyTokenHash = null;
             app.EmailVerifyExpiresAtUtc = null;
+            AuditRow(Guid.Empty, actor, "signup.application.rejected", "TenantApplication", app.Id.ToString(),
+                     new { app.BusinessName, app.ContactEmail, reason = app.RejectedReason });
             await _db.SaveChangesAsync(ct);
             return app;
         }

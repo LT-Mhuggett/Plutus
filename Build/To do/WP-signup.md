@@ -323,44 +323,85 @@ and a note recorded against whoever took it.
 
 ---
 
-## 7. Definition of done
+## 7. Definition of done — ✅ **ALL EIGHT, 2026-08-23**
 
-**Five of eight, as at 2026-08-23.** ⚠ Ticked only where a test proves it — the three open lines are
-open because the test does not exist, not because the behaviour is missing in two of the three cases.
+⚠ Ticked only where a test proves it, and each line names the test. Two of the three that were open
+were missing TESTS rather than missing behaviour; the third was missing behaviour and said so.
 
 - [x] An unauthenticated `POST` creates an application and nothing else.
       → `Applying_creates_an_application_and_absolutely_nothing_else` asserts **zero** tenants,
       companies, stores, credentials and role assignments after an apply.
 - [x] An unverified application cannot be approved by any route.
       → `An_unverified_application_cannot_be_approved` (409, and no tenant afterwards).
-- [ ] ⛔ Rate limits hold under a scripted flood; the test asserts the 429, not just the happy path.
-      → **The policy is wired to every signup route; the test is not written.** `RateLimitE2eTests`
-      covers per-tenant throttling and the platform-admin exemption, which is a different thing —
-      nothing floods `/api/v1/signup`. ⚠ There IS a 429 test for the per-application send cap
-      (`Verification_resends_are_capped`), which is the other half of §3.2 and not this line. **≈½d.**
+- [x] Rate limits hold under a scripted flood; the test asserts the 429, not just the happy path.
+      → `A_flood_of_signups_is_throttled_with_429` (40 concurrent, asserts a 429 **and** that
+      requests still get through — without the second half a broken endpoint would look throttled).
+      ⚠⚠ **AND IT DOES NOT PROVE WHICH POLICY THROTTLED.** `PlutusAppFactory` sets
+      `RATE_LIMIT_ENROL_PER_MIN = 100000` ("don't throttle the test IP"), so in that host the enrol
+      window is off and the 429 comes from the per-tenant limiter. Found by reading the factory, not
+      by the test failing. The specific control is pinned separately by
+      `SignupRateLimitPolicyTests`, which asserts `[EnableRateLimiting("enrol")]` sits at **class**
+      level so new actions inherit it.
 - [x] A DPA acceptance records version, user, time and IP …
       → `Approving_provisions_one_sandbox_tenant_with_the_dpa_carried_across` checks all four survive
-      onto the tenant, and `An_operator_recorded_dpa_is_distinguishable…` checks the two routes.
-- [ ] 🟡 … **publishing a new version re-raises `dpa-missing`** for tenants that have not accepted it.
-      → **Built** (`ComplianceSweep` compares against the CURRENT version, and
-      `CommercialOpsE2eTests` still passes) and `Publishing_a_new_version_leaves_an_earlier_acceptance_behind`
-      proves `CurrentAccepted` goes false. ⚠ But that is not the same as proving the SIGNAL fires:
-      the new "accepted an older version" branch has no sweep-level test. **≈2h.**
+      onto the tenant.
+- [x] … **publishing a new version re-raises `dpa-missing`** for tenants that have not accepted it.
+      → `Publishing_a_new_version_re_raises_dpa_missing_at_sweep_level` runs the real
+      `ComplianceSweep` twice: clear while up to date, raised after a newer version is published.
+      ⚠ The earlier `StatusAsync` test only proved the version comparison; that is not the same as
+      proving the signal fires.
 - [x] An operator-recorded DPA is visibly distinct from a client-accepted one, in the API and on screen.
-      → `RecordedByOperator` set with `AcceptedByEmail` null; both Platform → Subscribers and
-      Company → DPA render it as *"recorded manually by …"*, never *"accepted by"*.
-- [ ] ⛔⛔ **Every state change is audited. — NOT DONE, and the most load-bearing of the three.**
-      → There is a `_db.Audit(tenantId, actor, action, entity, id, detail)` helper and
-      **Platform → Quarantine uses it** — the very screen §6 says to model on. `SignupController`,
-      `PlatformApplicationsController` and `DpaController` have **zero** audit calls. The audit
-      *columns* populate (that is what the `CurrentUser` fix bought); there is no audit *event* for
-      approve, reject, publish or accept. ⚠ For a compliance feature this is the wrong place to be
-      thin — an acceptance whose provenance is only a column is weaker evidence than one with an
-      event beside it. **≈½d.**
+      → `An_operator_recorded_dpa_is_distinguishable…` plus
+      `The_client_route_and_the_operator_route_audit_differently` — two different audit ACTIONS
+      (`dpa.accepted` vs `dpa.recorded-manually`), because a trail that flattens them has destroyed
+      the distinction this work package exists to make.
+- [x] Every state change is audited.
+      → `Approving_and_rejecting_are_audited` reads the `AuditLogs` table for
+      `signup.application.approved`, `signup.application.rejected`, `signup.dpa.accepted` and
+      `dpa.published`. ⚠⚠ **The writes live in the SERVICES, not the controllers**, because
+      `AuditExtensions.Audit` only ADDS to the change tracker — *"callers save it in the SAME
+      SaveChanges as the mutation, so the trail can never disagree with the data."* Auditing from a
+      controller after the service returned would leave the row unsaved: the mutation lands and its
+      record does not, which is worse than no audit at all.
 - [x] ⚠ The signup path is tested with the mail sender **failing** — a bounced verification email
       must leave a recoverable application, not a dead row.
       → `A_failing_mail_sender_leaves_a_recoverable_application` exercises **both** failure shapes
-      (a sender that throws and one that refuses) and then verifies the token still works.
+      (a sender that throws and one that refuses), then proves the token still works.
+
+### ⚠⚠ 7b. THE FRONT DOOR IS CLOSED BY DEFAULT — added 2026-08-23, and it was not in the plan
+
+> **Matt:** *"I would like to build out the landing page, but not have it externally facing for now.
+> Can I have this as an operator portal setting? Or does it have to be done via Caddy?"*
+
+**It can be a portal setting, it should be, and it had to be — because the API was already public.**
+
+⚠⚠ **THE PREMISE NEEDED CORRECTING FIRST.** "Not externally facing" was already untrue of the API the
+moment stage 1 shipped. Caddy proxies `/api/*` on `plutus.huggett.dscloud.me` straight to the
+backend and the signup routes are `[AllowAnonymous]`, so a POST from outside created an application
+on 2026-08-23 — **with no landing page in existence**. Waiting for WP-LANDING to think about exposure
+would have been waiting for the wrong event.
+
+| Control | What it gates | Why it is the wrong/right tool |
+|---|---|---|
+| **`signup.public` flag** (Platform → Flags) | **the API** | ✅ The right tool. One switch, audited, no deploy, no SSH, visible where the rest of the platform's switches live |
+| **Caddy** | **the page** (a future landing vhost) | ✅ For the page — simply not adding the vhost keeps it unreachable. ⛔ **Wrong for the API**: the till, web till and portal all share `/api/*` on that host, so gating signup means a path carve-out, in a file needing SSH to change, invisible from the portal, and a second place to remember |
+
+⚠ **CLOSED IS THE DEFAULT, AND IT IS THE OPPOSITE OF EVERY OTHER `PlatformFlag`.** The rest are kill
+switches: absent means the feature works. A front door read that way is OPEN until somebody
+remembers to close it — the exact state this ended. **Absent means closed**; the flag must be created
+and enabled deliberately.
+
+⚠ **A closed door answers 404, not 403.** A 403 tells a stranger a signup API exists and is merely
+switched off, which is an invitation to come back later.
+
+Pinned by `With_the_flag_off_every_signup_route_is_404`, `A_closed_door_writes_nothing` (a 404 that
+still recorded the attempt would be a closed door with an open window), and
+`Every_signup_action_checks_the_open_closed_flag`, which COUNTS the gates against the actions —
+a gate on three of four routes is an open route, and the one left out will be the newest.
+
+**To open it:** Platform → Flags → `signup.public` → enable. **To close it:** disable. Both audited.
+
+---
 ---
 
 ## 8. What this does NOT cover

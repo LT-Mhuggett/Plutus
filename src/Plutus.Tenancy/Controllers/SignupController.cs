@@ -36,13 +36,27 @@ namespace Plutus.Tenancy.Controllers
         private readonly TenantApplicationService _applications;
         private readonly DpaService _dpa;
         private readonly IMessageSender _mail;
+        private readonly SignupGate _gate;
 
-        public SignupController(TenantApplicationService applications, DpaService dpa, IMessageSender mail)
+        public SignupController(
+            TenantApplicationService applications, DpaService dpa, IMessageSender mail, SignupGate gate)
         {
             _applications = applications;
             _dpa = dpa;
             _mail = mail;
+            _gate = gate;
         }
+
+        /// <summary>
+        /// ⚠⚠ EVERY ROUTE HERE IS BEHIND THE `signup.public` FLAG, AND IT DEFAULTS TO CLOSED.
+        /// The API was reachable from the internet the moment it shipped — Caddy proxies `/api/*` on
+        /// the till host and these routes are anonymous — so a POST from outside created an
+        /// application on 2026-08-23 with no landing page in existence. See <see cref="SignupGate"/>.
+        ///
+        /// ⚠ 404, not 403: a 403 advertises that a signup API exists and is merely switched off.
+        /// </summary>
+        private async Task<IActionResult> ClosedAsync(CancellationToken ct) =>
+            await _gate.IsOpenAsync(ct) ? null : NotFound();
 
         /// <summary>
         /// Apply for a tenancy.
@@ -57,6 +71,7 @@ namespace Plutus.Tenancy.Controllers
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
         public async Task<IActionResult> Apply([FromBody] SignupBody body, CancellationToken ct)
         {
+            if (await ClosedAsync(ct) is {} closed) return closed;
             try
             {
                 var result = await _applications.ApplyAsync(
@@ -88,6 +103,7 @@ namespace Plutus.Tenancy.Controllers
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<IActionResult> Verify([FromQuery] string token, CancellationToken ct)
         {
+            if (await ClosedAsync(ct) is {} closed) return closed;
             var (outcome, app) = await _applications.VerifyAsync(token, ct);
             return outcome switch
             {
@@ -113,6 +129,7 @@ namespace Plutus.Tenancy.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> CurrentDpa(CancellationToken ct)
         {
+            if (await ClosedAsync(ct) is {} closed) return closed;
             var doc = await _dpa.GetCurrentAsync(ct);
             if (doc == null)
                 return Problem(
@@ -129,6 +146,7 @@ namespace Plutus.Tenancy.Controllers
         [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<IActionResult> AcceptDpa([FromBody] AcceptDpaBody body, CancellationToken ct)
         {
+            if (await ClosedAsync(ct) is {} closed) return closed;
             try
             {
                 var app = await _applications.AcceptDpaAsync(
