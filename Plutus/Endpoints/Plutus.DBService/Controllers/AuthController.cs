@@ -228,6 +228,26 @@ namespace Plutus.DBService.Controllers
                 EmployeeId = employeeId,
                 Name = name,
                 Scope = scope,
+                // ⚠⚠ THE TENANT, AND ITS ABSENCE WAS A BUG THAT ONLY APPEARED WITH A SECOND TENANT
+                // — found 2026-08-24, the first time anybody signed into a tenant that was not
+                // Kapow. Matt: "I have logged into the new Plutus portal for the Test business. I am
+                // getting Error 403 across all tabs."
+                //
+                // The token carried EmployeeId, Name and Scope and no `Tid`. `HttpTenantContext`
+                // reads `tid` from the principal and, finding none, FELL BACK TO KAPOW — its own
+                // comment says it does that "so the platform behaves as single-tenant until real
+                // tenants are provisioned (T1.2)". Real tenants are now provisioned. So every query
+                // in that session was scoped to Kapow, the user's RBAC assignment lives in their own
+                // tenant, nothing matched, and every `perm:` gate refused.
+                //
+                // ⚠ It failed CLOSED, which is the only reason this was a support ticket rather than
+                // an incident: a Test Business session pointed at Kapow's tenant found no
+                // assignments and was refused. Had the permissions happened to match, it would have
+                // read another shop's data.
+                //
+                // ⚠ `tenantId` is already known here — the usage metering below has used it all
+                // along, three lines further down. The value was in scope and simply not carried.
+                Tid = tenantId == Guid.Empty ? null : tenantId,
                 Exp = DateTimeOffset.UtcNow.AddHours(12).ToUnixTimeSeconds(),
             };
 

@@ -109,6 +109,35 @@ public sealed class RbacClaimsTransformation : IClaimsTransformation
         // Legacy controllers read the objectidentifier claim in their base ctor (SetCurrentUser).
         id.AddClaim(new Claim("http://schemas.microsoft.com/identity/claims/objectidentifier", employeeId.ToString()));
 
+        // ⚠⚠ WHICH TENANT THIS PERSON BELONGS TO, AND ITS ABSENCE WAS A BUG — found 2026-08-24, the
+        // first time anybody signed into a tenant that was not Kapow, and fixed here and in the
+        // password path (`AuthController`) together because they had the identical gap.
+        //
+        // `HttpTenantContext` reads `tid` from the principal and, finding none, FALLS BACK TO KAPOW
+        // — "so the platform behaves as single-tenant until real tenants are provisioned (T1.2)".
+        // Real tenants are now provisioned. Without this claim every query in the session is scoped
+        // to Kapow, the user's own RBAC assignments are invisible, and every `perm:` gate refuses.
+        //
+        // ⚠ It fails CLOSED — a foreign session pointed at Kapow finds no assignments and is
+        // refused — which is the only reason this was a support ticket rather than an incident.
+        //
+        // ⚠ `IgnoreQueryFilters` because this runs BEFORE the tenant is known: that is the whole
+        // point of the lookup, and the filter would otherwise scope it to the fallback and hide the
+        // very row being sought. Filtering by the employee's own id is what keeps it safe.
+        var tenantId = await _db.People.IgnoreQueryFilters()
+            .Where(p => p.Id == employeeId)
+            .Select(p => EF.Property<Guid>(p, "TenantId"))
+            .FirstOrDefaultAsync();
+
+        if (tenantId != Guid.Empty)
+            id.AddClaim(new Claim("tid", tenantId.ToString()));
+        else
+            // ⚠ Loud, because the fallback that follows is now the wrong answer rather than a
+            // convenience: a user with no resolvable tenant will be scoped to Kapow.
+            _logger.LogWarning(
+                "No tenant resolved for employee {EmployeeId}; the session will fall back to the "
+                + "default tenant, which is almost certainly not what is wanted.", employeeId);
+
         foreach (var scope in await _permissions.ResolveLoginScopesAsync(employeeId, DateTime.Now))
             id.AddClaim(new Claim("scope", scope));
 
