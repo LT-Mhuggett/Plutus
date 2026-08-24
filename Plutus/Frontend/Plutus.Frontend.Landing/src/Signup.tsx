@@ -33,20 +33,33 @@ export default function Signup({ door, verifyToken }: { door: DoorState | null; 
     );
   }
 
-  if (door.state === "no-agreement") {
-    return (
-      <p className="notice">
-        We're nearly ready to take new shops on — our data processing agreement is with the
-        solicitors. Check back shortly.
-      </p>
-    );
-  }
+  // ⚠⚠ THE FORM SHOWS EVEN WITH NO AGREEMENT PUBLISHED — changed 2026-08-24, and the first cut had
+  // it the other way round.
+  //
+  // The original reasoning was "do not offer a flow that cannot complete". It is wrong twice over.
+  // The backend does not need the agreement to accept an APPLICATION: `ApplyAsync` and `VerifyAsync`
+  // are independent of it, and only `ApproveAsync` refuses without `DpaVersionAccepted` — so an
+  // application taken now is approvable the moment the text lands, and the operator queue is exactly
+  // where it should wait. Hiding the form instead threw away real interest to avoid a wait nobody
+  // had complained about.
+  //
+  // ⚠ And it made the page unreviewable: with no DPA published — TODAY'S state, and the state until
+  // a solicitor has read it — the form nobody could see was the form nobody could check.
+  //
+  // ⚠ What must NOT happen is a silent partial signup, so the applicant is told plainly, up front,
+  // that an agreement is still to come.
+  if (door.state === "no-agreement") return <ApplyStep dpaVersion={null} />;
 
   return <ApplyStep dpaVersion={door.dpa.version} />;
 }
 
-/** Step 1 — apply. ⚠ Creates a `TenantApplication` and nothing else; no tenant exists yet. */
-function ApplyStep({ dpaVersion }: { dpaVersion: string }) {
+/**
+ * Step 1 — apply. ⚠ Creates a `TenantApplication` and nothing else; no tenant exists yet.
+ *
+ * ⚠ `dpaVersion` is NULL when no agreement is published. The form still works — see the note in
+ * `Signup` — but it says so rather than implying signup finishes here.
+ */
+function ApplyStep({ dpaVersion }: { dpaVersion: string | null }) {
   const [form, setForm] = useState({ businessName: "", contactName: "", contactEmail: "", phone: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -72,8 +85,10 @@ function ApplyStep({ dpaVersion }: { dpaVersion: string }) {
       <div className="notice ok">
         <h3>Check your email</h3>
         <p>
-          We've sent a link to <strong>{form.contactEmail}</strong>. Click it to confirm the address,
-          then you'll be asked to read and accept our data processing agreement.
+          We've sent a link to <strong>{form.contactEmail}</strong>. Click it to confirm the address
+          {dpaVersion
+            ? <>, then you'll be asked to read and accept our data processing agreement.</>
+            : <>. We'll be in touch again with our data processing agreement to read and accept.</>}
         </p>
         {/* ⚠ Says plainly that nothing is created yet. A signup that implies an account exists sets
             up the wrong expectation for the operator review that follows. */}
@@ -87,11 +102,21 @@ function ApplyStep({ dpaVersion }: { dpaVersion: string }) {
 
   return (
     <form className="signup" onSubmit={submit}>
-      <p className="muted small">
-        Applying takes a minute. We'll confirm your email, ask you to accept our data processing
-        agreement (version {dpaVersion}), and then set your shop up in a sandbox so you can try it
-        before anything goes live.
-      </p>
+      {dpaVersion ? (
+        <p className="muted small">
+          Applying takes a minute. We'll confirm your email, ask you to accept our data processing
+          agreement (version {dpaVersion}), and then set your shop up in a sandbox so you can try it
+          before anything goes live.
+        </p>
+      ) : (
+        /* ⚠ Said plainly and BEFORE they type, not after. An applicant who finds out at the end
+           that there is another step is an applicant who thinks they finished. */
+        <p className="notice">
+          Applying takes a minute. ⚠ <strong>Our data processing agreement is still with the
+          solicitors</strong> — we'll email you to read and accept it before your shop is set up, so
+          this won't be the last you hear from us.
+        </p>
+      )}
 
       <label>Business name
         <input value={form.businessName} onChange={set("businessName")} required minLength={2}

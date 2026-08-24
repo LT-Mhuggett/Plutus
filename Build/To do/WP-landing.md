@@ -3,7 +3,7 @@
 **Product:** Plutus platform — the public face
 **Author:** Matt Huggett (Leading Talent) with Claude
 **Written:** 24 August 2026 · **Built:** 24 August 2026
-**Status:** ✅ **BUILT AND DEPLOYED — DELIBERATELY UNREACHABLE.** Landing **1.0.0**, sitting in
+**Status:** ✅ **BUILT AND DEPLOYED — DELIBERATELY UNREACHABLE.** Landing **1.1.0**, sitting in
 `/srv/apps/PLUTUS/landing/current` with **no Caddy vhost**, so nothing serves it. ⛔ Two things
 remain and neither is code: **the pricing copy** (§4, a marked placeholder on the page) and **the
 DPA text** (§0b, which stops signup completing).
@@ -20,7 +20,7 @@ DPA text** (§0b, which stops signup completing).
 > |---|---|
 > | 1. The page | ✅ Hero, six capability cards, positioning, pricing placeholder |
 > | 2. The two links | ✅ **Links, never a login form.** ⚠ Hidden rather than broken when the URLs are unset — see §3 |
-> | 3. The signup flow | ✅ Built. ⚠ Cannot COMPLETE until a DPA is published (§0b), and it degrades honestly: two of its three states are "you cannot sign up right now" |
+> | 3. The signup flow | ✅ Built. ⚠ **Applications can be taken now** — only the DPA *acceptance* waits on §0b. The form is hidden only when the flag is off |
 > | 4. Deploy, unlisted | ✅ Deployed, **no vhost**, verified unreachable |
 >
 > **Verified on the artefact, not the source** — because the point is what ships:
@@ -165,6 +165,13 @@ Plutus/Frontend/Plutus.Frontend.Landing/     Vite + React 19 + TS, matching the 
                          because the three "screens" are one state machine over one application
                          id, and splitting them would mean threading that id between files for
                          no reader's benefit
+                         ⚠⚠ THE FORM SHOWS EVEN WITH NO DPA PUBLISHED (changed in 1.1.0). The
+                         first cut hid it — "do not offer a flow that cannot complete" — which
+                         was wrong twice: the backend takes applications happily without an
+                         agreement (only ApproveAsync refuses), so interest was being thrown
+                         away to avoid a wait; and it made the page unreviewable, because with
+                         no DPA published the form nobody could see was the form nobody could
+                         check. The applicant is told up front that an agreement is still to come.
     api.ts               ⚠ FOUR calls and no more
     landing.css          system fonts only — a font CDN is a third-party request (§4)
     vite-env.d.ts
@@ -176,7 +183,7 @@ Plutus/Frontend/Plutus.Frontend.Landing/     Vite + React 19 + TS, matching the 
 |---|---|---|---|
 | 1 | **The page** | 1d | ✅ Static, responsive, dark-mode aware, no session |
 | 2 | **The two links** | ½d | ✅ *Sign in to your till* · *Manage my shop*. ⚠ **Links, not a login form** |
-| 3 | **The signup flow** | 1d | ✅ Built. ⚠ Cannot complete until a DPA is published (§0b) |
+| 3 | **The signup flow** | 1d | ✅ Built. ⚠ Applications can be taken NOW; only ACCEPTANCE waits on §0b |
 | 4 | **Deploy, unlisted** | ½d | ✅ `/srv/apps/PLUTUS/landing/current`, **no vhost**, verified unreachable |
 
 ~~**≈2–3d**~~ → **built in one day.** ⚠ Not because the estimate was wrong: stage 3 is four calls
