@@ -111,7 +111,7 @@ namespace Plutus.Tenancy.Controllers
             if (companyId == null || await _db.Business.AsNoTracking().AllAsync(b => b.Id != companyId))
                 return BadRequest(new { detail = "companyId must reference one of the tenant's companies." });
             if (!string.IsNullOrWhiteSpace(body.Name) && await StoreNameTakenAsync(body.Name, null))
-                return Conflict(new { detail = $"A store named '{body.Name.Trim()}' already exists." });
+                return Conflict(new { detail = await NameTakenDetailAsync(body.Name) });
 
             // WP13.5 quota: refuse the (limit+1)th store per the tenant's stores.max entitlement.
             try { await _quota.EnforceAsync(_tenant.TenantId, Entitlements.StoresMax, await _db.Stores.CountAsync()); }
@@ -143,6 +143,35 @@ namespace Plutus.Tenancy.Controllers
             return Created($"/api/v1/stores/{store.Id}", new { id = store.Id });
         }
 
+        /// <summary>
+        /// The refusal, written so the reader can act on it.
+        ///
+        /// ⚠⚠ THE OLD WORDING WAS *"A store named 'X' already exists."* — true, and it reads as a
+        /// GLOBAL claim. Matt, 2026-08-24: *"I have tried to create a store called 'Test Store' and
+        /// get the error… Stores only need to be unique in each subscription."* He was right about
+        /// the rule and the check was already obeying it; what the message never said is **whose**
+        /// store, so the only available reading was that some other subscriber had taken the name.
+        ///
+        /// ⚠ It names the store it collided with. A conflict the reader can see the other side of is
+        /// a conflict they can resolve; one they cannot is a bug report.
+        /// </summary>
+        private async Task<string> NameTakenDetailAsync(string name)
+        {
+            var lowered = (name ?? "").Trim().ToLowerInvariant();
+            var clash = await _db.StoreDetails.IgnoreQueryFilters()
+                .Where(d => d.TenantId == _tenant.TenantId && d.Name != null && d.Name.ToLower() == lowered)
+                .Select(d => new { d.StoreId, d.Name })
+                .FirstOrDefaultAsync();
+
+            return clash == null
+                // ⚠ Only reachable on a race — the caller checked a moment ago. Say so rather than
+                // asserting a store that cannot be pointed at.
+                ? $"A store named '{(name ?? "").Trim()}' was just created by somebody else."
+                : $"You already have a store called '{clash.Name}' (store {clash.StoreId}). "
+                  + "Store names have to be unique within your own subscription — other subscribers "
+                  + "are not affected, and their names never collide with yours.";
+        }
+
         /// <summary>Is a store name already used by ANOTHER store in this tenant (case-insensitive)?</summary>
         private async Task<bool> StoreNameTakenAsync(string name, int? exceptStoreId)
         {
@@ -161,7 +190,7 @@ namespace Plutus.Tenancy.Controllers
             var store = await _db.Stores.FirstOrDefaultAsync(s => s.Id == id);
             if (store == null) return NotFound();
             if (!string.IsNullOrWhiteSpace(body?.Name) && await StoreNameTakenAsync(body.Name, id))
-                return Conflict(new { detail = $"A store named '{body.Name.Trim()}' already exists." });
+                return Conflict(new { detail = await NameTakenDetailAsync(body.Name) });
 
             _db.CurrentUser = Actor.ToString();
             if (body?.AdLine1 != null) store.AdLine1 = Or(body.AdLine1, "N/A");

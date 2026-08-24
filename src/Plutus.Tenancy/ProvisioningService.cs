@@ -103,6 +103,25 @@ namespace Plutus.Tenancy
 
             await _db.SaveChangesAsync(); // assigns store.Id (identity)
 
+            // ⚠⚠ THE FIRST STORE GETS A NAME — added 2026-08-24, and its absence cost Matt a
+            // support round trip. Provisioning created a Store row and no `StoreDetails`, so the
+            // store had NO NAME: `StoresController.List` returns `name: null` for it and the portal
+            // shows a nameless row. He read that as "no store yet", created "Test Store", and the
+            // retry hit a perfectly correct duplicate-name conflict he had no way to explain.
+            //
+            // ⚠ Named after the business rather than "Main". A single-store shop is the common case
+            // and its store IS the business; "Main" is an address placeholder, not a name, and
+            // putting it in the name column would just move the confusion.
+            //
+            // ⚠ It is a real name and therefore takes part in the per-tenant uniqueness check, which
+            // is correct: a second store called the same thing as the business should collide.
+            _db.StoreDetails.Add(new StoreDetails
+            {
+                StoreId = store.Id,
+                TenantId = tenantId,
+                Name = req.Name.Trim(),
+            });
+
             var admin = new Employee
             {
                 Id = Uuid7.New(),

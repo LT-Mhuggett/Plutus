@@ -226,4 +226,79 @@ public class TenantRoleProvisioningTests
         Assert.False((await ctx.Tenants.FirstAsync(x => x.Id == res.TenantId)).IsSandbox);
         conn.Dispose();
     }
+
+    /// <summary>
+    /// ⚠⚠ THE FIRST STORE MUST HAVE A NAME, and its absence cost a support round trip.
+    ///
+    /// Provisioning created a `Store` row and no `StoreDetails`, so the store had no name at all:
+    /// `StoresController.List` returns `name: null` and the portal shows a nameless row. Matt read
+    /// that as "no store yet", created one himself, and his retry hit a perfectly correct
+    /// duplicate-name conflict he had no way to explain.
+    ///
+    /// ⚠ Named after the BUSINESS, not "Main". A single-store shop is the common case and its store
+    /// is the business; "Main" is an address placeholder, and putting it in the name column would
+    /// only move the confusion.
+    /// </summary>
+    [Fact]
+    public async Task Provisioning_names_the_first_store_after_the_business()
+    {
+        var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+        using (var seed = Ctx(conn, Guid.Empty)) seed.Database.EnsureCreated();
+        ProvisionResult res;
+        using (var c = Ctx(conn, Guid.Empty, "platform-admin"))
+            res = await new ProvisioningService(c, new TenantRoleProvisioner(c))
+                .ProvisionAsync(new ProvisionRequest("Test Business", "standard", "a@test.test", "pw123456"), "op");
+
+        using var db = Ctx(conn, res.TenantId);
+        var detail = await db.StoreDetails.FirstOrDefaultAsync(d => d.StoreId == res.StoreId);
+
+        Assert.True(detail is not null,
+            "The provisioned store has no StoreDetails row, so it has no name — the portal shows a "
+            + "nameless store and the shop owner cannot tell it exists.");
+        Assert.Equal("Test Business", detail!.Name);
+        Assert.Equal(res.TenantId, detail.TenantId);
+        conn.Dispose();
+    }
+
+    /// <summary>
+    /// ⚠⚠ STORE NAMES ARE UNIQUE PER SUBSCRIPTION, NEVER GLOBALLY. Matt, 2026-08-24: *"Stores only
+    /// need to be unique in each subscription."* He was right, and the check already obeyed it — but
+    /// nothing pinned it, and this is the second single-tenant assumption to surface in a day (the
+    /// first scoped a whole session to the wrong tenant). Two tenants may each have a "Test Store".
+    /// </summary>
+    [Fact]
+    public async Task Two_subscriptions_can_each_have_a_store_with_the_same_name()
+    {
+        var conn = new SqliteConnection("DataSource=:memory:");
+        conn.Open();
+        using (var seed = Ctx(conn, Guid.Empty)) seed.Database.EnsureCreated();
+        ProvisionResult first, second;
+        using (var c = Ctx(conn, Guid.Empty, "platform-admin"))
+            first = await new ProvisioningService(c, new TenantRoleProvisioner(c))
+                .ProvisionAsync(new ProvisionRequest("Test Store", "standard", "a@one.test", "pw123456"), "op");
+        using (var c = Ctx(conn, Guid.Empty, "platform-admin"))
+            second = await new ProvisioningService(c, new TenantRoleProvisioner(c))
+                .ProvisionAsync(new ProvisionRequest("Test Store Two", "standard", "a@two.test", "pw123456"), "op");
+
+        // The second tenant names a store exactly what the first one is called.
+        using (var c = Ctx(conn, second.TenantId, "op"))
+        {
+            c.StoreDetails.Add(new StoreDetails
+            {
+                StoreId = second.StoreId + 100, TenantId = second.TenantId, Name = "Test Store",
+            });
+            await c.SaveChangesAsync();
+        }
+
+        using var check = Ctx(conn, Guid.Empty);
+        var byName = await check.StoreDetails.IgnoreQueryFilters()
+            .Where(d => d.Name == "Test Store").ToListAsync();
+
+        Assert.Equal(2, byName.Count);
+        Assert.Equal(2, byName.Select(d => d.TenantId).Distinct().Count());
+        Assert.Contains(first.TenantId, byName.Select(d => d.TenantId));
+        Assert.Contains(second.TenantId, byName.Select(d => d.TenantId));
+        conn.Dispose();
+    }
 }
