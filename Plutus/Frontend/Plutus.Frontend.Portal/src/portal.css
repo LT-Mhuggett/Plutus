@@ -56,6 +56,45 @@ input.short { width: 72px; }
 textarea { width: 100%; }
 label.block { display: block; font-size: 13px; color: var(--muted); margin: 8px 0; }
 
+/* ⚠⚠ TWO CLASSES THE PORTAL WAS USING AND NEVER DEFINED — Matt, 2026-08-24, of the gift-card VAT
+   screen: "can you separate out the two options please… Need to be on separate rows with a line
+   space between them."
+   `GiftCardsPage` marks those options up as `.setting-row` with a `.block` body, which is exactly
+   right — and neither selector existed here, so both radio options and all their explanatory text
+   ran together as one paragraph. ⚠ The portal's only `.block` rule is `label.block`, which cannot
+   match the `<span>` the body is rendered in.
+   ⚠ Both are copied from the web till's `index.css` (same names, same rules) rather than invented,
+   for the reason `.block-label` below already states: the two surfaces must match, and a shopkeeper
+   who moves between them should not have to learn a second layout. It also fixes three places in
+   `GiftCardsPage`, not just the one that was reported. */
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.setting-row input[type="checkbox"] { width: 1.2rem; height: 1.2rem; }
+
+.block { display: block; }
+
+/* ⚠ THE "LINE SPACE" MATT ASKED FOR. A settings list of checkboxes wants to stay compact, but two
+   multi-line choices a shop must read and decide between need to be visibly separate things —
+   without this the second option's title butts against the first option's explanation and the pair
+   reads as one paragraph, which is exactly what was reported.
+   ⚠⚠ AN EXPLICIT CLASS, NOT `:has(> input[type="radio"])`. The selector version is tidier and I
+   wrote it first — but `:has()` is silently ignored where it is unsupported, and a fix that
+   degrades to "looks exactly like the bug" is not a fix. This cannot half-work. */
+.choice-row { padding: 0.35rem 0 0.9rem; align-items: flex-start; }
+.choice-row + .choice-row { border-top: 1px solid var(--line); padding-top: 0.9rem; }
+
+/* ⚠ The radio must not shrink when the label beside it wraps to three lines — a flex item with a
+   long sibling gets squashed, and a squashed radio is an unclickable one. */
+.choice-row > input[type="radio"] { flex: 0 0 auto; width: 1.05rem; height: 1.05rem; margin-top: 0.2rem; }
+
+/* ⚠ The explanation sits UNDER its title with a gap, not welded to it. */
+.choice-row .block { margin-top: 0.25rem; line-height: 1.45; }
+
 button, .btn { font: inherit; border-radius: 6px; padding: 7px 14px; cursor: pointer; border: 1px solid transparent; text-decoration: none; display: inline-block; }
 button.primary { background: var(--accent); color: var(--accent-ink); border: none; }
 button.ghost, .btn.ghost { background: none; border: 1px solid var(--line); color: inherit; }

@@ -217,8 +217,17 @@ function TreatmentDecision({ current, onClose, onChosen }:
     }
   }
 
+  // ⚠ `choice-row` on top of `setting-row` — Matt, 2026-08-24: "Need to be on separate rows with a
+  // line space between them." Both options and all their explanatory text were running together as
+  // one paragraph, because the portal used `.setting-row` and `.block` without ever DEFINING them
+  // (the web till has both; the portal had neither). The classes are now in `portal.css`, copied
+  // from the web till so the two surfaces match rather than diverging.
+  //
+  // ⚠⚠ THIS IS A MONEY DECISION AND IT READS LIKE ONE NOW. Single- versus multi-purpose decides
+  // whether VAT is charged when the card is SOLD or when it is SPENT, it cannot be changed once
+  // cards exist, and a shopkeeper who misreads two run-together sentences picks the wrong one.
   const option = (value: "multi" | "single", title: string, body: React.ReactNode) => (
-    <label className="setting-row" style={{ alignItems: "flex-start", cursor: "pointer" }}>
+    <label className="setting-row choice-row" style={{ cursor: "pointer" }}>
       <input type="radio" name="gc-vat" checked={picked === value} onChange={() => setPicked(value)} disabled={busy} />
       <span className="grow">
         <strong>{title}</strong>
