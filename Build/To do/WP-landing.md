@@ -2,10 +2,11 @@
 
 **Product:** Plutus platform — the public face
 **Author:** Matt Huggett (Leading Talent) with Claude
-**Written:** 24 August 2026
-**Status:** ⚠ **PLAN ONLY — nothing here is built.** ⚠ Verify that against the code before believing
-it: WP-signup's banner said this for a day after it stopped being true, and that is the failure this
-repo keeps re-learning.
+**Written:** 24 August 2026 · **Built:** 24 August 2026
+**Status:** ✅ **BUILT AND DEPLOYED — DELIBERATELY UNREACHABLE.** Landing **1.0.0**, sitting in
+`/srv/apps/PLUTUS/landing/current` with **no Caddy vhost**, so nothing serves it. ⛔ Two things
+remain and neither is code: **the pricing copy** (§4, a marked placeholder on the page) and **the
+DPA text** (§0b, which stops signup completing).
 
 > **Matt, 2026-08-21:** *"I need a customer facing landing page, that describes Plutus, with a login
 > screen to take you to the till."*
@@ -13,8 +14,34 @@ repo keeps re-learning.
 > **Matt, 2026-08-24:** *"I would like to build out the landing page, but not have it externally
 > facing for now."*
 
----
+> ### ✅ What shipped, 2026-08-24
+>
+> | Stage | State |
+> |---|---|
+> | 1. The page | ✅ Hero, six capability cards, positioning, pricing placeholder |
+> | 2. The two links | ✅ **Links, never a login form.** ⚠ Hidden rather than broken when the URLs are unset — see §3 |
+> | 3. The signup flow | ✅ Built. ⚠ Cannot COMPLETE until a DPA is published (§0b), and it degrades honestly: two of its three states are "you cannot sign up right now" |
+> | 4. Deploy, unlisted | ✅ Deployed, **no vhost**, verified unreachable |
+>
+> **Verified on the artefact, not the source** — because the point is what ships:
+>
+> ```
+> third-party origins in the bundle : 0
+> localStorage / sessionStorage     : 0
+> input type="password"             : 0
+> version 1.0.0 present, 0.0.0      : yes / absent
+> the three live sites after deploy : 200 / 200 / 200 (till, portal, status)
+> ```
+>
+> ⚠ **The copy is DRAFT and says so on the page.** Matt asked for it drafted from the codebase, so
+> every claim maps to a ✅/✅ row of `till-design.md` Part A0 — offline selling, the Z close and its
+> short/over answer, refunds by original tender, the VAT band publishing. Nothing aspirational.
+> The wording is a starting point; the *constraint* is the part worth keeping.
+>
+> ⚠⚠ **PRICING IS A CONSPICUOUS PLACEHOLDER, ON PURPOSE.** Matt chose that over inventing a number or
+> writing "contact us". A price cannot be derived from a codebase. **Fill it before the vhost exists.**
 
+---
 ## 0. What already exists, so this does not rebuild it
 
 **WP-SIGNUP is done and deployed** (backend 1.30.2). This page is the *front* of a machine that
@@ -119,34 +146,42 @@ already open.
 
 ---
 
-## 2. Shape — a fourth app, and the smallest one
+## 2. Shape — a fourth app, and the smallest one · ✅ **BUILT**
 
 ⚠ **A separate app, not a route in the portal or the till** (architecture §12c, decision of record).
 It is unauthenticated, public and indexable; both existing apps assume a session and neither should
 learn to serve anonymous traffic.
 
+**What was actually built** — ⚠ four source files, not the six this section first sketched:
+
 ```
-Plutus/Frontend/Plutus.Frontend.Landing/     (new — Vite + React + TS, matching the other two)
+Plutus/Frontend/Plutus.Frontend.Landing/     Vite + React 19 + TS, matching the other two
+  index.html             ⚠ noindex WHILE UNLISTED — remove that line in the same change that
+                         adds the vhost, and not before
+  vite.config.ts         port 5275 (NOT 5173 = ETRIE, 5273 = web till, 5274 = portal)
   src/
-    App.tsx              the page
-    Signup.tsx           the form → POST /api/v1/signup
-    Verify.tsx           #verify=<token> → POST /api/v1/signup/verify
-    Dpa.tsx              GET /api/v1/signup/dpa, accept, → POST …/dpa/accept
+    App.tsx              the page — hero, six capability cards, positioning, pricing placeholder
+    Signup.tsx           the WHOLE flow: apply → verify → accept. ⚠ One file rather than three,
+                         because the three "screens" are one state machine over one application
+                         id, and splitting them would mean threading that id between files for
+                         no reader's benefit
     api.ts               ⚠ FOUR calls and no more
+    landing.css          system fonts only — a font CDN is a third-party request (§4)
+    vite-env.d.ts
   versions/landing.txt   ⚠ its own version file — Matt, 2026-08-08: "Each till needs a specific
                          version as they will end up diverging." The rule is per deployable.
 ```
 
-| # | Stage | Est. | Ships |
+| # | Stage | Est. | State |
 |---|---|---|---|
-| 1 | **The page** | 1d | What Plutus is, who it is for, a price, and two links. Static, responsive, no session. |
-| 2 | **The two links** | ½d | *Sign in* → the web till · *Manage my shop* → the portal. ⚠ **Links, not a login form** |
-| 3 | **The signup flow** | 1d | Apply → confirm email → read and accept the DPA → "we'll be in touch". Four screens over the four existing endpoints. |
-| 4 | **Deploy, unlisted** | ½d | Build on the Mac, `/srv/apps/PLUTUS/landing/current`, **no vhost**. |
+| 1 | **The page** | 1d | ✅ Static, responsive, dark-mode aware, no session |
+| 2 | **The two links** | ½d | ✅ *Sign in to your till* · *Manage my shop*. ⚠ **Links, not a login form** |
+| 3 | **The signup flow** | 1d | ✅ Built. ⚠ Cannot complete until a DPA is published (§0b) |
+| 4 | **Deploy, unlisted** | ½d | ✅ `/srv/apps/PLUTUS/landing/current`, **no vhost**, verified unreachable |
 
-**≈2–3d**, matching architecture §12c. ⚠ Stage 3 is where the estimate will move if the DPA text
-lands late — the screen is cheap, the wording is not.
-
+~~**≈2–3d**~~ → **built in one day.** ⚠ Not because the estimate was wrong: stage 3 is four calls
+against endpoints WP-SIGNUP had already built, tested and deployed, and that is where the ≈2–3d
+mostly went. The remaining cost is the copy and the price, which are not engineering.
 ---
 
 ## 3. ⚠⚠ Its "login" is a LINK. Never a third auth implementation
@@ -214,6 +249,23 @@ status.plutus.huggett.dscloud.me  → status page       (existing, and NOT under
 www.???                           → landing           ⚠ NEW — the domain is a decision, not a default
 ```
 
+
+### ⚠⚠ THE APEX IS NOT FREE — checked 2026-08-24, and its own comment invites the mistake
+
+`huggett.dscloud.me` (the apex) currently `redir`s to `etrie.huggett.dscloud.me` with a **302**, and
+the Caddyfile says why in a comment that reads like an invitation:
+
+> *"302 not 308 deliberately: a permanent redirect is cached hard by browsers, which would make
+> putting a real landing page here later painful. Change to 308 once that decision is settled."*
+
+⚠ **Do not read that as "the apex is reserved for the Plutus landing page."** That name is ETRIE's by
+history — ETRIE served the app from it until 2026-08-19, browsers hold HSTS for it for a year, and
+the block exists so already-emailed links and the apex certificate keep working. ⚠⚠ **ETRIE must
+never be touched**, and quietly repurposing the hostname it used to live on is touching it.
+
+So the apex is **shared infrastructure with a prior claimant**, not a spare domain. The Plutus
+landing site needs a name of its own, and that remains Matt's decision.
+
 ⚠ **The domain is Matt's to choose** and it is not a detail: whatever it is becomes the brand, the
 email sender domain, and the thing printed on receipts. Do not squat `plutus.huggett.dscloud.me/www`
 as a placeholder — a temporary URL in a marketing page outlives every intention.
@@ -229,19 +281,49 @@ every visitor.
 
 ---
 
-## 6. Definition of done
+## 6. Definition of done — **6 of 8**, and the two open ones are not code
 
-- [ ] The site builds and serves with **no Caddy vhost** — reachable by nobody, verified by curl.
-- [ ] No password field, no token handling, no session storage anywhere in the bundle. ⚠ Asserted by
-      a test on the built artefact, not by reading the source — the point is what ships.
-- [ ] Zero third-party network origins in the bundle. ⚠ Same reason.
-- [ ] The signup call to action is **hidden** when `signup.public` is off, and the page does not
+⚠ Ticked only where it was checked **on the built artefact**, not by reading the source — the point
+is what ships.
+
+- [x] The site builds and serves with **no Caddy vhost** — reachable by nobody.
+      → No `landing` vhost in `/etc/caddy/Caddyfile`; the files exist and nothing points at them.
+      ⚠ The three live sites answered 200 after the deploy (till, portal, status), and
+      `/srv/apps/ETRIE` was not touched.
+- [x] No password field, no token handling, no session storage anywhere in the **bundle**.
+      → `type="password"` **0**, `localStorage`/`sessionStorage`/`bearer` **0**. ⚠ The string
+      "password" does appear three times: twice inside React's own input-type tables and once in the
+      copy *"we send your password reset here"* — checked rather than assumed.
+- [x] **Zero third-party network origins** in the bundle.
+      → 0. System font stacks, an inline SVG mark, no analytics, no chat widget, no CAPTCHA.
+- [x] The signup call to action is **hidden** when `signup.public` is off, and the page does not
       break when the API answers 404 or 409.
-- [ ] Apply → verify → accept works end to end against a **published** DPA on a sandbox tenant.
-- [ ] The artefact carries its version and no `0.0.0`, and no unsubstituted defines.
-- [ ] ⚠ Every screenshot on the page comes from a sandbox tenant, recorded here with which one.
-- [ ] Responsive, and readable with images blocked.
+      → `doorState()` maps 404 → closed, 409 → no-agreement, 200 → open, and ⚠ **never throws**: a
+      marketing page whose copy fails to render because a status probe errored is worse than one that
+      quietly hides its form.
+- [ ] ⛔ Apply → verify → accept works end to end against a **published** DPA on a sandbox tenant.
+      → **Blocked by §0b**, not by this app. The flow is built and demonstrable against the 409.
+- [x] The artefact carries its version and no `0.0.0`, and no unsubstituted defines.
+      → `1.0.0` present, `0.0.0` absent, `__APP_VERSION__`/`__BUILD_TIME__` both substituted.
+- [x] ⚠ Every screenshot on the page comes from a sandbox tenant, recorded here with which one.
+      → ✅ **Vacuously true and worth keeping that way: there are no screenshots.** The page describes
+      capabilities in words. ⚠ The moment one is added, this line becomes real again — a marketing
+      page showing Kapow's takings is a data-protection incident with a press release attached.
+- [ ] ⛔ Responsive, and readable with images blocked.
+      → Built for it — `auto-fit` grid, a `40rem` breakpoint, an inline SVG rather than an `<img>`,
+      and `prefers-color-scheme` honoured. ⚠ **But nobody has looked at it in a browser**, and this
+      repo has learned repeatedly that only a person at a screen closes that kind of line. Left
+      unticked deliberately.
 
+### ⛔ What is left, in order
+
+1. **Look at it.** `npm run dev` on the Mac (port 5275) or serve `dist/` locally. The two ticks above
+   that say "built for it" are the ones a person closes.
+2. **The pricing copy** (§4). A conspicuous placeholder today.
+3. **Rewrite the draft copy** in Matt's voice. Every claim is grounded; the words are a start.
+4. **The DPA text** (§0b) — then signup completes end to end.
+5. **Choose the domain** (§5), then add the vhost, drop `noindex`, and set `VITE_TILL_URL` /
+   `VITE_PORTAL_URL` so the two sign-in links appear.
 ---
 
 ## 7. What this does NOT cover
