@@ -587,9 +587,20 @@ existing figure.
 ⚠ **What remains, if a genuine multi-timezone estate ever appears:** the zone is on `Business`, not on
 `Store`. One VAT return covers the estate, so a per-store clock would let two stores disagree about a
 day the return has to reconcile. That is a bigger question than a column.
-### WP-SIGNUP — a new tenant can sign up · **≈5–5.5d** · ⚠ NOT A UI JOB
+### WP-SIGNUP — a new tenant can sign up · ✅ **BUILT AND DEPLOYED 2026-08-23** (backend 1.31.0)
 
-> ⚠⚠ **PLANNED IN FULL: [`Build/To do/WP-signup.md`](To%20do/WP-signup.md)** (2026-08-22). The
+> ✅ **DONE, and the plan is ARCHIVED: [`Build/archive/WP-signup.md`](archive/WP-signup.md).** All
+> five stages, the operator queue, the client-facing acceptance, and all eight DoD lines. ⚠ Two items
+> were unfinished and were LIFTED OUT rather than archived with it: the **DPA text** is now
+> [`WP-landing.md`](To%20do/WP-landing.md) §0b (it blocks that plan), and **blocking versus nagging**
+> is **§12d below** (it is about tenants that already exist).
+>
+> ⚠⚠ **AND A CONTROL THAT WAS NOT IN THE PLAN:** the signup API was reachable from the internet the
+> moment it shipped — Caddy proxies `/api/*` on the till host and the routes are anonymous — so the
+> front door is now **closed by default** behind the `signup.public` flag (Platform → Flags). ⚠ Caddy
+> could not do that job: the till, web till and portal share `/api/*` on that host.
+>
+> ~~⚠⚠ **PLANNED IN FULL: `Build/To do/WP-signup.md`** (2026-08-22).~~ The
 > estimate rose from ≈3–4d because the **DPA** was folded in — Matt: *"is there somewhere that the
 > end user can sign or agree to this? So that I am not 'Ticking it for them?'"* Today the only
 > writer is `PUT /tenants/{id}/compliance`, platform-admin only, so the operator ticks it for the
@@ -622,6 +633,41 @@ it wrong is a breach rather than an hour.
 ⚠ **Depends on WP-SIGNUP** for the half that matters: a landing page whose only call to action is
 "email us" is a brochure, and this is asked for as a front door.
 ---
+
+## 12d. ⚠ THE ONE OPEN DECISION LEFT BY WP-SIGNUP — blocking versus nagging
+
+> **Moved here from `Build/To do/WP-signup.md` §4.4 when that plan was archived, 2026-08-23.** It is
+> here rather than in `WP-landing.md` because it is about tenants that **already exist**, in the
+> portal — a landing page has nothing to do with it, and filing it there would bury it. This is the
+> same reasoning that moved WP-SL out of the MAUI document: *"sitting in a MAUI parity document is
+> why nobody picked it up for twelve days."*
+
+**The question:** every tenant predating WP-SIGNUP has no DPA acceptance, and **Kapow is one**. Its
+`dpa-missing` signal had fired **561 times since 31 July 2026** by the time anybody noticed, which is
+what a permanently-red signal trains people to do. Now that a client can accept it themselves
+(**Company → DPA**), what happens to one who has not?
+
+| | What it means | Cost |
+|---|---|---|
+| **Nagging** — ✅ *what ships today* | The panel opens itself when something is outstanding. Nothing prevents selling. | A tenant can trade indefinitely without an agreement on record |
+| **Blocking** | Refuse something — the portal, or the till — until it is accepted | ⚠⚠ Locking an existing paying customer out of their own till over a document they have not seen. On a Saturday. |
+
+⚠⚠ **NAGGING SHIPPED BECAUSE IT IS THE REVERSIBLE ONE.** Turning nagging into blocking is a config
+change; explaining to Kapow why they could not sell is not. A default that can take a shop off the
+air is not a default to set in passing — which is why WP-signup left it open and why it is still open.
+
+⚠ **If blocking is chosen, the granularity matters more than the switch.** Blocking the PORTAL is
+survivable — an owner reads the agreement and carries on. Blocking the TILL is not: it stops trade,
+and it would be the first Plutus feature that can close a shop. If it is ever built, it belongs on the
+portal side only, with the till unaffected.
+
+⚠ **And it should not be global.** A per-tenant grace period (accept within N days of first being
+asked) is the shape that lets a new tenant be held to it without retro-punishing Kapow for a document
+that did not exist when they signed up.
+
+**Nothing is needed until a DPA is published** (`WP-landing.md` §0b) — there is nothing to be behind
+on yet. The decision becomes live the day the text lands.
+
 ## 13. Hosting map (Azure ↔ self-hosted)
 
 Code against abstractions so this is a deployment choice, not a rewrite.

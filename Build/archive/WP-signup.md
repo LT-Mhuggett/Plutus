@@ -1,5 +1,50 @@
 # WP-SIGNUP — self-serve tenancy, and the DPA that must come with it
 
+> ## 📦 ARCHIVED 2026-08-23 — BUILT, DEPLOYED, and all eight DoD lines closed
+>
+> **Matt:** *"Can anything 'Not finished' in WP-signup.md be moved to the WP-Landing.md please. Then
+> archive the WP-Signup.md."*
+>
+> Backend **1.31.0**, portal **1.25.0**. Five stages, the operator queue, the client-facing
+> acceptance, and a control that was not in the original plan: the front door is **closed by
+> default** (`signup.public`, Platform → Flags).
+>
+> ### ⚠⚠ THE TWO UNFINISHED ITEMS LEFT THIS DOCUMENT RATHER THAN BEING ARCHIVED WITH IT
+>
+> An open decision inside an archived plan is a decision nobody takes. Both were lifted first — the
+> same rule `index.md` states and that `MAUI-retrofit.md` was archived under:
+>
+> | What | Now lives in | Why there and not the other place |
+> |---|---|---|
+> | **The DPA text** — parties reversed, 18 placeholders, "for review by a solicitor before use" | [`WP-landing.md`](../To%20do/WP-landing.md) **§0b** | The landing page fronts the signup flow, and that flow cannot COMPLETE without a published agreement. It is that plan's blocking dependency — ⚠ it blocks stage 3 from being *finished*, not from being *built* |
+> | **Blocking versus nagging** for tenants that already exist | [`plutus-platform-architecture.md`](../plutus-platform-architecture.md) **§12d** | It is about tenants that already exist, in the portal. A landing page has nothing to do with it, and filing it there would bury it — the same reasoning that moved WP-SL out of the MAUI document |
+>
+> ⚠ **Nothing else was outstanding.** The three DoD lines this page listed as open on 22–23 August
+> are closed, each with the test that earns it (§7).
+>
+> ### Where to go instead
+>
+> | You want | Open |
+> |---|---|
+> | To build the public site | [`WP-landing.md`](../To%20do/WP-landing.md) — and §0b for what blocks it |
+> | The blocking-vs-nagging decision | [`plutus-platform-architecture.md`](../plutus-platform-architecture.md) §12d |
+> | To open or close signup | **Platform → Flags → `signup.public`**. Default closed; both directions audited |
+> | To publish the agreement | **Platform → DPA**. The text is data, not code — no deploy |
+> | What was built and why | Everything below, unedited |
+>
+> ⚠⚠ **DO NOT REOPEN THIS PAGE FOR NEW WORK.** The signup API surface is settled and tested; if it
+> needs to grow, that is a new work package with its own name.
+>
+> ⚠ **One lesson worth carrying out of here.** This document's banner read *"NOTHING HERE IS
+> IMPLEMENTED"* for a day after all five stages shipped, and Matt caught it. A status line written in
+> prose goes stale silently while the code moves on — which is why every claim in the block below
+> names the test or the endpoint that proves it.
+
+---
+
+**Everything below is the document as it stood on 2026-08-23, with its status corrected.**
+
+
 **Product:** Plutus platform — the front door
 **Author:** Matt Huggett (Leading Talent) with Claude
 **Written:** 22 August 2026 · **Built:** 23 August 2026
@@ -19,7 +64,7 @@ no DPA is published. See §4.3.
 > |---|---|---|
 > | **1. Applications, not tenants** | ✅ | A signup writes ONE `TenantApplication`. Pinned by a test asserting **zero** tenants, companies, stores, credentials and role assignments afterwards |
 > | **2. Prove the email** | ✅ | Hashed, single-use, 48h. The token is never stored; an unverified application is inert |
-> | **3. Abuse controls** | ✅ built · 🟡 one test owed | Per-IP `enrol` limiter, a per-application send cap the IP limiter cannot see, a config-driven disposable-domain list (subdomains count), and a unique index reserving the folded business name |
+> | **3. Abuse controls** | ✅ | Per-IP `enrol` limiter, a per-application send cap the IP limiter cannot see, a config-driven disposable-domain list (subdomains count), and a unique index reserving the folded business name |
 > | **4. The DPA gate** | ✅ mechanism · ⛔ **no text published** | Versioned, immutable once published, body SHA-256'd. §4.3 is the blocker and it is Matt's, not code |
 > | **5. Provision, sandbox-first** | ✅ | `IsSandbox = true` always, idempotent on the application id |
 > | **§6 the operator queue** | ✅ | **Platform → Applications** and **Platform → DPA** |
@@ -37,44 +82,29 @@ no DPA is published. See §4.3.
 > ⚠ That last one is deliberate: distinguishing "new" from "name taken" would turn an
 > unauthenticated endpoint into an oracle for who is a Plutus customer.
 >
-> ### ⛔ What is left — three DoD lines, ~1–1½ days
+> ### ✅ ALL EIGHT DoD LINES CLOSED, 2026-08-23 (backend 1.31.0)
 >
-> 1. **The rate-limit flood test.** §7 says *"the test asserts the 429, not just the happy path"*, and
->    it is not written. The policy IS wired to every signup route; `RateLimitE2eTests` exists but
->    covers per-tenant throttling and the platform-admin exemption, which is a different thing.
->    Nothing floods `/api/v1/signup`. **≈½d.**
-> 2. **The `dpa-missing` re-raise, at sweep level.** `ComplianceSweep` now compares against the
->    CURRENT version and `CommercialOpsE2eTests` still passes — but the NEW branch ("accepted an
->    older version") has no test. A `StatusAsync` test proves `CurrentAccepted` goes false; that is
->    not the same as proving the signal fires. **≈2h.**
-> 3. ⚠⚠ **"Every state change is audited" — NOT DONE, and this is the one that matters.** There is a
->    `_db.Audit(tenantId, actor, action, entity, id, detail)` helper, and **Platform → Quarantine
->    uses it** — the very screen §6 says to model on. `SignupController`,
->    `PlatformApplicationsController` and `DpaController` have **zero** audit calls. The audit
->    *columns* populate (that is what the `CurrentUser` fix was for); there is no audit *event* for
->    approve, reject, publish or accept. For a compliance feature that is the wrong place to be thin.
->    **≈½d.**
+> ⚠ This block used to list three open lines. They are done, and §7 names the test that earns each:
 >
-> ### ⛔ Blocked on Matt, not on code
+> | Was open | Closed by |
+> |---|---|
+> | The rate-limit flood test | `A_flood_of_signups_is_throttled_with_429`, plus `SignupRateLimitPolicyTests` — because the flood test **cannot** prove WHICH policy throttled (`PlutusAppFactory` sets `RATE_LIMIT_ENROL_PER_MIN = 100000`), so the attribute is pinned separately |
+> | The `dpa-missing` re-raise | `Publishing_a_new_version_re_raises_dpa_missing_at_sweep_level` — runs the real `ComplianceSweep` twice |
+> | "Every state change is audited" | Six audit actions, written **inside the services** so the row shares the mutation's `SaveChanges` |
 >
-> ⚠⚠ **THE DPA TEXT IS POINTED THE WRONG WAY.** `Data_Processing_Agreement_Leading_Talent.docx` names
-> *"LEADING TALENT [LIMITED] (the **Controller**)"* with `[PROCESSOR NAME]` as the Processor — the
-> shape for Leading Talent **engaging a supplier**. In Plutus signup the **shop is the Controller**
-> of its customers' and staff's data and **Plutus/Leading Talent is the Processor**. Published
-> unchanged it would ask every shop to agree the opposite of the real relationship.
+> ⚠ **And a control that was NOT in the plan:** the front door is now **closed by default** —
+> `signup.public` in Platform → Flags. The signup API was public from the moment stage 1 shipped,
+> with no landing page in existence. See §7b.
 >
-> ⚠ And it is an unfilled template: its own first page says *"for review by a qualified solicitor
-> before use"*, with **18 placeholders** left — company number, registered address, the breach window
-> (`[24/48]` hours), audit notice, retention period, the whole of Schedule 3, and an unmade
-> specific-vs-general choice on sub-processor authorisation.
+> ### ⛔ What remains — and neither item is code
 >
-> It is seeded as **`DRAFT-2026-08`** (15,664 bytes, `PublishedAtUtc` NULL, `IsCurrent` 0) so it is
-> reviewable in Platform → DPA. **The text is data, not code** — correct the parties, fill the
-> brackets, have it read, save it as a new version and publish. No deploy involved.
+> Both moved out of this document when it was archived, because an open decision in an archived plan
+> is a decision nobody takes:
 >
-> ⚠ **Blocking versus nagging (§4.4) is still Matt's call.** Shipped as **nagging**: Company → DPA
-> opens itself when something is outstanding and never prevents selling. Blocking an existing paying
-> customer out of their own till over a document they have not seen is a decision to take on purpose.
+> | What | Moved to | Why there |
+> |---|---|---|
+> | **The DPA text** — parties reversed, 18 placeholders | [`WP-landing.md`](../To%20do/WP-landing.md) §0b | The landing page fronts the signup flow, and the flow cannot COMPLETE without a published agreement. It is that plan's blocking dependency |
+> | **Blocking versus nagging** for existing tenants | [`plutus-platform-architecture.md`](../plutus-platform-architecture.md) §12d | It is about tenants that ALREADY EXIST, in the portal. Nothing to do with a landing page — filing it there would bury it |
 >
 > ### ➖ Out of scope, per §8
 >
@@ -129,7 +159,7 @@ assumes the abuse controls of an earlier one.
 |---|---|---|---|---|
 | 1 | **Applications, not tenants** | 1d | ✅ | A `TenantApplication` row and an unauthenticated `POST`. No tenant is created. |
 | 2 | **Prove the email** | 0.5d | ✅ | A verification link; an application is inert until clicked. |
-| 3 | **Abuse controls** | 1d | ✅ built · 🟡 the 429 test | Rate limit, disposable-domain block, name reservation, an operator queue. |
+| 3 | **Abuse controls** | 1d | ✅ | Rate limit, disposable-domain block, name reservation, an operator queue. |
 | 4 | **The DPA gate** | 1.5d | ✅ mechanism · ⛔ no text published | Versioned document, acceptance record, the client-facing screen. |
 | 5 | **Provision, sandbox-first** | 1d | ✅ | Application → tenant via `ProvisioningService`, `IsSandbox = true`. |
 | — | **The form** | 0.5d | ➖ | Part of WP-LANDING, which depends on this. **Not built** — signup is API-reachable and has no page. |
@@ -289,10 +319,12 @@ acceptance records.
 1. **In signup** (stage 4, this plan) — the applicant reads and accepts before the application can
    be approved. Recorded against the application, copied onto the tenant at provisioning.
 2. **In the portal, for tenants that already exist** — every tenant predating this has no
-   acceptance, and Kapow is one. A banner on first sign-in, and a permanent entry under Company.
-   ⚠ **Blocking versus nagging is Matt's call** and is deliberately left open here: blocking an
-   existing paying customer out of their own till over a document they have not seen is a decision,
-   not a default.
+   acceptance, and Kapow is one. ✅ **BUILT: Company → DPA**, which opens itself when something is
+   outstanding. ⚠ It is a self-opening panel rather than the global banner this line first imagined —
+   a banner on a page the owner may not visit is a banner that gets scrolled past.
+   ⚠⚠ **Blocking versus nagging is still open, and it MOVED when this plan was archived** — it is
+   now `plutus-platform-architecture.md` **§12d**, because it is a decision about tenants that
+   already exist and would have been buried in a landing-page plan. **Nagging ships.**
 
 ---
 

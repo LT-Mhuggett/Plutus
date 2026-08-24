@@ -32,12 +32,59 @@ already works:
 gone wrong — the API surface is settled and tested (WP-signup §7, eight of eight).
 
 ⚠ **One thing is genuinely blocked and it is not code:** no DPA is published, so signup cannot
-*complete* — `GET /api/v1/signup/dpa` answers 409 by design. The landing page can be built and
-demonstrated against that 409; it cannot take a real customer until the agreement is corrected and
-published (WP-signup §4.3).
+*complete*. ⚠⚠ **That blocker moved INTO this plan when WP-signup was archived — see §0b**, which is
+where the two reasons and the route out are written down.
 
 ---
 
+
+## 0b. ⛔⛔ THE BLOCKING DEPENDENCY — no DPA is published, so signup cannot complete
+
+> **Moved here from `WP-signup.md` §4.3 when that plan was archived, 2026-08-23.** It is WP-SIGNUP's
+> only unfinished item and it is this plan's problem now: a landing page whose signup flow cannot
+> complete is a brochure, and this is asked for as a front door.
+
+Matt supplied `Build/To do/Data_Processing_Agreement_Leading_Talent.docx`. It was read rather than
+wired in, and it **cannot be published as it stands**, for two reasons.
+
+**1. ⚠⚠ THE PARTIES ARE THE WRONG WAY ROUND.** It names *"LEADING TALENT [LIMITED] (the
+**Controller**)"* and `[PROCESSOR NAME]` as the Processor. That is the shape for Leading Talent
+**engaging a supplier** — a payroll bureau, say. In Plutus signup the relationship is the other way:
+
+| | Who | Why |
+|---|---|---|
+| **Controller** | **the shop** | It decides why and how its customers' and staff's personal data is processed |
+| **Processor** | **Plutus / Leading Talent** | It processes that data on the shop's documented instructions |
+
+Published unchanged it would ask every shop to agree that Leading Talent controls their data and
+that they process it — the opposite of the truth, and worth nothing if it were ever relied on.
+
+**2. It is an unfilled template.** Its own first page says *"TEMPLATE — for review by a qualified
+solicitor before use"*, and **18 distinct `[…]` placeholders** remain: company number, registered
+address, the date, the breach-notification window (`[24/48]` hours), the audit notice period, the
+retention period, the whole of Schedule 3's sub-processor list, and an unmade either/or on whether
+sub-processor authorisation is *specific* or *general*.
+
+**Where it is now:** seeded as **`DRAFT-2026-08`** — 15,664 bytes, `PublishedAtUtc` NULL,
+`IsCurrent` 0 — readable and editable in **Platform → DPA**. ⚠ A draft is never served and can never
+be accepted: `GetCurrentAsync` filters on published, `AcceptAsync` throws 409, and
+`GET /api/v1/signup/dpa` answers 409 with the reason.
+
+**To unblock — none of it is engineering.** Correct the parties, fill the brackets, have a solicitor
+read it, then save it as a **new version** in Platform → DPA and publish that. ⚠ The text is **data,
+not code**: no deploy, no release, and each revision keeps its own acceptance records.
+
+### ⚠ What this means for building the landing page
+
+**It does not block stages 1, 2 or 4.** The page, the two links and the unlisted deploy are all
+independent of the agreement.
+
+⚠ **It blocks stage 3 from being FINISHED, not from being built.** The signup screens can be built
+and demonstrated against the 409 — and they have to handle it anyway, because the flow must degrade
+honestly when no agreement is published (§4, and it is a DoD line in §6). What cannot happen until
+the text lands is a real customer completing signup.
+
+---
 ## 1. ⚠⚠ "Not externally facing" — how, and the trap in the question
 
 **Matt asked whether this can be an operator-portal setting or has to be Caddy. It is BOTH, and they
@@ -199,7 +246,8 @@ every visitor.
 
 ## 7. What this does NOT cover
 
-- **The DPA wording.** WP-signup §4.3. Blocked on Matt and a solicitor, not on code.
+- **The DPA wording itself.** ⚠ The BLOCKER is §0b of this document — in scope as a *dependency*,
+  out of scope as a *task*: correcting a legal instrument is Matt's and a solicitor's work, not code's.
 - **Billing / taking a card at signup.** A different work package and a different set of obligations.
 - **SEO beyond a title, description and sitemap.** Not a work package; a later afternoon.
 - **A blog, docs site or status page.** ⚠ A status page ALREADY EXISTS and is live:
