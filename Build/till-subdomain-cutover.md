@@ -16,8 +16,14 @@
 | ✅ **Till 1.39.0 deployed** | Carries *Switch to portal*. Both hosts serve it — nothing has been taken away. |
 | ✅ **Portal 1.27.0 deployed** | ⚠⚠ **THIS STEP WAS MISSING FROM THIS RUNBOOK AND MATT CAUGHT IT**: *"The switch to till link in the portal needs updating."* The portal **derived** the till's URL by stripping `admin.`, which yields the **bare host** — the very host about to become the landing page. Left alone, "Switch to Till" would have sent staff to a marketing page. See §"the portal" below. |
 | ✅ **Landing 1.2.0 built and on disk** | In `/srv/apps/PLUTUS/landing/current`, with the tombstone `sw.js`. **Served by nothing yet** — that is Step 2. |
-| ⬜ **Re-enrol both web tills** | On `https://till.plutus.huggett.dscloud.me`, then ring a test sale on each. |
-| ⬜ **Step 2** | The one-line Caddy swap. |
+| ✅ **Step 2 applied 2026-08-25 evening** | The bare host now serves the landing page. Verified: landing **1.2.0** with both links baked in and `noindex` intact; the till bundle is **absent** from it; `till.plutus…` still serves till **1.41.0** with its agent manifest; **`/sw.js` returns the tombstone as `text/javascript`, not HTML** (the check that mattered); `/api/*` still answers on the bare host — device probe **401**, which is what keeps every MAUI till alive; ETRIE 200. |
+| ⬜ **Visit the bare host once per till machine** | That is what lets the tombstone install and retire the old service worker. The tab reloads itself onto the landing page. |
+| ⬜ **Then delete this document** | It has been run. Its durable lessons are already in `repo-runbook.md` (preserve `current/agent/`; a missing file under `try_files` returns 200 HTML) and `Platform Gaps.md`. |
+
+⚠ **`GET /api/v1/signup/dpa` returns 404 and that is CORRECT** — `signup.public` has no flag row, so
+it defaults to closed and the landing page's `doorState()` maps 404 → closed and hides the signup
+form. It is not a broken endpoint; it is the door being shut, which is what you want until the DPA
+is published.
 
 ## ⚠ The portal — the surface this runbook forgot
 
