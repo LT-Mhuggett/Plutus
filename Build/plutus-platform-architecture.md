@@ -119,6 +119,49 @@ names and table names is precisely how `Device` was missed for months.
 ⚠ **The exemption list is the design record.** Adding a name to it is a decision to hand-scope that
 entity at every call site for ever. If you cannot write why, it belongs in `TenantOwned` instead.
 
+### 3.2 ⚠⚠ A TENANT IS BORN COMPLETE — and how that stays true
+
+> **Provisioning creates a tenant that can trade. Not one that can be repaired into trading.**
+>
+> **Matt, 2026-08-25:** *"Everything going forward needs to be current and up to date, not needing
+> backfills."* → *"How can I ensure that the creation doesn't miss anything new that we might build?"*
+
+⚠ **A checklist of things to seed cannot answer that question.** It is the same object as the
+`TenantOwned` list, and it goes stale the same way — silently, and only for the people who come later.
+Three mechanisms answer it instead, in order of how much work they save:
+
+**1. Assert the OUTCOME, never the inventory.**
+`TenantRoleProvisioningTests.A_newly_provisioned_tenant_can_create_a_sellable_product` provisions a
+tenant and then *creates a product with it*, seeding nothing. Every required foreign key on `Item`
+has to resolve against rows the tenant already owns. **Add a mandatory per-tenant FK to `Item`
+tomorrow and this fails, without anybody remembering this page exists.** Mutation-checked: comment
+out the seeding and it fails with *"a provisioned tenant has no VAT band, so it cannot price
+anything"*.
+
+⚠ **When a feature adds a new thing a shop cannot trade without, extend the outcome test to DO that
+thing** — sell a gift card, take a surcharge, close a day — rather than adding a row to a list of
+what to create.
+
+**2. ⚠⚠ A TEST MAY NOT SEED WHAT PROVISIONING SHOULD PROVIDE.** This is the rule that would have
+caught it years earlier, and its violation is why nobody noticed:
+
+- `E2eTests.Full_lifecycle_provision_enrol_token_ingest_revoke` provisioned a tenant and rang a sale
+  through it — and **passed happily on a tenant with no VAT bands and no categories**, because
+  ingesting a sale needs neither: the till states its own prices and band. Nothing tried to create a
+  product, so nothing noticed.
+- `VatBandsE2eTests` and `VatRateChangeE2eTests` both **seeded their own rate points**. Provisioning
+  supplied none, the tests supplied their own, and the gap was invisible from both sides.
+
+**Every `db.X.Add(...)` in a test setup that provisioning ought to have done is a provisioning gap
+wearing a disguise.** If a test needs a thing to exist, ask first whether a real tenant would have
+it. The 2026-08-25 fix made both VAT suites *upsert* rather than insert, so they still state the rate
+history they depend on but no longer manufacture what a shop is entitled to be given.
+
+**3. Creation and deletion are symmetric.** Whatever provisioning makes, `HardDeleteTenantAsync` must
+remove. It discovers tables from `information_schema`, so it tracks new tables automatically —
+⚠ except those that belong to a tenant *without* carrying a `TenantId` (`Employees`, the TPT child;
+`WebCredentials`; `Role`). See `Platform Gaps.md` §8.
+
 ---
 
 ## 4. Sale ingestion — the one pipeline

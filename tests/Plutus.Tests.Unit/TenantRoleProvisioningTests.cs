@@ -427,4 +427,56 @@ public class TenantRoleProvisioningTests
         connA.Dispose();
         connB.Dispose();
     }
+
+    /// <summary>
+    /// ⚠⚠ **THE OUTCOME TEST: can a tenant that was just created actually SELL something?**
+    ///
+    /// Matt, 2026-08-25: *"How can I ensure that the creation doesn't miss anything new that we might
+    /// build?"* A checklist of things to seed cannot answer that — it goes stale exactly like the
+    /// `TenantOwned` list did. **This asserts the OUTCOME instead**, so anything a future feature
+    /// makes mandatory breaks the flow that needs it, without anybody remembering to update a list.
+    ///
+    /// ⚠⚠ AND IT IS THE TEST THAT WAS MISSING. `E2eTests.Full_lifecycle_provision_enrol_token_ingest_revoke`
+    /// already provisioned a tenant and rang a sale through it — and passed happily while that tenant
+    /// had **no tax bands and no categories**, because ingesting a sale does not need them: the till
+    /// states its own prices and VAT band. What needs them is CREATING A PRODUCT, and nothing tried.
+    ///
+    /// ⚠ `Item.TaxId` and `Item.CatId` are both required and both point at tenant-owned rows, so this
+    /// fails the moment provisioning stops supplying either. Add a required per-tenant FK to `Item`
+    /// tomorrow and this test tells you, rather than the first shop to try.
+    /// </summary>
+    [Fact]
+    public async Task A_newly_provisioned_tenant_can_create_a_sellable_product()
+    {
+        var (conn, res) = await ProvisionAsync("First Day Ltd");
+        using var ctx = Ctx(conn, res.TenantId, "first-day-test");
+
+        // Everything a product needs must ALREADY be there — nothing seeded by this test.
+        var tax = await ctx.Taxes.FirstOrDefaultAsync();
+        var cat = await ctx.Category.FirstOrDefaultAsync();
+        Assert.True(tax != null, "a provisioned tenant has no VAT band, so it cannot price anything");
+        Assert.True(cat != null, "a provisioned tenant has no category, so Item.CatId cannot be satisfied");
+
+        ctx.Items.Add(new Item
+        {
+            IdOne = "FIRSTDAY-001",
+            IdTwo = res.CompanyId,
+            Name = "A thing to sell",
+            Brand = "Test",
+            Desc = "",
+            Cost = 1.00m,
+            ExPrice = 1.67m,
+            Price = 2.00m,
+            TaxId = tax!.IdOne,
+            CatId = cat!.IdOne,
+        });
+        ctx.Entry(ctx.Items.Local.First()).Property("TenantId").CurrentValue = res.TenantId;
+
+        // ⚠ The real assertion is that this SAVES. Every required foreign key on Item has to resolve
+        // against rows the tenant already owns; if provisioning missed one, this throws.
+        await ctx.SaveChangesAsync();
+
+        Assert.Equal(1, await ctx.Items.CountAsync());
+        conn.Dispose();
+    }
 }
