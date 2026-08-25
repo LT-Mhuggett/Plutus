@@ -64,6 +64,24 @@ for DB in plutus plutus_t1; do
     fail "$DB — dump was only ${SIZE} bytes (floor ${MIN_BYTES}). NOT kept; the previous good backup is untouched."
   fi
 
+  # ⚠⚠ THE COMPLETION SENTINEL — the check the size floor CANNOT make (added 2026-08-25).
+  # mysqldump writes "-- Dump completed on" as its final line ONLY on a clean finish. A dump that
+  # dies part-way through — connection dropped, disk full, MySQL restarted, a table it cannot read —
+  # still gzips perfectly, still passes `gzip -t`, and on a database this size still sails far past
+  # the 1 MB floor. Every existing check would promote it and log "backup ok", and it would be
+  # missing an unknown share of whichever tables came after the failure. Alphabetically that is
+  # everything from SaleLines onward, i.e. the sales history.
+  #
+  # ⚠ Unlike the floor, this guards BOTH databases. The floor is plutus-only because plutus_t1 is
+  # legitimately small; completeness has nothing to do with volume, so there is nothing to exempt.
+  #
+  # ⚠ Decompressing to look also re-validates the gzip stream end to end — with `pipefail` a corrupt
+  # stream fails the pipeline here — so this subsumes a separate `gzip -t`.
+  if ! gzip -dc "$TMP" | tail -3 | grep -q "Dump completed on"; then
+    rm -f "$TMP"
+    fail "$DB — no completion marker; the dump is TRUNCATED. NOT kept; the previous good backup is untouched."
+  fi
+
   # ⚠ Only now does it replace anything. The .tmp dance was already right — the bug was never
   # checking whether the .tmp was worth promoting.
   mv "$TMP" "$DEST/$DB-$STAMP.sql.gz"

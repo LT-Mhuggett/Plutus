@@ -67,8 +67,32 @@ is not a test), and pruning only after a verified-good dump. Source in `ops/mac/
 
 **Before any migration deploy:** run `zsh ~/PLUTUS/bin/plutus-nightly-backup.sh`, then check the size
 — `gzip -dc ~/PLUTUS/backups/nightly/plutus-$(date +%Y%m%d).sql.gz | wc -c` should be ~60 MB and
-`grep -c "CREATE TABLE"` ~100. ⚠ **NEVER run it under `zsh -x`** — that printed the password into a
-transcript on 2026-08-09 and burned the credential.
+`grep -c "CREATE TABLE"` ~100 (84.6 MB / 107 tables as of 2026-08-25). ⚠ **NEVER run it under
+`zsh -x`** — that printed the password into a transcript on 2026-08-09 and burned the credential.
+
+⚠ **TWO CHECKS THE SIZE FLOOR CANNOT MAKE, both worth making before you trust a dump** (2026-08-25):
+
+1. **The completion sentinel.** `gzip -dc <dump> | tail -3 | grep -c "Dump completed on"` must be
+   **1**. mysqldump writes that line only on a clean finish, so it is the one cheap test for a dump
+   **truncated mid-table** — which still gzips fine, still passes `gzip -t`, and still sails past the
+   1 MB floor. The nightly script does not check this yet.
+2. **Restore-verify, don't eyeball.** Restore into `plutus_t1` (that is what it is for; nothing
+   references it — 0 hits in the ecosystem config) and diff **exact** row counts per table:
+   ```bash
+   gzip -dc <dump> | mysql -u plutus -p"$MYSQL_PLUTUS_PASSWORD" --socket=/tmp/mysql.sock plutus_t1
+   # then COUNT(*) every base table in both schemas and diff the two sorted lists
+   ```
+   Expect the **append-only telemetry tables to differ** — `JobRuns`, `TenantRequestStats`,
+   `WebstoreOutboundLogs` grow *while the dump runs*. Every business table must match exactly, and
+   `SUM(VatPence)` on `SalesV2` must equal `VatRollups` in both copies.
+   ⚠ Build that per-table SQL in the shell, **not** with `GROUP_CONCAT` — 107 table names overflow
+   the default 1024-byte `group_concat_max_len` and you get silently truncated, invalid SQL.
+   ⚠ `information_schema.TABLE_ROWS` is an InnoDB **estimate** — useless here; use `COUNT(*)`.
+
+⚠ **There is no app file storage** (checked 2026-08-25): no uploads/images/media/attachments
+anywhere under `/srv/apps/PLUTUS` or `~/PLUTUS` — every `*receipt*` directory is an old frontend
+rollback copy. **`plutus` + Keycloak is the complete set of irreplaceable state**, so a verified DB
+dump plus the Keycloak realm really is a full backup.
 
 ⚠ **OPEN THE GENERATED MIGRATION AND READ ITS `Up()`.** On 2026-08-09 a deploy took every till on
 the estate offline because `AddDeviceSyncSignals` — named for three `Device` columns — contained
@@ -334,6 +358,46 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
   somewhere else would then pass too.
 - **NEVER run `ops/keycloak/run-keycloak.sh`** — it recreates the container and wipes the enrolled
   password/TOTP. Keycloak changes go via `kcadm.sh` inside the running container.
+  ⚠⚠ **ROOT CAUSE, established 2026-08-25: `plutus-keycloak` HAS NO VOLUME.** Its only mount is the
+  realm-import JSON, so the H2 database holding every operator account, group and TOTP secret lives
+  in the **container's writable layer**. `docker rm`, an image bump, or any re-import therefore
+  destroys operator login outright — and the committed `ops/keycloak/plutus-realm.json` is the
+  stripped 2026-07-29 state (**7 KB against 63 KB live**), so re-importing it does NOT bring the
+  accounts back. There is no undo.
+  ⚠ A verified backup now exists — `~/PLUTUS/backups/keycloak-20260825/` (also off-machine at
+  `D:\Backups\Plutus\2026-08-25\`). It holds the H2 file **and** a portable realm export carrying all
+  3 users incl. `matt` with `password`+`otp`. Proven by exporting from the copy offline in a
+  throwaway container (`Export finished successfully`), because a file-level copy of a *live* H2 is
+  not self-evidently consistent.
+  ⚠ `kc.sh export` CANNOT run against the live container — H2 holds an exclusive file lock
+  (`Database may be already in use`). Copy the file out and export from the copy.
+
+  **THE FIX — volume `plutus-keycloak-h2`. Prepared and verified 2026-08-25; ONE STEP OUTSTANDING.**
+  - The volume exists, holds the current H2, and is owned **1000:0**. ⚠⚠ That ownership is not
+    optional: `/opt/keycloak/data/h2` does not exist in the image, so Docker creates the volume
+    **root-owned**, and Keycloak runs as uid 1000 — without the chown the container will not start.
+  - `ops/keycloak/run-keycloak.sh` now creates the volume, chowns it, and mounts it, so the script
+    that used to be a footgun is the mechanism. Synced to the Mac.
+  - ⚠ **STILL TO RUN, needs a human: `zsh ~/PLUTUS/bin/kc-move-to-volume.sh`.** Adding a volume
+    means recreating the container, so it stops the live IdP (~30s of no operator SSO). It renames
+    the old container to `plutus-keycloak.pre-volume` rather than removing it, so rollback is
+    instant. **Until it runs, H2 is still in the container layer and the gap is still open.**
+  - ⚠ **Then prove it**: `docker rm -f plutus-keycloak && zsh ops/keycloak/run-keycloak.sh`, and log
+    in as `matt` with the existing TOTP. A volume you have not tested losing the container is a
+    guess.
+  - ⚠ **A SECOND THING WOULD HAVE BEEN LOST, found while doing this**: the realm sets
+    `loginTheme: plutus`, and on the pre-2026-08-25 container those theme files sat in the
+    **writable layer with no mount at all** (`HostConfig.Binds` listed only the realm json). A naive
+    recreate would have silently unbranded the login page as well as wiping the accounts. Both
+    scripts now bind-mount `ops/keycloak/themes/plutus`; host and container copies were verified
+    byte-identical first.
+  - ⚠ `start-dev` + H2 remains dev-mode Keycloak. Moving to Postgres (already on that host for
+    other stacks) is the proper answer and a separate job — the volume closes the data-loss hole,
+    not that one.
+- ⚠ **`ops/keycloak/plutus-realm.json` has DRIFTED from the Mac's copy** (repo 8853 bytes vs Mac
+  7162 — different content, and the Mac's is the one bind-mounted and imported). Reconcile before
+  any re-import. ⚠ Do **not** reconcile by committing a real realm export: exports embed password
+  hashes and TOTP secrets and must never enter git. Account recovery comes from the backup.
 - Deploy only when the operator asks. Commit per work-package, with the `Co-Authored-By: Claude`
   trailer.
 
