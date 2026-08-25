@@ -11,6 +11,7 @@ import { requestNewItem } from "../newItemHandoff.ts";
 import { gbp, parsePence } from "../money.ts";
 import { useBasket, basketTotals, lineDiscountPence, lineTotalPence, type BasketState } from "./basket.ts";
 import { getPrefs } from "../prefs.ts";
+import { commitQuantity, isQuantityDraft } from "./quantityEntry.ts";
 import { tryCanonicalise } from "../memberNumbers.ts";
 import { openDrawer } from "../hardware.ts";
 import { printOnReceiptPrinter } from "./receiptPrint.ts";
@@ -45,6 +46,14 @@ export default function TillPage() {
   const [basket, dispatch] = useBasket();
   const [scan, setScan] = useState("");
   const [qty, setQty] = useState(1);
+  /**
+   * Typing over a quantity (2026-08-25). ⚠⚠ BOTH ARE DRAFTS, and nothing reaches the basket until the
+   * operator finishes — blur or Enter. A basket that re-prices per keystroke passes through numbers
+   * nobody meant, and clearing "10" to retype leaves an empty box that read as 0 **deletes the line**.
+   * `null` means "not editing, show the real value".
+   */
+  const [qtyDraft, setQtyDraft] = useState<string | null>(null);
+  const [qtyEdit, setQtyEdit] = useState<{ key: number; draft: string } | null>(null);
   const [results, setResults] = useState<Item[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -227,9 +236,36 @@ export default function TillPage() {
   }
 
   // Keyboard-wedge scanners type + Enter: keep the scan input focused.
+  // ⚠⚠ `qtyEdit` JOINS THE GUARD (2026-08-25) for the same reason `editingKey` is already in it: this
+  // fires on every change to `basket.lines.length`, so without it, committing a typed quantity that
+  // REMOVES a line — or a scan landing while somebody is mid-edit — yanks the caret out of the
+  // quantity box and into the scan bar, and the rest of what they typed goes to the scanner input.
   useEffect(() => {
-    if (dialog === "none" && editingKey === null) scanRef.current?.focus();
-  }, [dialog, editingKey, basket.lines.length]);
+    if (dialog === "none" && editingKey === null && qtyEdit === null) scanRef.current?.focus();
+  }, [dialog, editingKey, qtyEdit, basket.lines.length]);
+
+  /**
+   * The pending-scan quantity — "how many of the next thing I scan".
+   * ⚠ `allowRemove: false`: there is no line to delete, so 0 reverts rather than meaning anything.
+   */
+  function commitPendingQty() {
+    if (qtyDraft === null) return;
+    const r = commitQuantity(qtyDraft, false);
+    if (r.action === "set") setQty(r.quantity);
+    // ⚠ "revert" needs no branch: clearing the draft makes the box show `qty` again, unchanged.
+    setQtyDraft(null);
+  }
+
+  /** A basket line's quantity. ⚠ `allowRemove: true` — typing 0 drops the line, as − at 1 does. */
+  function commitLineQty(key: number) {
+    if (!qtyEdit || qtyEdit.key !== key) return;
+    const r = commitQuantity(qtyEdit.draft, true);
+    // ⚠ Both go through `setQuantity`; the reducer's own `> 0` filter is what removes the line, so
+    // typing 0 and pressing − at 1 cannot drift apart.
+    if (r.action === "set") dispatch({ type: "setQuantity", key, quantity: r.quantity });
+    else if (r.action === "remove") dispatch({ type: "setQuantity", key, quantity: 0 });
+    setQtyEdit(null);
+  }
 
   /**
    * @param scannedBarcode ⚠ What the operator actually scanned, when it may not be the item's own
@@ -474,9 +510,28 @@ export default function TillPage() {
       {/* scan row: pending-quantity stepper + full-width scan bar (NatApp layout) */}
       <div className="scan-row">
         <div className="qty-box">
-          <span className="qty-value">{qty}</span>
-          <button className="step" onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>
-          <button className="step" onClick={() => setQty((q) => q + 1)}>+</button>
+          {/* ⚠ Typeable since 2026-08-25 (Matt: *"can you just overwrite the number? Instead of
+              pressing + or -"*). Committed on blur AND Enter — clicking away is as much a decision as
+              pressing a key, and a till where the number you typed silently did not apply is worse
+              than one that made you press a button. Enter also hands focus to the scan bar, which is
+              the actual next step: set how many, then scan. */}
+          <input
+            className="qty-value"
+            inputMode="numeric"
+            aria-label="How many of the next item you scan"
+            title="How many of the next item you scan — type over it, or use − and +"
+            value={qtyDraft ?? String(qty)}
+            disabled={busy}
+            onFocus={(e) => { setQtyDraft(String(qty)); e.currentTarget.select(); }}
+            onChange={(e) => { if (isQuantityDraft(e.target.value)) setQtyDraft(e.target.value); }}
+            onBlur={commitPendingQty}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { commitPendingQty(); scanRef.current?.focus(); }
+              else if (e.key === "Escape") { setQtyDraft(null); e.currentTarget.blur(); }
+            }}
+          />
+          <button className="step" onClick={() => { setQtyDraft(null); setQty((q) => Math.max(1, q - 1)); }}>−</button>
+          <button className="step" onClick={() => { setQtyDraft(null); setQty((q) => q + 1); }}>+</button>
         </div>
         <input
           ref={scanRef}
@@ -662,7 +717,23 @@ export default function TillPage() {
                   {l.giftCardCode ? <span>1</span> : (
                     <>
                       <button className="step" onClick={() => dispatch({ type: "quantity", key: l.key, delta: -1 })}>−</button>
-                      <span>{l.quantity}</span>
+                      {/* ⚠ Typeable since 2026-08-25. Typing 0 removes the line, exactly as − at 1
+                          already does — one rule, in the reducer, so the two cannot drift.
+                          ⚠ Escape abandons the edit; the line keeps the quantity it had. */}
+                      <input
+                        className="qty-inline"
+                        inputMode="numeric"
+                        aria-label={`Quantity of ${l.item.name}`}
+                        title="Type a quantity, or use − and +"
+                        value={qtyEdit?.key === l.key ? qtyEdit.draft : String(l.quantity)}
+                        onFocus={(e) => { setQtyEdit({ key: l.key, draft: String(l.quantity) }); e.currentTarget.select(); }}
+                        onChange={(e) => { if (isQuantityDraft(e.target.value)) setQtyEdit({ key: l.key, draft: e.target.value }); }}
+                        onBlur={() => commitLineQty(l.key)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") { commitLineQty(l.key); scanRef.current?.focus(); }
+                          else if (e.key === "Escape") { setQtyEdit(null); e.currentTarget.blur(); }
+                        }}
+                      />
                       <button className="step" onClick={() => dispatch({ type: "quantity", key: l.key, delta: 1 })}>+</button>
                     </>
                   )}

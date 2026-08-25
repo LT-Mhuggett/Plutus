@@ -110,6 +110,13 @@ type Action =
   | { type: "addReturn"; item: Item; quantity: number; unitPricePence: number; unitExPricePence: number; originSaleId: string }
   | { type: "addGiftCard"; item: Item; code: string; amountPence: number; exAmountPence: number }
   | { type: "quantity"; key: number; delta: number }
+  /**
+   * ⚠ An ABSOLUTE quantity, from the operator typing into the box (2026-08-25). Kept separate from
+   * `quantity` rather than folded into it: a delta and a total are different intentions, and
+   * computing `delta = typed - current` at the call site would race a basket that changed underneath
+   * the edit. ⚠ 0 removes the line, exactly as a delta down to 0 already does — see `commitQuantity`.
+   */
+  | { type: "setQuantity"; key: number; quantity: number }
   | { type: "adjust"; key: number; pricePence: number }
   | { type: "applyDiscount"; discount: Discount; keys: number[]; reason: string; authorisedBy?: string | null }
   | { type: "clearDiscount"; key: number }
@@ -216,6 +223,19 @@ function reduce(state: BasketState, action: Action): BasketState {
         ...state,
         lines: state.lines
           .map((l) => (l.key === action.key ? { ...l, quantity: l.quantity + action.delta } : l))
+          .filter((l) => l.quantity > 0),
+      };
+    /**
+     * ⚠ Same `> 0` filter as the delta case, and that is the point: one place decides that a line
+     * with no quantity is not a line, so typing 0 and pressing − at 1 cannot diverge.
+     * ⚠ A gift-card line is never routed here — its quantity is fixed at 1 because a card is one
+     * specific code, and "2 ×" would charge twice and load once (FE7). The UI does not offer the box.
+     */
+    case "setQuantity":
+      return {
+        ...state,
+        lines: state.lines
+          .map((l) => (l.key === action.key ? { ...l, quantity: action.quantity } : l))
           .filter((l) => l.quantity > 0),
       };
     case "adjust":

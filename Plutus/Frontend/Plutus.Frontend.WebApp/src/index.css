@@ -562,6 +562,52 @@ a.ghost {
   text-align: center;
 }
 
+/* Quantity boxes are TYPEABLE (2026-08-25) — Matt: *"can you just overwrite the number? Instead of
+ * pressing + or -"*.
+ *
+ * ⚠ Both are styled to look like the text they replaced, not like a form field: the pending box sits
+ * inside `.qty-box`, which already draws the border, and a second border inside it reads as a fault.
+ * ⚠ But they must not be INVISIBLY editable — that is the complaint pattern this codebase keeps
+ * hitting (a capability an operator cannot find is not a capability). Hence the hover border on the
+ * basket one and a real focus ring on both: discoverable on approach, obvious once you are in it. */
+input.qty-value {
+  width: 3.5ch;
+  min-width: 2ch;
+  text-align: center;
+  font-size: 1.1rem;
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0;
+}
+
+.qty-inline {
+  display: inline-block;
+  width: 3.5ch;
+  min-width: 2ch;
+  text-align: center;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0.05rem 0.1rem;
+}
+
+.qty-inline:hover:not(:focus) {
+  border-color: var(--line-strong);
+}
+
+input.qty-value:focus,
+.qty-inline:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
 button.step {
   font: inherit;
   width: 1.6rem;
