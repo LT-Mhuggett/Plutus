@@ -301,4 +301,58 @@ public class TenantRoleProvisioningTests
         Assert.Contains(second.TenantId, byName.Select(d => d.TenantId));
         conn.Dispose();
     }
+
+    /// <summary>
+    /// ⚠⚠ THE 403 THAT COST AN EVENING. Matt, 2026-08-25: *"I am getting an error 403 when I access
+    /// the test business location and tills."*
+    ///
+    /// **Login is an ANONYMOUS request**, so there is no `tid` claim yet and `HttpTenantContext`
+    /// falls back to the Kapow tenant. `RbacRoleAssignment` is tenant-owned, so the global query
+    /// filter hid a Test Business user's own assignments from the very query that decides what their
+    /// token may do — `ResolveLoginScopesAsync` saw none, fell to its legacy branch, and minted a
+    /// token carrying `pos.sell` alone.
+    ///
+    /// ⚠ It only bit SOME pages, which is why it took a while to see: `perm:*` policies resolve LIVE
+    /// from RBAC on an authenticated request (which does carry `tid`), so the dashboard was fine.
+    /// The policies that read the token's baked `scope` claim — `portal.tills.enrol` among them —
+    /// were refused, and one 403 collapsed the whole Locations page to zeros.
+    ///
+    /// ⚠ The fixture reproduces the fallback exactly: resolve scopes through a context scoped to a
+    /// DIFFERENT tenant, which is what the anonymous login path really does.
+    /// </summary>
+    [Fact]
+    public async Task Login_scopes_resolve_even_when_the_ambient_tenant_is_somebody_else()
+    {
+        var (conn, res) = await ProvisionAsync("Scope Fallback Shop");
+
+        // ⚠ NOT the tenant that was just provisioned — this stands in for the Kapow fallback that
+        // an unauthenticated login lands on.
+        var someoneElse = Guid.Parse("0192b8a0-1a6f-7000-8000-000000000001");
+        using var ctx = Ctx(conn, someoneElse);
+        var scopes = await new EffectivePermissionsService(ctx).ResolveLoginScopesAsync(res.AdminUserId, DateTime.Now);
+
+        // The Owner's real permission set, not the legacy consolation prize.
+        Assert.Contains(PermissionCatalogue.PortalTillsEnrol, scopes);   // the one that 403'd
+        Assert.Contains(PermissionCatalogue.PortalCompanyManage, scopes);
+        Assert.Contains(PermissionCatalogue.PortalReportsView, scopes);
+        Assert.True(scopes.Count > 5,
+            $"expected the Owner's full set, got {scopes.Count}: {string.Join(", ", scopes)} — "
+            + "a short list means it fell to the legacy `pos.sell` branch again.");
+
+        conn.Dispose();
+    }
+
+    /// <summary>⚠ The live `perm:*` gate must survive the same fallback, or a background job that
+    /// checks a permission outside a request silently refuses somebody who holds it.</summary>
+    [Fact]
+    public async Task A_permission_check_survives_the_same_tenant_fallback()
+    {
+        var (conn, res) = await ProvisionAsync("Perm Fallback Shop");
+
+        using var ctx = Ctx(conn, Guid.Parse("0192b8a0-1a6f-7000-8000-000000000001"));
+        var svc = new EffectivePermissionsService(ctx);
+
+        Assert.True(await svc.HasAnywhereAsync(res.AdminUserId, PermissionCatalogue.PortalTillsEnrol, DateTime.Now));
+        conn.Dispose();
+    }
 }

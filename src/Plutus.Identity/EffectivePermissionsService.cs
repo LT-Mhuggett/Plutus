@@ -105,8 +105,23 @@ namespace Plutus.Identity
 
         /// <summary>True when the user has ANY role assignment — used by login to decide
         /// between RBAC-derived scopes and the pre-seed fallback.</summary>
+        /// <summary>
+        /// ⚠⚠ `IgnoreQueryFilters` IS LOAD-BEARING, AND ITS ABSENCE 403'd A WHOLE TENANT.
+        /// Matt, 2026-08-25: *"I am getting an error 403 when I access the test business location
+        /// and tills."*
+        ///
+        /// `RbacRoleAssignment` is tenant-owned, so the global filter applies — and this runs during
+        /// **login**, which is an ANONYMOUS request. With no `tid` claim yet, `HttpTenantContext`
+        /// falls back to the Kapow tenant, so a Test Business user's assignments were filtered out,
+        /// this returned false, and `ResolveLoginScopesAsync` dropped to its legacy branch and minted
+        /// a token carrying `pos.sell` and nothing else.
+        ///
+        /// ⚠ Safe, because the query keys on `UserId`, which is globally unique and belongs to
+        /// exactly one tenant (`People.TenantId`). The tenant filter adds no protection here — only
+        /// a failure mode.
+        /// </summary>
         public Task<bool> HasAnyAssignmentsAsync(Guid userId) =>
-            _db.RbacRoleAssignments.AsNoTracking().AnyAsync(a => a.UserId == userId);
+            _db.RbacRoleAssignments.AsNoTracking().IgnoreQueryFilters().AnyAsync(a => a.UserId == userId);
 
         /// <summary>
         /// The token scopes a signed-in user should carry — the single source shared by the
@@ -132,7 +147,12 @@ namespace Plutus.Identity
             var scopes = new List<string>();
             if (await HasAnyAssignmentsAsync(userId))
             {
-                var assignments = await _db.RbacRoleAssignments.AsNoTracking()
+                // ⚠ `IgnoreQueryFilters` for the same reason as `HasAnyAssignmentsAsync` above:
+                // login is anonymous, the ambient tenant falls back to Kapow, and without this a
+                // non-Kapow user's roles resolve to nothing. Both must carry it — with only the
+                // `Any` check fixed, this would return an EMPTY scope list instead of falling to the
+                // legacy branch, which is a subtler version of the same 403.
+                var assignments = await _db.RbacRoleAssignments.AsNoTracking().IgnoreQueryFilters()
                     .Include(a => a.Role).ThenInclude(r => r.Grants)
                     .Where(a => a.UserId == userId)
                     .ToListAsync();
@@ -159,7 +179,13 @@ namespace Plutus.Identity
         /// tenant? Used for coarse portal gates when no finer resource node is known.</summary>
         public async Task<bool> HasAnywhereAsync(Guid userId, string permissionCode, DateTime nowLocal)
         {
-            var assignments = await _db.RbacRoleAssignments.AsNoTracking()
+            // ⚠ Also filter-free, and for a reason that is easy to miss: this is the live gate behind
+            // every `perm:*` policy, and it happens to work today only because those run on an
+            // authenticated request that carries a `tid`. Anything that ever checks a permission
+            // outside a request — a background job, a hosted service — would silently resolve to the
+            // fallback tenant and refuse a user who genuinely holds the permission. Keyed on
+            // `UserId`, which is globally unique, so the filter protects nothing here.
+            var assignments = await _db.RbacRoleAssignments.AsNoTracking().IgnoreQueryFilters()
                 .Include(a => a.Role).ThenInclude(r => r.Grants)
                 .Where(a => a.UserId == userId)
                 .ToListAsync();
