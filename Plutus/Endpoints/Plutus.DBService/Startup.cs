@@ -94,7 +94,22 @@ namespace Plutus.DBService
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
-            System.Console.WriteLine("Config ConnectionString is: " + Configuration["ConnectionString"]);
+            // ⚠⚠ REDACTED 2026-08-25 — THIS LINE PRINTED THE LIVE MySQL PASSWORD ON EVERY BOOT.
+            // It is legacy, and it is ungated: it sits ABOVE the `env.IsDevelopment()` check below,
+            // so it ran in every environment. Under pm2 that put the credential in plaintext into
+            // `~/.pm2/logs/plutus-backend-out.log` — 37 occurrences across 15 rotated files when it
+            // was found.
+            //
+            // ⚠ The irony worth remembering: it came in with commit 3d2837a2, *"Rebuild branch on
+            // upstream/master and remove secret-bearing history"*. The history was scrubbed and the
+            // line that REPRINTS the secret every boot survived the scrub. Removing a secret from
+            // git says nothing about the code that emits it.
+            //
+            // ⚠ Kept rather than deleted, because the diagnostic is real: "which database am I
+            // actually pointing at" answered a live question on 2026-08-25 (unix socket vs TCP,
+            // which is the difference between working and not since the caching_sha2 rotation).
+            // Everything except the credential survives.
+            System.Console.WriteLine("Config ConnectionString is: " + Plutus.SharedKernel.Redact.ConnectionString(Configuration["ConnectionString"]));
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -222,5 +237,6 @@ namespace Plutus.DBService
                 Console.WriteLine($"[loyalty] tier backfill skipped: {ex.Message}");
             }
         }
+
     }
 }
