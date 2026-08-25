@@ -219,7 +219,7 @@ public class LoyaltyTierTests
             db.SaveChanges();
         }
 
-        // exactly how MigrateDatabase resolves it: a fresh context, CurrentUser never assigned
+        // exactly how EnsureSchemaThenSeed resolves it: a fresh context, CurrentUser never assigned
         using (var db = new MySqlDbContext(new DbContextOptionsBuilder<MySqlDbContext>().UseSqlite(conn).Options,
                                            new FixedTenantContext(Tenant)))
         {

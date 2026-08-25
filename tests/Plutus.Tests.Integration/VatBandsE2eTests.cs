@@ -87,12 +87,37 @@ public class VatBandsE2eTests : IClassFixture<PlutusAppFactory>
             scope.ServiceProvider.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
             new Plutus.Entities.Tenancy.FixedTenantContext(Guid.Empty));
         db.CurrentUser = "vat-bands-e2e";
+
+        // ⚠⚠ UPSERT, NOT ADD — since 2026-08-25 a provisioned tenant is BORN with standard/reduced/
+        // zero at the epoch, so a blind insert collides:
+        // `UNIQUE constraint failed: VatRatePoints.TenantId, Band, EffectiveFromUtc`.
+        //
+        // ⚠ This does not weaken anything. The tenant still ends up with exactly the bands a test
+        // asks for, at exactly the rates it asks for — the helper now overwrites a seeded default
+        // instead of failing on it. Tests that add a band the defaults do not include (`exempt`,
+        // deliberately absent) still insert as before.
+        var existing = await db.VatRatePoints.IgnoreQueryFilters()
+            .Where(p => p.TenantId == tenantId && p.EffectiveFromUtc == DateTime.UnixEpoch)
+            .ToListAsync();
+
         foreach (var (band, name, cls, bp) in bands)
-            db.VatRatePoints.Add(new VatRatePoint
+        {
+            var row = existing.FirstOrDefault(p => p.Band == band);
+            if (row is null)
             {
-                Id = Uuid7.New(), TenantId = tenantId, Band = band, DisplayName = name,
-                Class = (int)cls, RateBp = bp, EffectiveFromUtc = DateTime.UnixEpoch,
-            });
+                db.VatRatePoints.Add(new VatRatePoint
+                {
+                    Id = Uuid7.New(), TenantId = tenantId, Band = band, DisplayName = name,
+                    Class = (int)cls, RateBp = bp, EffectiveFromUtc = DateTime.UnixEpoch,
+                });
+            }
+            else
+            {
+                row.DisplayName = name;
+                row.Class = (int)cls;
+                row.RateBp = bp;
+            }
+        }
         await db.SaveChangesAsync();
     }
 
@@ -269,7 +294,13 @@ public class VatBandsE2eTests : IClassFixture<PlutusAppFactory>
                 new { key = "zero", displayName = "Zero rated (books)", @class = "Zero" }))).StatusCode);
 
         var admin = await ReadJson(await c.SendAsync(Req(HttpMethod.Get, "/api/v1/vat/bands/admin", owner)));
-        var band = admin.GetProperty("bands").EnumerateArray().Single();
+        // ⚠ Selected BY KEY, not `.Single()`. Until 2026-08-25 a provisioned tenant had no bands at
+        // all, so the one this test seeded was the only one and `.Single()` happened to work. A
+        // tenant is now born with standard/reduced/zero, so `.Single()` throws — and it was never
+        // what the test was about. Naming the band keeps the assertion exact and stops it depending
+        // on how many OTHER bands a shop happens to have.
+        var band = admin.GetProperty("bands").EnumerateArray()
+            .Single(b => b.GetProperty("key").GetString() == "zero");
         Assert.Equal("Zero", band.GetProperty("vatClass").GetString());
         Assert.Equal("Zero rated (books)", band.GetProperty("displayName").GetString());
 

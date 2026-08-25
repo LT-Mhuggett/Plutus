@@ -6,7 +6,7 @@ using Xunit;
 // Found 2026-08-11 while adding `ClosedDaySaleE2eTests`: the full suite reported 2 failures on one
 // run and 8 on the next, always in `CatalogueSyncE2eTests`, and that class PASSES IN ISOLATION. The
 // exception was an `ObjectDisposedException` out of `WebApplicationFactory.CreateClient` →
-// `EnsureServer` → `MigrateDatabase` → `EnsureCreated` — a host being built against a service
+// `EnsureServer` → `EnsureSchemaThenSeed` → `EnsureCreated` — a host being built against a service
 // provider another collection had already disposed.
 //
 // ⚠ IT IS NOT CAUSED BY THE NEW TESTS, and it is worth being exact about that: with the change under

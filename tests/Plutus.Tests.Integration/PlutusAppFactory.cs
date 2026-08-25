@@ -16,7 +16,7 @@ namespace Plutus.Tests.Integration;
 /// <summary>
 /// Boots the real host (all modules, real auth handler + scope policies, ingest, outbox) with
 /// the RepositoryContext swapped to a MySqlDbContext on a single shared in-memory SQLite
-/// connection — so the tenancy/sales-v2 tables exist and MigrateDatabase creates them via
+/// connection — so the tenancy/sales-v2 tables exist and EnsureSchemaThenSeed creates them via
 /// EnsureCreated (PLUTUS_DB_ENSURE_CREATED). Tokens are minted with the same HMAC secret the
 /// PlutusTokenAuthHandler validates.
 /// </summary>

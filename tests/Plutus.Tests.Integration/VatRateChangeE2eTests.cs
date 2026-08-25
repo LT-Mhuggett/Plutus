@@ -65,6 +65,19 @@ public class VatRateChangeE2eTests : IClassFixture<PlutusAppFactory>
                 scope.ServiceProvider.GetRequiredService<DbContextOptions<MySqlDbContext>>(),
                 new Plutus.Entities.Tenancy.FixedTenantContext(Guid.Empty));
             db.CurrentUser = "vat-e2e-seed";
+
+            // ⚠⚠ UPSERT — since 2026-08-25 provisioning gives a tenant standard/reduced/zero at the
+            // epoch, so re-adding them here collides on
+            // `UNIQUE (TenantId, Band, EffectiveFromUtc)`. The three epoch rows below now match the
+            // seeded defaults exactly (0 / 500 / 2000 bp), so this is a genuine no-op for them; the
+            // 17.5% point at `Change` is what the test is really about and still inserts.
+            //
+            // ⚠ Kept as an explicit upsert rather than deleting the three lines, so the test still
+            // STATES the rate history it depends on instead of inheriting it invisibly from
+            // provisioning — if the seeded defaults ever change, this test keeps its own meaning.
+            var existing = await db.VatRatePoints.IgnoreQueryFilters()
+                .Where(p => p.TenantId == tenantId).ToListAsync();
+
             foreach (var p in new[]
             {
                 new Plutus.Entities.Models.VatRatePoint { Band = VatRateHistory.Zero, RateBp = 0, EffectiveFromUtc = DateTime.UnixEpoch },
@@ -73,9 +86,17 @@ public class VatRateChangeE2eTests : IClassFixture<PlutusAppFactory>
                 new Plutus.Entities.Models.VatRatePoint { Band = VatRateHistory.Standard, RateBp = 1750, EffectiveFromUtc = Change },
             })
             {
-                p.Id = Uuid7.New();
-                p.TenantId = tenantId;
-                db.VatRatePoints.Add(p);
+                var row = existing.FirstOrDefault(e => e.Band == p.Band && e.EffectiveFromUtc == p.EffectiveFromUtc);
+                if (row is null)
+                {
+                    p.Id = Uuid7.New();
+                    p.TenantId = tenantId;
+                    db.VatRatePoints.Add(p);
+                }
+                else
+                {
+                    row.RateBp = p.RateBp;
+                }
             }
             await db.SaveChangesAsync();
         }

@@ -122,6 +122,8 @@ namespace Plutus.Tenancy
                 Name = req.Name.Trim(),
             });
 
+            SeedCatalogueFoundations(tenantId, business.Id);
+
             var admin = new Employee
             {
                 Id = Uuid7.New(),
@@ -162,6 +164,94 @@ namespace Plutus.Tenancy
             await tx.CommitAsync();
 
             return new ProvisionResult(tenantId, business.Id, store.Id, admin.Id);
+        }
+
+        /// <summary>
+        /// The VAT bands, rate points and categories a UK shop cannot trade without.
+        ///
+        /// ⚠⚠ ADDED 2026-08-25, AND ITS ABSENCE MADE EVERY PROVISIONED TENANT UNABLE TO PRICE
+        /// ANYTHING. Matt: *"Everything going forward needs to be current and up to date, not
+        /// needing backfills."* Checked against the live database that evening:
+        ///
+        ///     tenant           taxes  categories  items
+        ///     Kapow                3          12  20508
+        ///     Test Business        0           0      0
+        ///     Demo Store           0           0      0
+        ///
+        /// An item needs a `TaxId`, so with no bands a tenant could not create a single product —
+        /// and the start-up sweep that provisions the gift-card and card-surcharge rows prices them
+        /// against a band, so it silently skipped both tenants through five reboots. **Nothing
+        /// errored. It just quietly was not a shop.**
+        ///
+        /// ⚠ INSIDE THE CALLER'S TRANSACTION, like the roles: a tenant that commits half-equipped is
+        /// the state this whole method exists to prevent.
+        ///
+        /// ⚠⚠ THE DEFAULT BANDS ARE A STATED ASSUMPTION, NOT A DERIVED FACT — UK rates as at
+        /// 2026-08-25: 20% standard, 5% reduced, 0% zero-rated. A shop that needs different ones
+        /// edits them in the portal. ⚠ **Zero-rated and EXEMPT stay separate** and no exempt band is
+        /// seeded, deliberately: they are both 0% to a customer and different in law, and a tenant
+        /// that has one by default would have people filing under it without meaning to. Kapow sells
+        /// no exempt goods; other tenants will, and they add it when they do.
+        ///
+        /// ⚠ `Tax.Rate` is a MULTIPLIER (1.2 for 20%), not a percentage — the legacy shape, and an
+        /// easy and expensive thing to get wrong. `VatRatePoint.RateBp` is basis points (2000 = 20%).
+        /// </summary>
+        private void SeedCatalogueFoundations(Guid tenantId, Guid companyId)
+        {
+            var epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+            // (band key, display, class, basis points, legacy multiplier)
+            var bands = new (string Band, string Display, VatClass Class, int RateBp, double Multiplier)[]
+            {
+                ("standard", "20%",                     VatClass.Standard, 2000, 1.20),
+                ("reduced",  "5%",                      VatClass.Reduced,   500, 1.05),
+                ("zero",     "Zero rated (books & printed matter)", VatClass.Zero, 0, 1.00),
+            };
+
+            var taxId = 0;
+            foreach (var b in bands)
+            {
+                // The legacy band an Item's TaxId points at.
+                // ⚠ `IdOne` IS ASSIGNED BY HAND. `Tax` is `CompositeBase<int, Guid>` — a COMPOSITE
+                // key of (IdOne, IdTwo) — and a database cannot auto-generate one column of a
+                // composite key, so leaving it default fails with
+                // `NOT NULL constraint failed: Taxes.IdOne`. Kapow's are 1, 2, 3; because IdTwo is
+                // the company, each tenant numbers its own bands from 1 without colliding.
+                var tax = new Tax { IdOne = ++taxId, IdTwo = companyId, Name = b.Display, Rate = b.Multiplier };
+                _db.Taxes.Add(tax);
+                _db.Entry(tax).Property("TenantId").CurrentValue = tenantId;
+
+                // The published band the tills and the VAT return read.
+                _db.VatRatePoints.Add(new VatRatePoint
+                {
+                    Id = Uuid7.New(),
+                    TenantId = tenantId,
+                    Band = b.Band,
+                    DisplayName = b.Display,
+                    Class = (int)b.Class,
+                    RateBp = b.RateBp,
+                    // ⚠ The epoch, not "now": a band effective from the moment of provisioning would
+                    // leave any sale timestamped a second earlier with no rate to resolve against.
+                    EffectiveFromUtc = epoch,
+                    Note = "Seeded at provisioning, 2026-08-25 UK defaults. Edit in the portal.",
+                });
+            }
+
+            // ⚠ Categories are REQUIRED — `Item.CatId` is not nullable, and the category delete
+            // refuses to remove the last one. A tenant with none cannot create a product at all.
+            // ⚠ These two names match what the gift-card and surcharge provisioners look for, so
+            // those rows land in the right place rather than in a stray "General".
+            foreach (var (name, desc) in new[]
+            {
+                ("General", "The starting category. Rename it, or add your own in Inventory → Categories."),
+                ("Gift cards", "Gift cards and vouchers — money taken as a liability, not product sales."),
+                ("Payment fees", "Card surcharges and payment fees — not product sales."),
+            })
+            {
+                var cat = new Category { IdOne = Uuid7.New(), IdTwo = companyId, Name = name, Description = desc };
+                _db.Category.Add(cat);
+                _db.Entry(cat).Property("TenantId").CurrentValue = tenantId;
+            }
         }
 
         private static string Abbr(string name)

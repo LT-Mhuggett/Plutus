@@ -88,7 +88,20 @@ namespace Plutus.Tenancy
             // Seeds Matt's DPA as an UNPUBLISHED draft on first boot, once. Never fatal — a
             // seeder that can stop the backend booting takes every till offline over a document
             // nobody can accept yet.
-            services.AddHostedService<DpaSeedHostedService>();
+            // ⚠⚠ NO LONGER A HOSTED SERVICE — 2026-08-25. `DpaSeedHostedService` started alongside
+            // schema creation, LOST the race, and retried ten times at three-second intervals to
+            // paper over it. Its own header admitted as much: *"IT RETRIES, BECAUSE IT RACES THE
+            // MIGRATION AND LOST."*
+            //
+            // In production the schema usually won within a second, so it looked fine. In the
+            // integration suite, 56 classes each build and dispose a host, so retry loops outlived
+            // their service provider and their in-memory SQLite connection and the wreckage landed
+            // on whichever class started next — a different test failing each run, which reads as
+            // "flaky tests" rather than "a race nobody removed".
+            //
+            // ⚠ It is now called from `Startup.EnsureSchemaThenSeed`, immediately AFTER the schema
+            // is ready, alongside the other idempotent seeders. Deterministic, no retry, nothing
+            // running after the host is gone. **Do not re-register it here.**
 
             // Phase 10: entitlements, billing seam, tenant lifecycle, retention sweeper.
             services.AddScoped<TenantLifecycleService>(sp => new TenantLifecycleService(sp.GetRequiredService<MySqlDbContext>()));

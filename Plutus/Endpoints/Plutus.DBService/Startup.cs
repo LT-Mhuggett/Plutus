@@ -123,7 +123,7 @@ namespace Plutus.DBService
                 c.OAuthUsePkce();
             });
 
-            MigrateDatabase(app);
+            EnsureSchemaThenSeed(app);
 
             app.UseHttpsRedirection();
 
@@ -185,7 +185,7 @@ namespace Plutus.DBService
             });
         }
 
-        private static void MigrateDatabase(IApplicationBuilder app)
+        private static void EnsureSchemaThenSeed(IApplicationBuilder app)
         {
             using var serviceScope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
             using var context = serviceScope.ServiceProvider.GetService<RepositoryContext>();
@@ -200,24 +200,44 @@ namespace Plutus.DBService
             else
                 context.Database.Migrate();
 
-            // FE1: turn pre-catalogue free-text memberships into LoyaltyTier rows once the schema
-            // is in place. Idempotent (no-op when every membership already has a TierId), so it is
-            // safe on every boot; a failure here must not stop the service starting.
+            // ⚠⚠ THE TWO BACKFILLS THAT USED TO RUN HERE ARE GONE — 2026-08-25.
+            //
+            // Matt: *"why is there backfill? Everything going forward needs to be current and up to
+            // date, not needing backfills."*
+            //
+            // `LoyaltyTierBackfill` (FE1) and `MemberNoBackfill` (FE2) were **one-off repairs** of
+            // data that predated their features — free-text membership tiers, and customers with no
+            // member number. Both were verified complete against the live database before removal:
+            // **0 memberships without a TierId, 0 customers without a MemberNo.** They had been
+            // re-running on every boot of every environment for weeks, doing nothing.
+            //
+            // ⚠ A permanent boot-time repair pass is not free. It is a race surface — which is
+            // exactly what `DpaSeedHostedService` fell into — and it is code nobody dares delete
+            // because nobody can tell whether it is still load-bearing. The rule now is: a backfill
+            // is a ONE-OFF, run once and removed, and new data is made correct where it is WRITTEN.
+            //
+            // ⚠ The classes remain in the tree, unreferenced, for anyone restoring an old database.
+            // They are not wired into start-up and must not be re-wired.
+
+            // What DOES still belong here: making a tenant's catalogue complete. ⚠ These are
+            // PROVISIONING, not repair — every business needs the two rows, and until 2026-08-25
+            // this sweep was the only thing creating them.
+            //
+            // ⚠⚠ AND THE SWEEP NEVER REACHED A NEW TENANT, which is what proved Matt's point. Both
+            // helpers price their item against a tax band, and `ProvisioningService` created none —
+            // so Test Business and Demo Store had **0 taxes, 0 categories, 0 items** after five
+            // reboots. A new tenant is now born with its bands, VAT rate points, categories and both
+            // catalogue rows inside the provisioning transaction (`ProvisioningService`).
+            //
+            // ⚠ This sweep is kept as a SAFETY NET for tenants provisioned before that change, and
+            // is a no-op once every business has its rows. It is the last repair pass here; when the
+            // pre-2026-08-25 tenants are known good, delete it too.
             try
             {
                 using var scope = app.ApplicationServices.GetRequiredService<IServiceScopeFactory>().CreateScope();
                 var db = scope.ServiceProvider.GetService<Plutus.Entities.MySqlDbContext>();
                 if (db != null)
                 {
-                    var (tiers, linked) = Plutus.Customers.LoyaltyTierBackfill.ApplyAsync(db).GetAwaiter().GetResult();
-                    if (tiers > 0 || linked > 0)
-                        Console.WriteLine($"[loyalty] tier backfill: {tiers} tier(s) created, {linked} membership(s) linked.");
-
-                    // FE2: give pre-existing customers a membership number (oldest first).
-                    var numbered = Plutus.Customers.MemberNoBackfill.ApplyAsync(db).GetAwaiter().GetResult();
-                    if (numbered > 0)
-                        Console.WriteLine($"[loyalty] member-number backfill: {numbered} customer(s) numbered.");
-
                     // FE7: the zero-VAT catalogue row a gift-card activation is rung through must
                     // exist before the first card is sold (the legacy sale projection FKs to Items).
                     var cardItems = Plutus.Customers.GiftCardSaleItem.EnsureAsync(db).GetAwaiter().GetResult();
@@ -230,11 +250,20 @@ namespace Plutus.DBService
                     var feeItems = Plutus.Payments.CardSurchargeSaleItem.EnsureAsync(db).GetAwaiter().GetResult();
                     if (feeItems > 0)
                         Console.WriteLine($"[payments] provisioned the card-surcharge item for {feeItems} business(es).");
+
+                    // ⚠⚠ THE DPA DRAFT, MOVED HERE FROM A HOSTED SERVICE — 2026-08-25. It used to
+                    // start alongside schema creation, lose the race, and retry ten times at
+                    // three-second intervals. Here the schema is already there, so it simply works:
+                    // no retry, and nothing left running after the host is disposed.
+                    if (Plutus.Tenancy.DpaSeeder.SeedAsync(db).GetAwaiter().GetResult())
+                        Console.WriteLine("[dpa] seeded the draft agreement.");
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[loyalty] tier backfill skipped: {ex.Message}");
+                // ⚠ NEVER FATAL. A catalogue row nobody has sold yet is not worth refusing to boot
+                // over — every till in the estate would go offline for it.
+                Console.WriteLine($"[startup] catalogue provisioning skipped: {ex.Message}");
             }
         }
 

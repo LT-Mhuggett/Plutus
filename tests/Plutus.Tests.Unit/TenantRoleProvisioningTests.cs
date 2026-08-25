@@ -355,4 +355,76 @@ public class TenantRoleProvisioningTests
         Assert.True(await svc.HasAnywhereAsync(res.AdminUserId, PermissionCatalogue.PortalTillsEnrol, DateTime.Now));
         conn.Dispose();
     }
+
+    /// <summary>
+    /// ⚠⚠ A PROVISIONED TENANT MUST BE ABLE TO TRADE, NOT MERELY EXIST. Matt, 2026-08-25:
+    /// *"Everything going forward needs to be current and up to date, not needing backfills."*
+    ///
+    /// Before this, provisioning created a tenant, company, store, admin and roles — and **no VAT
+    /// bands and no categories**. `Item.TaxId` and `Item.CatId` are both required, so the shop could
+    /// not create a single product; and the start-up sweep that provisions the gift-card and
+    /// card-surcharge rows prices them against a band, so it skipped the tenant silently. Live
+    /// figures on the day: Kapow 3 taxes / 12 categories / 20,508 items; **Test Business 0 / 0 / 0**,
+    /// after five reboots. Nothing errored — it just was not a shop.
+    /// </summary>
+    [Fact]
+    public async Task A_provisioned_tenant_can_actually_price_and_categorise_a_product()
+    {
+        var (conn, res) = await ProvisionAsync("Born Complete Ltd");
+        using var ctx = Ctx(conn, res.TenantId);
+
+        var taxes = await ctx.Taxes.AsNoTracking().ToListAsync();
+        var cats = await ctx.Category.AsNoTracking().ToListAsync();
+        var bands = await ctx.VatRatePoints.AsNoTracking().ToListAsync();
+
+        Assert.NotEmpty(taxes);   // Item.TaxId is required
+        Assert.NotEmpty(cats);    // Item.CatId is required
+        Assert.Equal(3, bands.Count);
+
+        // ⚠ The legacy Rate is a MULTIPLIER, not a percentage. 20 here would be a 1900% tax.
+        Assert.Contains(taxes, t => Math.Abs(t.Rate - 1.20) < 0.0001);
+        Assert.Contains(taxes, t => Math.Abs(t.Rate - 1.00) < 0.0001);
+
+        // ⚠ Basis points on the published band: 2000 = 20%.
+        Assert.Contains(bands, b => b.Band == "standard" && b.RateBp == 2000);
+        Assert.Contains(bands, b => b.Band == "zero" && b.RateBp == 0);
+
+        conn.Dispose();
+    }
+
+    /// <summary>
+    /// ⚠⚠ ZERO-RATED AND EXEMPT ARE NOT THE SAME THING, and a default must not blur them. Both are
+    /// 0% to the customer; in law zero-rated is a taxable supply with input-tax recovery and exempt
+    /// is not taxable and BLOCKS recovery. A tenant handed an exempt band by default would have
+    /// people filing under it without meaning to — so no exempt band is seeded, and the zero band
+    /// carries the Zero class rather than a bare 0%.
+    /// </summary>
+    [Fact]
+    public async Task The_seeded_bands_keep_zero_and_exempt_distinct()
+    {
+        var (conn, res) = await ProvisionAsync("Vat Classes Ltd");
+        using var ctx = Ctx(conn, res.TenantId);
+
+        var bands = await ctx.VatRatePoints.AsNoTracking().ToListAsync();
+
+        Assert.Contains(bands, b => b.Class == (int)Plutus.SharedKernel.VatClass.Zero && b.RateBp == 0);
+        Assert.DoesNotContain(bands, b => b.Class == (int)Plutus.SharedKernel.VatClass.Exempt);
+
+        conn.Dispose();
+    }
+
+    /// <summary>⚠ Two tenants must not share a band or a category — these are per-shop rows, and the
+    /// whole point of seeding them at provisioning is that each gets its own.</summary>
+    [Fact]
+    public async Task Two_tenants_get_their_own_bands_and_categories()
+    {
+        var (connA, a) = await ProvisionAsync("Bands A");
+        var (connB, b) = await ProvisionAsync("Bands B");
+
+        using (var ctx = Ctx(connA, a.TenantId)) Assert.Equal(3, await ctx.VatRatePoints.CountAsync());
+        using (var ctx = Ctx(connB, b.TenantId)) Assert.Equal(3, await ctx.VatRatePoints.CountAsync());
+
+        connA.Dispose();
+        connB.Dispose();
+    }
 }
