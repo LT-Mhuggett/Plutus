@@ -73,9 +73,10 @@ namespace Plutus.TillAgent
             builder.Logging.ClearProviders();                       // no console; the tray is the UI
             builder.WebHost.UseUrls($"http://127.0.0.1:{Port}");
             builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
-                .SetIsOriginAllowed(origin =>
-                    string.IsNullOrWhiteSpace(state.Config.AllowedOrigin) ||
-                    string.Equals(origin, state.Config.AllowedOrigin, StringComparison.OrdinalIgnoreCase))
+                // ⚠ Delegates to AgentConfig so the rule is in one place and can carry a LIST — see
+                // the comment there for why a single exact string nearly took printing off the shop
+                // counter when the till changed hostname.
+                .SetIsOriginAllowed(origin => state.Config.IsOriginAllowed(origin))
                 .AllowAnyHeader()
                 .AllowAnyMethod()));
 

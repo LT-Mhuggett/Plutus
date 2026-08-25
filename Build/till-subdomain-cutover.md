@@ -35,6 +35,39 @@ died the moment the bare host became the landing page. Fixed two ways, deliberat
 ⚠ The portal build also needs its two OIDC variables, whose absence is invisible to every gate:
 `grep -c 'realms/plutus"' dist/assets/index-*.js` must be **1**, not 0.
 
+## ⚠⚠ Everything that REFERENCES the till host — run this grep, do not trust the list
+
+Moving a host means moving every surface that points at it. The portal was found by Matt using the
+thing; the rest were found by finally running the obvious command:
+
+```bash
+grep -rn "plutus\.huggett\.dscloud\.me" --include=*.ts --include=*.tsx --include=*.cs \
+  --include=*.json --include=*.xaml . | grep -v "admin\.\|login\.\|status\.\|till\."
+```
+
+| Surface | Impact | State |
+|---|---|---|
+| **Portal** `auth.ts tillUrl()` | "Switch to Till" → the landing page | ✅ fixed, portal 1.27.0 live |
+| ⚠⚠ **Till Agent** `AgentConfig.AllowedOrigin` | **NO RECEIPT PRINTING AND NO CASH DRAWER.** It is a CORS allow-list matched with a single exact `string.Equals`, defaulting to the old host. The moment the till serves from `till.plutus…` the browser's `Origin` stops matching and the agent refuses it — on a shop counter, with nothing on screen naming the cause. **Both web tills run agent 1.4.0 with a Star TSP143 online.** | ⚠ **NEEDS A MANUAL STEP ON EACH TILL — see below.** Code now accepts a LIST and defaults to the new host, but installed agents keep their saved `agent.json`. |
+| **MAUI** `TillConnection.DefaultServerUrl`, `Settings.ServerUrlSetting` | MAUI tills call `/api/*` on the **bare host** | ✅ unaffected — **and this is why the `/api/*` proxy must stay on the bare host.** ⚠⚠ It is there for the landing page's signup calls *and* for every MAUI till. Removing it as "landing pages don't need an API" would take the whole MAUI estate offline. |
+| **Keycloak** `plutus-webpos` client (`rootUrl`, redirect URIs, web origins) | Still the bare host | ⬜ latent. The web till runs in **password mode**, so nothing breaks today. It bites the day the web till moves to OIDC — recorded in `Platform Gaps.md`. |
+
+### The Till Agent step — do this on each till, tonight
+
+No rebuild and no reinstall. On the till machine: **Plutus Till Agent tray icon → Settings →
+"Till address allowed to connect"** → set it to:
+
+```
+https://till.plutus.huggett.dscloud.me
+```
+
+⚠ Or, to cover both while you are mid-move, the field now accepts a comma-separated list:
+`https://till.plutus.huggett.dscloud.me, https://plutus.huggett.dscloud.me`
+
+⚠ **Then prove it**: ring a sale and print a receipt. "No agent found" is a *different* fault; a
+CORS refusal looks like the agent being absent, which is exactly why this is worth testing rather
+than assuming.
+
 ## Why this is not a one-step change
 
 `plutus.huggett.dscloud.me` currently serves the **till**, and the till is an installed PWA:

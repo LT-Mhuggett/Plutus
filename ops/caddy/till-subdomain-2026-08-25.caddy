@@ -43,8 +43,11 @@ till.plutus.huggett.dscloud.me {
 #
 # ⚠ Only after both tills are trading on till.plutus…, because this is the moment the old URL
 #   stops being a till.
-# ⚠ `/api/*` STAYS. The landing page calls `/api/v1/signup`, `/signup/dpa` and `/signup/dpa/accept`;
-#   drop the proxy and the signup form fails on a page a stranger is looking at.
+# ⚠⚠ `/api/*` STAYS, AND IT IS LOAD-BEARING FOR TWO SEPARATE REASONS. The landing page calls
+#   `/api/v1/signup`, `/signup/dpa` and `/signup/dpa/accept` — but far more importantly, **every
+#   MAUI till on the estate talks to `/api/*` on THIS bare host** (`TillConnection.DefaultServerUrl`).
+#   Removing this proxy on the reasoning that "a marketing page does not need an API" would take the
+#   entire native till estate offline, and nothing on this page would look wrong.
 # ⚠ The landing dist ships a TOMBSTONE `/sw.js` that unregisters the till's old service worker. It
 #   must be served as a real file — which `try_files` does, because the file exists. Do not "tidy"
 #   it away: without it the old worker survives, since the SPA fallback would answer 200 with HTML

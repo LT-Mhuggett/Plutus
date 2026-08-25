@@ -35,9 +35,48 @@ namespace Plutus.TillAgent
         /// which are raster-only, from the queue name), "escpos", or "star-raster".</summary>
         public string Emulation { get; set; } = "auto";
 
-        /// <summary>The till origin allowed to call in (CORS). The agent is loopback-bound, so this
-        /// stops OTHER pages in the same browser, not other machines.</summary>
-        public string AllowedOrigin { get; set; } = "https://plutus.huggett.dscloud.me";
+        /// <summary>
+        /// The till origin(s) allowed to call in (CORS). The agent is loopback-bound, so this stops
+        /// OTHER pages in the same browser, not other machines.
+        ///
+        /// ⚠⚠ A LIST SINCE 2026-08-25, comma- or whitespace-separated, and that change has a story.
+        /// The web till moved from `plutus.huggett.dscloud.me` to `till.plutus.huggett.dscloud.me`,
+        /// and because this was matched with a single `string.Equals`, **every agent on the estate
+        /// would have refused the till the moment it moved** — no receipt printing and no cash
+        /// drawer, on a shop counter, with nothing on screen naming the cause. It was found by
+        /// grepping for the old hostname rather than by anything failing.
+        ///
+        /// ⚠ The property NAME stays `AllowedOrigin` (singular) on purpose: it is a key in every
+        /// installed `agent.json`, and renaming it would silently reset every till to the default.
+        ///
+        /// ⚠ Empty still means "allow anything", unchanged — that is the escape hatch for a shop on
+        /// a hostname nobody predicted.
+        /// </summary>
+        public string AllowedOrigin { get; set; } = "https://till.plutus.huggett.dscloud.me";
+
+        /// <summary>
+        /// Is this browser origin allowed to drive the hardware?
+        ///
+        /// ⚠ Exact match per entry, case-insensitive, trailing slashes ignored — an Origin header
+        /// never carries a path, but people type one into the tray box.
+        /// ⚠ NOT a prefix or suffix match. "endsWith(plutus.huggett.dscloud.me)" would admit
+        /// `evil-plutus.huggett.dscloud.me`, and the whole point of this check is which PAGE in the
+        /// browser may open the cash drawer.
+        /// </summary>
+        public bool IsOriginAllowed(string? origin)
+        {
+            if (string.IsNullOrWhiteSpace(AllowedOrigin)) return true;   // unchanged escape hatch
+            if (string.IsNullOrWhiteSpace(origin)) return false;
+
+            var candidate = origin.TrimEnd('/');
+            foreach (var allowed in AllowedOrigin.Split(
+                         new[] { ',', ';', ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (string.Equals(candidate, allowed.Trim().TrimEnd('/'), StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
 
         private static string Dir => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PlutusTillAgent");
