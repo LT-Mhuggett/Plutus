@@ -228,6 +228,27 @@ grep -rq "__APP_VERSION__\|__BUILD_TIME__" dist/assets/*.js && { echo "unsubstit
 Then: back up `current` → `current.pre-<tag>`, clear, `cp -r dist/. current/`, and re-check the
 same grep against the deployed bundle before declaring victory.
 
+⚠⚠ **THE WEB TILL'S `current/agent/` IS NOT IN THE BUILD OUTPUT, AND `rm -rf current/*` DELETES IT.**
+It holds `PlutusTillAgent-<ver>.exe` and `latest.json`, published separately by
+`tools/Plutus.TillAgent/publish-agent.ps1`. The **2026-08-21 deploy of till-web 1.31.0 removed it and
+nobody noticed for four days** — Settings → Hardware just said *"download unavailable — reload this
+page"*, because the SPA fallback answers the missing `/agent/latest.json` with **index.html at 200**,
+so the fetch succeeds and only `.json()` fails. Preserve it across every till deploy:
+
+```bash
+cp -R current/agent /tmp/agent-keep        # BEFORE the wipe
+rm -rf current/* && cp -R dist/. current/
+cp -R /tmp/agent-keep current/agent        # AFTER
+curl -s https://<till-host>/agent/latest.json   # must be JSON, NOT html
+```
+
+⚠ Same SPA-fallback trap as the landing page's tombstone `sw.js`: **a missing file under a
+`try_files … /index.html` root does not 404** — it returns a 200 of HTML, and every "is it there?"
+check that only looks at the status code passes. Check the BODY.
+
+⚠ The durable fix is to serve `/agent/*` from a directory outside `current/` in the Caddy vhost, so
+no deploy can reach it. Not done — it needs a Caddyfile change (sudo).
+
 ⚠ `appVersion()` resolves `../../../versions/portal.txt` **relative to the repo layout**. The Mac's
 flattened copy has no such path, so it falls back to `"0.0.0"` — the footer version is cosmetic
 there and is not evidence of a bad build.

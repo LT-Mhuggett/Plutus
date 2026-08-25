@@ -15,7 +15,7 @@
 //
 // ⚠ NOTHING HERE MAY BLOCK SELLING. It rides the 60 s cadence beside the sale outbox.
 
-import { getTillState, putTillState } from "./offline.ts";
+import { getTillState, openDb, putTillState } from "./offline.ts";
 import { businessDay, getDeviceCredential, getDeviceToken, type CashEventType } from "./pipeline.ts";
 import { headers } from "./api.ts";
 import { lastMarkClosesDay, terminalRefusal, zMayGo } from "./cashRules.ts";
@@ -40,20 +40,33 @@ export interface QueuedCashEvent {
 
 const STORE = "cashOutbox";
 
-// ── the store (its own tx helper — `offline.ts`'s is private) ────────────────
+// ── the store (its own tx helper, over `offline.ts`'s SHARED opener) ─────────
+// ⚠ The old version of this comment said *"`offline.ts`'s is private"* and that sentence is the
+// whole bug: it justified a second `indexedDB.open` with a version number that then went stale.
 
+/**
+ * ⚠⚠ USES `offline.ts`'s OPENER — it no longer opens the database itself, and that is the 2026-08-25
+ * fix. This function used to read `indexedDB.open("plutus-till", 3)`, a hardcoded version with no
+ * `onupgradeneeded` handler, written that way because `offline.ts`'s opener was private.
+ *
+ * When `DB_VERSION` went to 4 for multi-barcode on 2026-08-20, IndexedDB began refusing this open
+ * outright — `VersionError: The requested version (3) is less than the existing version (4)` — so
+ * **every cash event that should have queued while the line was down failed to queue**, silently
+ * from the operator's side. Matt saw the error in the console on 2026-08-25.
+ *
+ * ⚠ The version and the upgrade handler must travel together, so there is now exactly one opener.
+ * Never call `indexedDB.open("plutus-till", …)` from anywhere else.
+ */
 function withStore<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open("plutus-till", 3);
-    req.onsuccess = () => {
-      const db = req.result;
-      const t = db.transaction(STORE, mode);
-      const r = fn(t.objectStore(STORE));
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    };
-    req.onerror = () => reject(req.error);
-  });
+  return openDb().then(
+    (db) =>
+      new Promise<T>((resolve, reject) => {
+        const t = db.transaction(STORE, mode);
+        const r = fn(t.objectStore(STORE));
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      }),
+  );
 }
 
 export const queuedCashEvents = (): Promise<QueuedCashEvent[]> =>

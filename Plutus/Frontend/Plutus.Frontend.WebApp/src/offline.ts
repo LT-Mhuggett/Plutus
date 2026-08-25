@@ -16,7 +16,24 @@ const DB_NAME = "plutus-till";
 // ⚠ v4 (multi-barcode, 2026-08-20): adds `aliases`, an item's ADDITIONAL barcodes.
 const DB_VERSION = 4;
 
-function openDb(): Promise<IDBDatabase> {
+/**
+ * ⚠⚠ EXPORTED 2026-08-25, AND THAT IS THE FIX FOR A FIVE-DAY OUTAGE OF THE OFFLINE CASH QUEUE.
+ *
+ * `cashOutbox.ts` had its own copy of this open — `indexedDB.open("plutus-till", 3)` — with a
+ * hardcoded version and **no `onupgradeneeded` handler at all**, because this function was private
+ * and copying it was easier than exporting it. When `DB_VERSION` went to 4 for multi-barcode on
+ * 2026-08-20, every cash-outbox call started throwing
+ * `VersionError: The requested version (3) is less than the existing version (4)`.
+ *
+ * ⚠ Which means the thing that queues a float, a paid-in/out and a Z while the line is down has
+ * been dead since then — the store this file's own comment calls the difference between a day that
+ * reconciles and one that cannot.
+ *
+ * ⚠ **THE SCHEMA VERSION HAS EXACTLY ONE OWNER: THIS FILE.** Anything that needs the till's
+ * IndexedDB imports this. A second `indexedDB.open` on `plutus-till` anywhere in this app is a bug,
+ * because the version and the upgrade handler have to travel together.
+ */
+export function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
