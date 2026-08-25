@@ -67,6 +67,29 @@ export const canManageSettings = () => sessionScopes().includes("pos.settings.ma
  *  operator who cannot do it is not shown a control that will refuse them. */
 export const canManageBarcodes = () => sessionScopes().includes("portal.stock.adjust");
 
+/** May this operator CHANGE an item's stock count from the till? (2026-08-25)
+ *
+ *  ⚠⚠ EITHER CODE, MIRRORING THE SERVER — `POST /api/v1/stock/movements` is gated
+ *  `perm:portal.stock.adjust,pos.stock.adjust` (comma is OR), and MAUI's `ExecuteAdjustStock` asks
+ *  `TillGate.CheckAny` for exactly this pair. Asking for the till code ALONE is a real bug with a
+ *  history: MAUI did that until 2026-08-11 and refused an **Owner** — who holds the portal code —
+ *  for something the platform would have accepted.
+ *
+ *  ⚠ It matters most BEFORE an RBAC re-seed has run: until `pos.stock.adjust` is on the built-in
+ *  roles nobody holds it, so a till-code-only check refuses every operator on the estate including
+ *  the owner, with a message that reads like deliberate policy. Nobody debugs that.
+ *
+ *  ⚠ `pos.stock.adjust` reaches **Supervisor** and never the Cashier (Matt's decision, 2026-08-11):
+ *  the person minding the shelf and the person who can alter its count must differ, or shrinkage
+ *  stops being visible.
+ *
+ *  ⚠ UI-only, as every client-side check here is. The server gates regardless; this exists so an
+ *  operator who cannot do it is not shown a control that will refuse them. */
+export const mayAdjustStock = (scopes: readonly string[]) =>
+  scopes.includes("pos.stock.adjust") || scopes.includes("portal.stock.adjust");
+
+export const canAdjustStock = () => mayAdjustStock(sessionScopes());
+
 /** May this operator create or edit an ITEM — its price, name, details?
  *
  *  ⚠⚠ SUPERVISOR AND ABOVE. Matt, 2026-08-21: *"I also need editing of items to be a supervisor and

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mayAddCustomer } from "./pipeline.ts";
+import { mayAddCustomer, mayAdjustStock } from "./pipeline.ts";
 
 /**
  * WP12 / binding default 20 (Matt, 2026-08-13): *"Supervisor to change tiers. Till operator to add
@@ -34,5 +34,40 @@ describe("mayAddCustomer — who can sign a new member up", () => {
     expect(mayAddCustomer(["customers.add"])).toBe(false);
     expect(mayAddCustomer(["pos.customers.edit"])).toBe(false);
     expect(mayAddCustomer(["pos.stock.adjust"])).toBe(false);
+  });
+});
+
+/**
+ * Who may change a stock count from the till (2026-08-25).
+ *
+ * ⚠⚠ THE PAIR IS THE POINT. `POST /api/v1/stock/movements` is gated
+ * `perm:portal.stock.adjust,pos.stock.adjust`, and accepting only the till code is a bug this
+ * platform has already shipped once: MAUI asked for `pos.stock.adjust` alone until 2026-08-11 and
+ * refused an **Owner** — who holds the portal code — for something the server would have allowed.
+ *
+ * ⚠ A test that only checked the till code would pass while that exact fault was reintroduced.
+ */
+describe("mayAdjustStock — who can change a stock count from the till", () => {
+  it("lets a supervisor holding the till code adjust", () => {
+    expect(mayAdjustStock(["pos.sell", "pos.stock.adjust"])).toBe(true);
+  });
+
+  it("lets an owner/manager holding the PORTAL code adjust", () => {
+    // ⚠ The regression guard: a portal-only holder must not be refused by the till.
+    expect(mayAdjustStock(["portal.stock.adjust"])).toBe(true);
+  });
+
+  it("refuses a plain cashier", () => {
+    // ⚠ Load-bearing: the person minding the shelf and the person who can alter its count must
+    // differ, or shrinkage stops being visible (Matt, 2026-08-11).
+    expect(mayAdjustStock(["pos.sell"])).toBe(false);
+    expect(mayAdjustStock([])).toBe(false);
+  });
+
+  it("is not satisfied by a similar-looking scope", () => {
+    expect(mayAdjustStock(["stock.adjust"])).toBe(false);
+    expect(mayAdjustStock(["pos.stock"])).toBe(false);
+    expect(mayAdjustStock(["pos.stock.adjustment"])).toBe(false);
+    expect(mayAdjustStock(["pos.items.manage"])).toBe(false);
   });
 });

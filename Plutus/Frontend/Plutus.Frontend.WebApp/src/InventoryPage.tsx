@@ -8,6 +8,7 @@ import {
   fetchStockLevelsFor,
   fetchTaxes,
   findItemByBarcode,
+  postStockMovement,
   updateItem,
   type Category,
   type Item,
@@ -18,7 +19,13 @@ import { gbp } from "./money.ts";
 import DataTable from "./DataTable.tsx";
 import { takeNewItemBarcode } from "./newItemHandoff.ts";
 import ItemBarcodeList, { ItemHistory } from "./ItemBarcodes.tsx";
-import { canManageBarcodes, canManageItems, canViewItemHistory } from "./pipeline.ts";
+import { canAdjustStock, canManageBarcodes, canManageItems, canViewItemHistory } from "./pipeline.ts";
+import {
+  adjustedMessage,
+  amountHint,
+  buildStockMovement,
+  type StockDirection,
+} from "./stockAdjust.ts";
 
 export default function InventoryPage() {
   const [items, setItems] = useState<Item[]>([]);
@@ -34,6 +41,9 @@ export default function InventoryPage() {
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Item | "new" | null>(null);
+  // 2026-08-25: the item whose stock count is being changed. Separate from `editing` on purpose —
+  // changing a price and changing a count are different jobs held by different permissions.
+  const [adjusting, setAdjusting] = useState<Item | null>(null);
   const [notice, setNotice] = useState("");
   // FE5.2 current stock for the visible page (one batched call)
   const [levels, setLevels] = useState<Map<string, { untracked: boolean; quantity: number | null }>>(new Map());
@@ -53,6 +63,26 @@ export default function InventoryPage() {
     if (handed && canManageItems()) { setNewBarcode(handed); setEditing("new"); }
   }, []);
 
+  /**
+   * Re-read on-hand stock for the rows on screen.
+   *
+   * ⚠⚠ CALLED AGAIN AFTER AN ADJUSTMENT, and that is not cosmetic. MAUI's twin says it plainly:
+   * without the re-read "the operator writes off two, sees the same number, and does it again — and
+   * the ledger takes both."
+   *
+   * ⚠ `onFailure` exists because the two callers want opposite things. On first load, blanking to "…"
+   * is honest. On a post-adjustment refresh it is not: blanking empties every row's level, which also
+   * withdraws the Adjust stock button from every row (it is gated on a known, tracked level) — so a
+   * successful write would appear to break the page. There the previous numbers stand and the notice
+   * already says what happened.
+   */
+  function loadLevels(rows: Item[], onFailure: "blank" | "keep" = "blank") {
+    if (rows.length === 0) { setLevels(new Map()); return; }
+    void fetchStockLevelsFor(rows.map((r) => r.idOne))
+      .then((ls) => setLevels(new Map(ls.map((l) => [l.itemIdOne, { untracked: l.untracked, quantity: l.quantity }]))))
+      .catch(() => { if (onFailure === "blank") setLevels(new Map()); });
+  }
+
   function load() {
     setState("loading");
     // the legacy endpoint pages by 1-based page number, DataTable thinks in skip/take
@@ -61,11 +91,7 @@ export default function InventoryPage() {
         setItems(rows);
         setTotal(n ?? skip + rows.length + (rows.length === take ? take : 0)); // pre-FE4.2 fallback
         setState("ready");
-        if (rows.length > 0) {
-          void fetchStockLevelsFor(rows.map((r) => r.idOne))
-            .then((ls) => setLevels(new Map(ls.map((l) => [l.itemIdOne, { untracked: l.untracked, quantity: l.quantity }]))))
-            .catch(() => setLevels(new Map()));
-        } else setLevels(new Map());
+        loadLevels(rows);
       })
       .catch((e) => {
         setError(String(e));
@@ -131,7 +157,28 @@ export default function InventoryPage() {
           onPage: (s, t) => { setSkip(s); setTake(t); },
         }}
         searchPlaceholder="Search name, barcode, brand…"
-        rowActions={canManageItems() ? (i) => <button className="ghost small" onClick={() => setEditing(i)}>Edit</button> : undefined}
+        rowActions={(canManageItems() || canAdjustStock()) ? (i) => {
+          // ⚠ TWO DIFFERENT JOBS, TWO DIFFERENT PERMISSIONS. Edit is `pos.items.manage` /
+          // `portal.prices.manage`; adjusting a count is `pos.stock.adjust` / `portal.stock.adjust`.
+          // A Store Manager holds both, a Supervisor may hold only the second, so neither button may
+          // imply the other.
+          const l = levels.get(i.idOne);
+          return (
+            <>
+              {canManageItems() && (
+                <button className="ghost small" onClick={() => setEditing(i)}>Edit</button>
+              )}{" "}
+              {/* ⚠ Withheld until the level is KNOWN and TRACKED. An untracked item's count is
+                  meaningless by design, so a movement against it writes a number nothing will ever
+                  read — MAUI drops the same entry from its tap menu on `StockDisplay == "∞"`. And
+                  while the batched level call is still in flight there is no current figure to put in
+                  front of the operator, which the whole dialog is built around showing. */}
+              {canAdjustStock() && l && !l.untracked && (
+                <button className="ghost small" onClick={() => setAdjusting(i)}>Adjust stock…</button>
+              )}
+            </>
+          );
+        } : undefined}
         emptyText={state === "loading" ? "Loading…" : `No items${search ? ` matching “${search}”` : ""}.`}
       />
 
@@ -152,7 +199,160 @@ export default function InventoryPage() {
           }}
         />
       )}
+
+      {adjusting && (
+        <StockAdjustDialog
+          item={adjusting}
+          current={levels.get(adjusting.idOne)?.quantity ?? null}
+          onClose={() => setAdjusting(null)}
+          onDone={(msg) => {
+            setAdjusting(null);
+            setNotice(msg);
+            // ⚠ Levels only — NOT `load()`. The item's own fields did not change, and re-running the
+            // paged query would also throw away the operator's place in a 20k-row list.
+            loadLevels(items, "keep");
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Change an item's stock count. The C2 twin of MAUI's `ViewAllViewModel.ExecuteAdjustStock`.
+ *
+ * ⚠ SAME ORDER AND SAME WORDING AS MAUI — direction, then how many, then why. MAUI asks in three
+ * sequential prompts because that is what its dialog stack does; this is one form, because that is
+ * what every other editor on this till is. ⚠ Under the 2026-08-19 look-and-feel ruling that
+ * difference is deliberate and worth naming: the *steps*, the *labels* and the *guards* match, so an
+ * operator moving between tills meets the same questions in the same order.
+ *
+ * ⚠ D4: a visible ✕ via `DialogX`, Escape cancels, the backdrop cancels — and all three are disabled
+ * while a request is in flight, because closing mid-flight leaves the caller waiting on a promise
+ * whose UI has gone.
+ */
+function StockAdjustDialog({
+  item,
+  current,
+  onClose,
+  onDone,
+}: {
+  item: Item;
+  current: number | null;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [direction, setDirection] = useState<StockDirection>("writeOff");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  // ⚠ D4 rule 2 — Escape cancels. Same shape as `HelpPanel`.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, busy]);
+
+  async function save() {
+    // ⚠ The rule refuses first, so a bad amount or a blank reason never becomes a round trip. The
+    // server would refuse both anyway — being told so after a wait helps nobody.
+    const built = buildStockMovement(direction, amount, reason);
+    if (!built.ok) { setError(built.problem); return; }
+
+    setBusy(true);
+    setError("");
+    try {
+      await postStockMovement(item.idOne, built.movement);
+      onDone(adjustedMessage(direction, Math.abs(built.movement.qty), item.name));
+    } catch (e) {
+      // ⚠ The server's sentence, verbatim — it names the rule that was broken.
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  }
+
+  const writeOff = direction === "writeOff";
+
+  return (
+    <div className="overlay" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
+      <div className="dialog" role="dialog" aria-label="Adjust stock">
+        <h2>Adjust stock</h2>
+        <DialogX onClose={onClose} disabled={busy} />
+
+        <p className="small">
+          <strong>{item.name}</strong>
+          <span className="mono small block">{item.idOne}</span>
+        </p>
+
+        {/* ⚠ THE DIRECTION IS CHOSEN, NEVER TYPED. The sign comes from this and nowhere else — a
+            minus sign typed into "write off how many" would flip the choice just made, which is the
+            one mistake this whole flow is arranged around. */}
+        <label className="setting-row choice-row">
+          <input
+            type="radio"
+            name="stock-direction"
+            checked={writeOff}
+            disabled={busy}
+            onChange={() => { setDirection("writeOff"); setError(""); }}
+          />
+          <span className="grow">
+            Write some off
+            <span className="muted small block">Damaged, lost, expired, used in the shop.</span>
+          </span>
+        </label>
+        <label className="setting-row choice-row">
+          <input
+            type="radio"
+            name="stock-direction"
+            checked={!writeOff}
+            disabled={busy}
+            onChange={() => { setDirection("add"); setError(""); }}
+          />
+          <span className="grow">
+            Add some
+            <span className="muted small block">Found, returned to stock, a delivery not booked in.</span>
+          </span>
+        </label>
+
+        <div className="form-grid">
+          <label>
+            {writeOff ? "Write off how many?" : "Add how many?"}
+            <input
+              inputMode="numeric"
+              autoFocus
+              value={amount}
+              disabled={busy}
+              onChange={(e) => { setAmount(e.target.value); setError(""); }}
+            />
+          </label>
+          <label>
+            Why?
+            <input
+              maxLength={120}
+              value={reason}
+              disabled={busy}
+              placeholder={writeOff ? "damaged in transit" : "found behind the counter"}
+              onChange={(e) => { setReason(e.target.value); setError(""); }}
+            />
+          </label>
+        </div>
+
+        {/* ⚠⚠ THE GUARD SENTENCE. The server ADDS the delta, so an operator who reads the box as
+            "the new total" doubles the stock and nothing errors. */}
+        <p className="muted small">{amountHint(item.name, current)}</p>
+
+        {error && <p className="error">{error}</p>}
+
+        <div className="dialog-actions">
+          <button className="ghost" onClick={onClose} disabled={busy}>Cancel</button>
+          <button className="primary" onClick={() => void save()} disabled={busy}>
+            {busy ? "Saving…" : writeOff ? "Write off" : "Add"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

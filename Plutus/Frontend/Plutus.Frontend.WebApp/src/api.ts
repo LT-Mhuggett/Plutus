@@ -155,6 +155,55 @@ export async function fetchStockLevelsFor(itemIdOnes: string[]): Promise<StockLe
   return res.json();
 }
 
+/**
+ * Change an item's stock count — the till's half of the stock ledger (2026-08-25).
+ *
+ * ⚠ `qty` is the signed CHANGE, never a counted total: the server does `level.Quantity += qty`. The
+ * rule that produces it lives in `stockAdjust.ts`; this only carries it.
+ *
+ * ⚠⚠ IT THROWS THE SERVER'S SENTENCE, NOT `API 400 {"detail":…}`, and so does not use `send`. The
+ * server's 400s name the rule that was broken — *"a write-off must have a negative qty"*, *"reason is
+ * required"* — and those are the actionable words for whoever is stood at the counter. This is the
+ * same reasoning as `barcodeCall` below.
+ *
+ * ⚠⚠ NOT QUEUED WHEN OFFLINE, DELIBERATELY, AND THE MESSAGE SAYS SO. A sale is queued because the
+ * money moved whether or not the platform heard about it; a stock correction is a DECISION, and
+ * replaying one made against a count that has since changed writes the wrong number. MAUI's
+ * `PostStockMovementAsync` refuses for the same reason, in the same words.
+ */
+export async function postStockMovement(
+  itemIdOne: string,
+  movement: { type: "WriteOff" | "Adjustment"; qty: number; reason: string },
+): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch("/api/v1/stock/movements", {
+      method: "POST",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify({
+        itemIdOne,
+        type: movement.type,
+        qty: movement.qty,
+        reason: movement.reason,
+        storeId: effectiveStoreId(),
+      }),
+    });
+  } catch {
+    throw new Error(
+      "Plutus can't be reached, so nothing has been changed. A stock correction isn't queued like a " +
+        "sale — it has to be made while you're online, or it would be replayed against a count that " +
+        "has since moved.",
+    );
+  }
+
+  handle401(res);
+  if (res.ok) return;
+
+  let detail = `Plutus wouldn't record that stock change (${res.status}).`;
+  try { detail = (await res.json())?.detail ?? detail; } catch { /* keep the status */ }
+  throw new Error(detail);
+}
+
 export interface PayMethod {
   id: number;
   name: string;

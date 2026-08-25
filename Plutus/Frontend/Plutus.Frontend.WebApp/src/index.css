@@ -1036,6 +1036,40 @@ tr.return-line td {
   height: 1.2rem;
 }
 
+/* A pick-one row — a radio, its label, and an explanation under it.
+ *
+ * ⚠⚠ WHY IT IS NOT JUST `.setting-row`. Matt, 2026-08-25, about the portal's gift-card VAT screen:
+ * *"can you separate out the two options please … Need to be on separate rows with a line space
+ * between them."* Two `.setting-row`s carrying a wrapped explanation each run together into one
+ * paragraph, and the operator cannot see where one choice ends and the next begins.
+ *
+ * ⚠ `align-items: flex-start` and the radio's `margin-top` — a centred radio floats to the middle of
+ * a two-line label and stops reading as belonging to the first line.
+ *
+ * ⚠ This is the byte-for-byte twin of the portal's `.choice-row` (`portal.css`), deliberately: under
+ * the 2026-08-19 look-and-feel ruling the same question must look the same on both surfaces. */
+.choice-row {
+  padding: 0.35rem 0 0.9rem;
+  align-items: flex-start;
+}
+
+.choice-row + .choice-row {
+  border-top: 1px solid var(--line);
+  padding-top: 0.9rem;
+}
+
+.choice-row > input[type="radio"] {
+  flex: 0 0 auto;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.2rem;
+}
+
+.choice-row .block {
+  margin-top: 0.25rem;
+  line-height: 1.45;
+}
+
 .block {
   display: block;
 }
