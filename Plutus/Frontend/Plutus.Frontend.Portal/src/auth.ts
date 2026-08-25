@@ -159,14 +159,25 @@ export function canUseTill(): boolean {
 }
 
 /**
- * The till URL for this deployment. Convention: the portal is the same host with an `admin.`
- * prefix (plutus.example / admin.plutus.example), so it's derived rather than configured —
- * VITE_TILL_URL overrides where that doesn't hold. Null on localhost / bare IPs (dev).
+ * The till URL for this deployment.
+ *
+ * ⚠⚠ THE DERIVATION CHANGED 2026-08-25 AND THE OLD ONE IS NOW ACTIVELY WRONG. It used to strip the
+ * `admin.` prefix — `admin.plutus.example` → `plutus.example` — because the till lived on the bare
+ * host. The till has moved to `till.` and **the bare host is now the public landing page**, so the
+ * old rule sent staff clicking "Switch to Till" onto a marketing page. Matt caught it the evening of
+ * the cutover: *"The switch to till link in the portal needs updating."*
+ *
+ * ⚠ `VITE_TILL_URL` still overrides and **is set in the live build** — that is the authority. This
+ * derivation is only a fallback for a deployment that has not set it.
+ *
+ * ⚠ It returns `null` rather than guessing when the host is not `admin.`-prefixed, and the caller
+ * hides the button. A missing button is recoverable; a button that confidently goes to the wrong
+ * place is how this bug happened in the first place.
  */
 export function tillUrl(): string | null {
   const configured = import.meta.env?.VITE_TILL_URL as string | undefined;
   if (configured) return configured.replace(/\/$/, "");
   const { protocol, host } = window.location;
   if (!host || host.startsWith("localhost") || /^\d+\.\d+\.\d+\.\d+/.test(host)) return null;
-  return host.startsWith("admin.") ? `${protocol}//${host.slice("admin.".length)}` : null;
+  return host.startsWith("admin.") ? `${protocol}//till.${host.slice("admin.".length)}` : null;
 }

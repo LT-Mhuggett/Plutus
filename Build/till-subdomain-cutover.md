@@ -8,6 +8,33 @@
 >
 > **Do this when the shop is shut.** It requires re-enrolling both web tills.
 
+## ⏱ PROGRESS — updated 2026-08-25 evening, mid-cutover
+
+| | |
+|---|---|
+| ✅ **Step 1 applied** | `till.plutus.huggett.dscloud.me` is live. Certificate issued (`CN=till.plutus…`, valid to 23 Nov 2026), serving till **1.39.0**, API proxy answering **401** on the device probe — the answer that proves the DB path, not a 404 or 502. |
+| ✅ **Till 1.39.0 deployed** | Carries *Switch to portal*. Both hosts serve it — nothing has been taken away. |
+| ✅ **Portal 1.27.0 deployed** | ⚠⚠ **THIS STEP WAS MISSING FROM THIS RUNBOOK AND MATT CAUGHT IT**: *"The switch to till link in the portal needs updating."* The portal **derived** the till's URL by stripping `admin.`, which yields the **bare host** — the very host about to become the landing page. Left alone, "Switch to Till" would have sent staff to a marketing page. See §"the portal" below. |
+| ✅ **Landing 1.2.0 built and on disk** | In `/srv/apps/PLUTUS/landing/current`, with the tombstone `sw.js`. **Served by nothing yet** — that is Step 2. |
+| ⬜ **Re-enrol both web tills** | On `https://till.plutus.huggett.dscloud.me`, then ring a test sale on each. |
+| ⬜ **Step 2** | The one-line Caddy swap. |
+
+## ⚠ The portal — the surface this runbook forgot
+
+Any surface that **links to** the till has to move with it, not just the till itself. There was one,
+and only one: the portal's *Switch to Till* button.
+
+`auth.ts tillUrl()` derived the till host from the portal's own (`admin.X` → `X`). That convention
+died the moment the bare host became the landing page. Fixed two ways, deliberately:
+
+- **`VITE_TILL_URL=https://till.plutus.huggett.dscloud.me` is now set in the portal build** — that is
+  the authority.
+- **The fallback derivation now yields `till.X`, not `X`**, so a future build that forgets the
+  variable degrades to the right host instead of the marketing page.
+
+⚠ The portal build also needs its two OIDC variables, whose absence is invisible to every gate:
+`grep -c 'realms/plutus"' dist/assets/index-*.js` must be **1**, not 0.
+
 ## Why this is not a one-step change
 
 `plutus.huggett.dscloud.me` currently serves the **till**, and the till is an installed PWA:
