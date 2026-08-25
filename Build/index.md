@@ -14,19 +14,22 @@ the following day."* So:
 
 | | Is now |
 |---|---|
-| [`HANDOVER.md`](../HANDOVER.md) | **ONE DAY LONG.** What to do next session, and nothing else. ⚠ Do not let it grow back into a history — rewrite it; the commits are the record |
-| [`MAUI_finaltest.md`](MAUI_finaltest.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT.** The retrofit is built and archived (2026-08-23); what remains is a hand-run. **What is unproven and why** — 41 🟡 rows, two 🟠, the USER-VERIFY gate, and the record of what previous hand-runs found. ⚠ Matt's rulings and the binding defaults moved to `till-design.md` **Part E** |
+| [`HANDOVER.md`](../HANDOVER.md) | **ONE DAY LONG, AND EMPTY BETWEEN SESSIONS** (Matt, 2026-08-25: *"Handover should be empty as we are working, then a new one created for tomorrow when I finish tonight."*). ⚠ It now holds only a template and pointers. The 2026-08-21 one was emptied because every version number in it had gone wrong and two of its five "do first" items had been closed for days — **a stale list is worse than no list, because a list is read as current.** Standing state lives in [`Platform Gaps.md`](Platform%20Gaps.md), `repo-runbook.md` and `till-design.md`; what happened lives in the commits |
+| [`Test Maui.md`](Test%20Maui.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT.** The retrofit is built and archived (2026-08-23); what remains is a hand-run. **What is unproven and why** — 41 🟡 rows, two 🟠, the USER-VERIFY gate, and the record of what previous hand-runs found. ⚠ Matt's rulings and the binding defaults moved to `till-design.md` **Part E** |
 | [`To do/WP-landing.md`](To%20do/WP-landing.md) | **WP-LANDING** — the public site. ⚠ **Plan only**, ≈2–3d. A UI over WP-SIGNUP's existing four endpoints, **not a feature** — if it grows endpoints, something has gone wrong. ⚠⚠ Its login is a **link**, never a third auth implementation (architecture §12c). ⚠ **§0b is its blocker**, inherited from WP-SIGNUP: no DPA is published, so signup cannot complete |
 | [`archive/handover-history-to-2026-08-17.md`](archive/handover-history-to-2026-08-17.md) | The old handover's day-by-day narrative back to 2026-07-28, **verbatim, dropped from nothing**. ⚠ History, not instruction: every "START HERE" in it is superseded and its version numbers were true on their date. Read it for the reasoning — how fourteen faults were found on 2026-08-10, six invisible to every automated test — never for the state |
 
 ⚠⚠ **For the MAUI till there is exactly ONE LIVE document:
-[`MAUI_finaltest.md`](MAUI_finaltest.md)** — what is still unproven, and why it matters. The build it
+[`Test Maui.md`](Test%20Maui.md)** — what is still unproven, and why it matters. The build it
 tested is finished, so [`archive/MAUI-retrofit.md`](archive/MAUI-retrofit.md) was **archived
 2026-08-23**; the rulings, binding defaults, pitfalls and VAT settlement that still bind a build moved
 into [`till-design.md`](till-design.md) **Part E** rather than going with it.
 
-⚠ **`Test Maui.md` is not a second MAUI document** — it is the executable script, §A–§G. The split is
-deliberate and narrow: `MAUI_finaltest.md` says *what is unproven*, `Test Maui.md` says *what to click*.
+⚠⚠ **THERE USED TO BE TWO, AND NOW THERE IS ONE.** `MAUI_finaltest.md` was merged into
+`Test Maui.md` and **deleted** on 2026-08-25 (Matt: *"No reason having 2 docs"*). The old split —
+one document for *what is unproven*, one for *what to click* — meant the status at the top of one was
+permanently a day behind the script in the other. `Test Maui.md` now carries both: the build state and
+the two 🟠 up front, the §A–§G script in the middle, the record of past hand-runs at the end.
 
 ⚠⚠ **DO NOT START A NEW MAUI PLAN.** Five documents were consolidated into one on 2026-08-12 at Matt's
 instruction — *"I do not know why its splintered into so many"* — and that one is now archived because
@@ -37,7 +40,7 @@ parts that outlive the retrofit up to this level — binding defaults 1–18, th
 item-identity seam. Archiving them unlifted is how the useful half gets buried with the finished
 half."* ⚠ **It was right, and it was followed**: Matt's rulings, the binding defaults, the cached-login
 numbers, the pitfalls and the VAT settlement are now [`till-design.md`](till-design.md) **Part E**, and
-the tests are `MAUI_finaltest.md`. Only the finished half went to `archive/`.
+the tests are `Test Maui.md`. Only the finished half went to `archive/`.
 
 Last audited **2026-08-20** against the code, not against the documents' own headers.
 
@@ -97,6 +100,7 @@ Last audited **2026-08-20** against the code, not against the documents' own hea
 |---|---|
 | [plutus-platform-architecture.md](plutus-platform-architecture.md) | The platform architecture (v3). **Wins on any conflict** with a plan. |
 | [plutus-operator-platform-requirements.md](plutus-operator-platform-requirements.md) | What the operator platform must do, with a built-status appendix. |
+| [Platform Gaps.md](Platform%20Gaps.md) | ⚠⚠ **WHAT IS MISSING, BLOCKED OR SWITCHED OFF.** New 2026-08-25 (Matt: *"The repo-runbook.md should tell you how things work, not what is missing"*). Six sections: blocked on a decision · needs a person at a screen · **built but switched off** (the cruellest — e.g. every discount rule is inert) · infrastructure · known holes left open on purpose · accepted and won't-fix. ⚠ **Every row carries the date it was last checked against reality**, because a gap list nobody re-verifies becomes a to-do list of things already done. |
 | [repo-runbook.md](repo-runbook.md) | Build, test, migrate, deploy — plus the **21** codebase pitfalls that have each cost a session. Read before writing code. ⚠ This row said *"the ten pitfalls"* until 2026-08-20, when there were already twenty-one — **do not write a count you will not come back and update.** |
 | [table-standard.md](table-standard.md) | The shared `DataTable` contract (sort / search / 25-50-100 / paging) every table in **all four surfaces** must use — web till, management portal, operator console **and the MAUI till**. ⚠ This row said *"three"* until 2026-08-20, repeating the exact error the document itself was corrected for on 2026-08-16: the omission is **why the MAUI till has no sortable, searchable or paged table anywhere** while claiming to follow this standard. |
 | [till-design.md](till-design.md) | **THE SINGLE SOURCE OF TRUTH FOR EVERY TILL BUILD.** What the surfaces are (A), what each till can do (B), and where every shared rule lives (C). **Any till work reads it first and updates it in the same commit** — that is what keeps till versions in sync. ⚠ **C2, the drift register, is the section to read before writing anything that computes money on a client.** Consolidated 2026-08-08 from the old `till-parity.md` + `till-anatomy.md`. |
@@ -132,7 +136,7 @@ how the five consolidated documents splintered in the first place.
 
 | Document | What's left |
 |---|---|
-| [MAUI_finaltest.md](MAUI_finaltest.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT.** Nothing is left to BUILD — 41 A0 rows are 🟡 (built, never run by a person) and two are 🟠. What is left is the hand-run, and only a person closes it |
+| [Test Maui.md](Test%20Maui.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT.** Nothing is left to BUILD — 41 A0 rows are 🟡 (built, never run by a person) and two are 🟠. What is left is the hand-run, and only a person closes it |
 | [Loyalty Update across all tills.md](To%20do/Loyalty%20Update%20across%20all%20tills.md) | **The loyalty programme design** (Matt, 2026-08-13) — a configurable credit currency ("gems"), earning rules, an append-only loyalty ledger with holds, rewards, tiers with auto-qualification, and a member-facing portal. §16 pins the surfaces (**every till + webstore + both portals**) and the rule that **earning is computed at ingest, never on a till**; §17 is the gap analysis against what is already live and the four-phase sizing (~45–55d). ⚠⚠ **NOT STARTED — nothing in it is implemented** (verified against the code 2026-08-17: every one of its own types returns zero references, and `IngestSaleRequest` still carries no `CustomerId`, so no sale can be earned against). ✅ Its decision 1 (discount vs tender) was **settled 2026-08-14 — a discount** — so it is no longer gated; ⚠ but **9 of its 21 decisions are still open or merely proposed**, including refund symmetry, which is a cash-out exploit if got wrong. ⚠ Retrofit step 27 is the **parity** slice this builds on, not this programme. |
 | [NatApp data translation agent and scripts.md](To%20do/NatApp%20data%20translation%20agent%20and%20scripts.md) | **The data migration — now a RUNBOOK as much as a plan, and it has been EXECUTED TWICE.** The bridge run (top-up, 2026-08-17, §7) and the **full replace** from the 19_08 backup (2026-08-20, §8, which carries the no-questions rerun script `~/PLUTUS/natapp-replace.sh` on the Mac). ⚠ **Which one to reach for:** a periodic top-up while the till still trades = the **bridge** (never touches what exists); a fresh backup that should *become* the truth = the **replace**. ⚠ **It stays in `To do/` because the one that matters has not happened**: the cutover run, a replace taken after the physical till's last sale. Meets the retrofit at **item identity** ([`MAUI-retrofit.md`](archive/MAUI-retrofit.md) §16) — the barcode is the invariant, not the GUID. |
 

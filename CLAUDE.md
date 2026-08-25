@@ -51,7 +51,7 @@ cheap path, not the disciplined one.
 |---|---|
 | Add or change a till capability | Fill its Part B row for **every** till, same commit — see D3 |
 | Ship a feature to one till only | Give the others a ⬜ **with a WP number and a reason**; add the WP if none covers it |
-| Work on the MAUI till at all | The retrofit is **finished and archived** (2026-08-23). Everything that still binds a build moved into `till-design.md` **Part E** — Matt's rulings, the binding defaults, the pitfalls, the VAT settlement. What is left to PROVE is [`Build/MAUI_finaltest.md`](Build/MAUI_finaltest.md) |
+| Work on the MAUI till at all | The retrofit is **finished and archived** (2026-08-23). Everything that still binds a build moved into `till-design.md` **Part E** — Matt's rulings, the binding defaults, the pitfalls, the VAT settlement. What is left to PROVE is [`Build/Test Maui.md`](Build/Test%20Maui.md) |
 | Write a rule that could live in more than one place | Put it in `Plutus.SharedKernel`; add a row to C1 |
 | Find yourself copying logic between TypeScript and .NET | Add a row to C2 saying what pins the copies — or state honestly that nothing does |
 | Add a new till surface or platform | Follow D2, then add its column to Part B |
@@ -63,10 +63,11 @@ cheap path, not the disciplined one.
 
 | Document | For |
 |---|---|
-| [`HANDOVER.md`](HANDOVER.md) | **Next session only — one day long** (Matt, 2026-08-17). Start here for *what to do now*. ⚠ The **rulings and binding defaults** are `till-design.md` **Part E** (they moved there when the retrofit was archived, 2026-08-23); deploy state is `Build/repo-runbook.md`. Do not let the handover grow back into a history. |
+| [`HANDOVER.md`](HANDOVER.md) | **Next session only — one day long** (Matt, 2026-08-17), and **EMPTY between sessions** (Matt, 2026-08-25). ⚠ Do not treat an empty handover as missing information — it is empty *so that nothing stale is read as current*. Standing state lives in the documents below. |
+| [`Build/Platform Gaps.md`](Build/Platform%20Gaps.md) | ⚠⚠ **WHAT IS MISSING, BLOCKED OR SWITCHED OFF** — the counterpart to the runbook, which says how things *work*. Read before promising anything is done, and **check a row's date against the code before scheduling work against it**. |
 | [`Build/repo-runbook.md`](Build/repo-runbook.md) | Build, test, migrate, deploy — and the codebase pitfalls that have each cost a session. Read before writing code. |
 | [`Build/plutus-platform-architecture.md`](Build/plutus-platform-architecture.md) | **Wins on any design conflict** with a plan. |
 | [`Build/till-design.md`](Build/till-design.md) | Tills — see above. **A0** = functional parity at a glance; **B** = the capability register; **C** = the money rules and what stops them drifting. |
-| [`Build/MAUI_finaltest.md`](Build/MAUI_finaltest.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT, since 2026-08-23.** The retrofit is built — what is left is a hand-run. This page says **what is unproven and why**; [`Build/Test Maui.md`](Build/Test%20Maui.md) says **what to click**. ⚠ `MAUI-retrofit.md` is **archived**; its rulings, binding defaults, pitfalls and VAT settlement are `till-design.md` **Part E**. **Do not start a new MAUI plan** — five became one, one became none, and a sixth is how that unwinds. |
+| [`Build/Test Maui.md`](Build/Test%20Maui.md) | ⚠⚠ **THE ONE LIVE MAUI DOCUMENT.** The retrofit is built; what is left is a hand-run. It carries **all three** halves since the 2026-08-25 merge: the build state and the two 🟠 up front, the §A–§G script to click through, and the record of what past hand-runs found at the end. ⚠ `MAUI_finaltest.md` was merged into it and **deleted** — do not recreate it. ⚠ `MAUI-retrofit.md` is **archived**; its rulings, binding defaults, pitfalls and VAT settlement are `till-design.md` **Part E**. **Do not start a new MAUI plan** — five became one, one became none, and a sixth is how that unwinds. |
 | [`Build/table-standard.md`](Build/table-standard.md) | Every data table in all three surfaces. |
 | [`Build/index.md`](Build/index.md) | What every other document is for, and which are archived. |

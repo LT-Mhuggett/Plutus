@@ -4,8 +4,10 @@ Standing conventions for working on Plutus: how to build, test, migrate and depl
 codebase pitfalls that have each cost a session at least once. Extracted from
 `operator-portal-plan.md` §0 when that plan was archived, because it outlived the plan.
 
-**Companions:** [`HANDOVER.md`](../HANDOVER.md) is the living state of the project (what's live,
-what's open, rollback tags). [`plutus-platform-architecture.md`](plutus-platform-architecture.md)
+**Companions:** [`Platform Gaps.md`](Platform%20Gaps.md) is **what is missing, blocked or switched
+off** — this page is how things *work*, that page is what is not there yet.
+[`HANDOVER.md`](../HANDOVER.md) is **one day long** and is empty between sessions by design.
+[`plutus-platform-architecture.md`](plutus-platform-architecture.md)
 wins on any design conflict. [`table-standard.md`](table-standard.md) governs every data table.
 **[`till-design.md`](till-design.md) is the single source of truth for every till build** — read it
 before any till work and update it in the same commit; **its C2 (the drift register) before writing
@@ -30,8 +32,11 @@ DOTNET="/c/Program Files/dotnet/dotnet.exe"
 "$DOTNET" test tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj -c Debug --nologo
 ```
 
-The current green baseline is recorded at the top of `HANDOVER.md` (Unit 333 · Architecture 6 ·
-Integration 63 as at 2026-07-31). Keep it green — take the number from HANDOVER, not from here.
+**Green baseline, verified 2026-08-25:** Unit **1736** · Architecture **56** · Integration **241**.
+Web till (vitest, on the Mac): **28 files / 420 tests**. Keep them green.
+
+⚠ These numbers only ever go up, so a count BELOW one of these means tests were lost, not that the
+suite shrank — check before assuming your branch is fine.
 
 ⚠ `Plutus.Entities.Tests` and `Plutus.Repository.Tests` (the two legacy projects) fail without a
 live MySQL. That is pre-existing, not a regression.
@@ -75,7 +80,9 @@ is not a test), and pruning only after a verified-good dump. Source in `ops/mac/
 1. **The completion sentinel.** `gzip -dc <dump> | tail -3 | grep -c "Dump completed on"` must be
    **1**. mysqldump writes that line only on a clean finish, so it is the one cheap test for a dump
    **truncated mid-table** — which still gzips fine, still passes `gzip -t`, and still sails past the
-   1 MB floor. The nightly script does not check this yet.
+   1 MB floor. ✅ **The nightly script now enforces this** (2026-08-25) for **both** databases, and
+   promotes nothing without it — mutation-checked: a dump truncated to 80% (7.79 MB, passing both
+   `gzip -t` and the floor) is correctly rejected.
 2. **Restore-verify, don't eyeball.** Restore into `plutus_t1` (that is what it is for; nothing
    references it — 0 hits in the ecosystem config) and diff **exact** row counts per table:
    ```bash
@@ -343,8 +350,8 @@ A real version hardcoded there wins over the build property — which is how eve
 ⚠ **MSBuild caches the evaluated version.** Bumping `versions/till-maui.txt` and re-publishing can
 still emit the previous package name; delete `bin/Release` + `obj/Release` for a version bump.
 
-Signing the MSIX properly (a cert in the store + `PackageCertificateThumbprint`) is open work — it
-is needed before anyone installs this on a shop PC, and is not needed to test.
+⚠ The MSIX is **unsigned**. That is fine for testing and not fine for a shop PC — see
+[`Platform Gaps.md`](Platform%20Gaps.md) §4.
 
 ## Hard rules
 
@@ -356,48 +363,17 @@ is needed before anyone installs this on a shop PC, and is not needed to test.
   looks like ETRIE is broken — I hit exactly that mid-deploy and stopped to investigate a healthy
   service. ⚠ Follow the redirect; do not "fix" it by treating 302 as success, because a 302 to
   somewhere else would then pass too.
-- **NEVER run `ops/keycloak/run-keycloak.sh`** — it recreates the container and wipes the enrolled
-  password/TOTP. Keycloak changes go via `kcadm.sh` inside the running container.
-  ⚠⚠ **ROOT CAUSE, established 2026-08-25: `plutus-keycloak` HAS NO VOLUME.** Its only mount is the
-  realm-import JSON, so the H2 database holding every operator account, group and TOTP secret lives
-  in the **container's writable layer**. `docker rm`, an image bump, or any re-import therefore
-  destroys operator login outright — and the committed `ops/keycloak/plutus-realm.json` is the
-  stripped 2026-07-29 state (**7 KB against 63 KB live**), so re-importing it does NOT bring the
-  accounts back. There is no undo.
-  ⚠ A verified backup now exists — `~/PLUTUS/backups/keycloak-20260825/` (also off-machine at
-  `D:\Backups\Plutus\2026-08-25\`). It holds the H2 file **and** a portable realm export carrying all
-  3 users incl. `matt` with `password`+`otp`. Proven by exporting from the copy offline in a
-  throwaway container (`Export finished successfully`), because a file-level copy of a *live* H2 is
-  not self-evidently consistent.
+- **Keycloak state lives in ONE place and it is not the repo.** The `plutus-keycloak` container holds
+  operator accounts, group membership and TOTP enrolments in an H2 database. `ops/keycloak/run-keycloak.sh`
+  creates, chowns (`1000:0` — Keycloak runs as uid 1000) and mounts the `plutus-keycloak-h2` volume;
+  everyday changes go via `kcadm.sh` inside the running container.
   ⚠ `kc.sh export` CANNOT run against the live container — H2 holds an exclusive file lock
-  (`Database may be already in use`). Copy the file out and export from the copy.
-
-  **THE FIX — volume `plutus-keycloak-h2`. Prepared and verified 2026-08-25; ONE STEP OUTSTANDING.**
-  - The volume exists, holds the current H2, and is owned **1000:0**. ⚠⚠ That ownership is not
-    optional: `/opt/keycloak/data/h2` does not exist in the image, so Docker creates the volume
-    **root-owned**, and Keycloak runs as uid 1000 — without the chown the container will not start.
-  - `ops/keycloak/run-keycloak.sh` now creates the volume, chowns it, and mounts it, so the script
-    that used to be a footgun is the mechanism. Synced to the Mac.
-  - ⚠ **STILL TO RUN, needs a human: `zsh ~/PLUTUS/bin/kc-move-to-volume.sh`.** Adding a volume
-    means recreating the container, so it stops the live IdP (~30s of no operator SSO). It renames
-    the old container to `plutus-keycloak.pre-volume` rather than removing it, so rollback is
-    instant. **Until it runs, H2 is still in the container layer and the gap is still open.**
-  - ⚠ **Then prove it**: `docker rm -f plutus-keycloak && zsh ops/keycloak/run-keycloak.sh`, and log
-    in as `matt` with the existing TOTP. A volume you have not tested losing the container is a
-    guess.
-  - ⚠ **A SECOND THING WOULD HAVE BEEN LOST, found while doing this**: the realm sets
-    `loginTheme: plutus`, and on the pre-2026-08-25 container those theme files sat in the
-    **writable layer with no mount at all** (`HostConfig.Binds` listed only the realm json). A naive
-    recreate would have silently unbranded the login page as well as wiping the accounts. Both
-    scripts now bind-mount `ops/keycloak/themes/plutus`; host and container copies were verified
-    byte-identical first.
-  - ⚠ `start-dev` + H2 remains dev-mode Keycloak. Moving to Postgres (already on that host for
-    other stacks) is the proper answer and a separate job — the volume closes the data-loss hole,
-    not that one.
-- ⚠ **`ops/keycloak/plutus-realm.json` has DRIFTED from the Mac's copy** (repo 8853 bytes vs Mac
-  7162 — different content, and the Mac's is the one bind-mounted and imported). Reconcile before
-  any re-import. ⚠ Do **not** reconcile by committing a real realm export: exports embed password
-  hashes and TOTP secrets and must never enter git. Account recovery comes from the backup.
+  (`Database may be already in use`). To export, copy the file out and export from the copy.
+  ⚠ The committed `plutus-realm.json` is a **seed**, not a backup: it carries no users. Account
+  recovery comes from `~/PLUTUS/backups/keycloak-*/realm-export/`. **Never commit a real realm
+  export** — they embed password hashes and TOTP secrets.
+  ⚠⚠ **Until the volume cutover has actually been run, recreating this container still destroys
+  operator login. See [`Platform Gaps.md`](Platform%20Gaps.md) §4 before touching it.**
 - Deploy only when the operator asks. Commit per work-package, with the `Co-Authored-By: Claude`
   trailer.
 

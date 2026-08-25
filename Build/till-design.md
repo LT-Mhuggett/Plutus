@@ -839,7 +839,7 @@ Every dialog on every till, no exceptions:
 | **1** | **A visible ✕, top-right.** | Backing out already worked on every dialog in this codebase — Escape/back always cancels, and tapping outside cancels on most. **What was missing was any way to KNOW that.** An exit nobody can see is not an exit |
 | **2** | **Escape / the back button always cancels.** | `AlertDialogBase.OnBackButtonPressed` — it once returned `true` unconditionally and swallowed both |
 | **3** | **Tapping outside cancels**, unless the dialog is deliberately modal (`interuptable: false`) — and if it is, rules 1 and 2 are the only exits, so they must work | A 40%-black scrim over a till with no way out is a dead counter |
-| **4** | ⚠⚠ **THE CALLER HANDLES "BACKED OUT" — and this is the money rule.** A cancelled dialog yields *no answer*, and the caller must treat that as "the operator changed their mind", never read a value out of it | ⚠⚠ **CORRECTED 2026-08-19 — THIS ROW SAID "returns null" AND THAT IS NOT WHAT THE CODE DOES.** `InputAlertHelper.ShowAsync` ends `return await popUp.PageClosedTask ?? new Dictionary<uint, string>();` — `await` binds tighter than `??`, so backing out yields an **EMPTY DICTIONARY**, and the method's own header comment says so. So **guard on `Count == 0` / a failed `TryGetValue`, never on `== null`**: a `== null` test never fires and is dead code. ⚠ The crash is real but it is not a `NullReferenceException` — reading an absent key throws `KeyNotFoundException`, and in an `async void` handler that still **kills the till**. ⚠⚠ **The worse case is where nothing throws at all**: a caller that reads the empty dictionary through `FirstOrDefault()` gets a zeroed struct and proceeds with a **silent zero** — on a cash movement or a price adjust that is a wrong number rather than a crash. See `MAUI_finaltest.md` §0.3b |
+| **4** | ⚠⚠ **THE CALLER HANDLES "BACKED OUT" — and this is the money rule.** A cancelled dialog yields *no answer*, and the caller must treat that as "the operator changed their mind", never read a value out of it | ⚠⚠ **CORRECTED 2026-08-19 — THIS ROW SAID "returns null" AND THAT IS NOT WHAT THE CODE DOES.** `InputAlertHelper.ShowAsync` ends `return await popUp.PageClosedTask ?? new Dictionary<uint, string>();` — `await` binds tighter than `??`, so backing out yields an **EMPTY DICTIONARY**, and the method's own header comment says so. So **guard on `Count == 0` / a failed `TryGetValue`, never on `== null`**: a `== null` test never fires and is dead code. ⚠ The crash is real but it is not a `NullReferenceException` — reading an absent key throws `KeyNotFoundException`, and in an `async void` handler that still **kills the till**. ⚠⚠ **The worse case is where nothing throws at all**: a caller that reads the empty dictionary through `FirstOrDefault()` gets a zeroed struct and proceeds with a **silent zero** — on a cash movement or a price adjust that is a wrong number rather than a crash. See `Test Maui.md` §0.3b |
 | **5** | **The ✕ is wired to CANCEL, not to the raw dismiss.** | Not cosmetic. On MAUI the two return *different things*: Cancel blanks the fields and returns a dictionary of nulls that every caller's `if (x != null)` guard already survives; the raw dismiss returns **null**, which is rule 4's crash. Wiring the ✕ to Cancel gives the operator a visible exit **without widening the reach of a bug that is still open** |
 
 ### Where it is implemented — one place per till, on purpose
@@ -889,7 +889,7 @@ writing a title label by hand, that is the smell.
     contract that silently excludes the ones nobody added. **If you add a surface, add its row here.**
 - ✅ **Rule 4 — CLOSED 2026-08-21. This contract is now 5/5 honoured on every reachable dialog.**
   ⚠⚠ **It was never "17 places", and that number outlived its own correction by two days.** The
-  2026-08-19 re-audit in `MAUI_finaltest.md` §0.3b already said so; this line, §0.3's table and §7's
+  2026-08-19 re-audit in `Test Maui.md` §0.3b already said so; this line, §0.3's table and §7's
   first row all kept the 17. **Re-enumerated by grep on 2026-08-21: 23 `LaunchInputAlertAsync` call
   sites, and every one an operator can open returns on `Count == 0` or a checked `TryGetValue`** —
   including all five named here (refund, gift-card sale, cash, the supervisor prompt, checkout).
@@ -1099,7 +1099,7 @@ grep -rn "window.print()" Plutus/Frontend/Plutus.Frontend.WebApp/src --include=*
 
 Matt ran the MAUI till against the web till and reported **nine** faults in one sitting. Every one had
 passed every automated check in this project. They are itemised as a work programme in
-[`MAUI_finaltest.md`](MAUI_finaltest.md) **§5c**; what belongs *here* is what they say about this
+[`Test Maui.md`](Test%20Maui.md) **§5c**; what belongs *here* is what they say about this
 document:
 
 - **🟡 meant less than it reads.** Reports, Loyalty, Settings and checkout were all 🟡 — *"built,
