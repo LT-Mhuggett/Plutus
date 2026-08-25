@@ -107,6 +107,14 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const [queued, setQueued] = useState(0);
   const [tillName, setTillName] = useState<string | null>(null);
+  /**
+   * ⚠ Is this browser enrolled as a till device? Held in state rather than read at render, because
+   * enrolling (Settings → Till device) has to make the "Not enrolled" pill disappear without a
+   * reload — the operator has just fixed the thing the pill is complaining about.
+   * ⚠ `getDeviceCredential` is guarded internally; reading localStorage can THROW, not merely
+   * return null, and this runs on every till boot.
+   */
+  const [enrolled, setEnrolled] = useState(() => getDeviceCredential() !== null);
   const [updateReady, setUpdateReady] = useState(false);
   const portalHref = portalUrl();
   const [pickNotes, setPickNotes] = useState<PickNotification[]>([]);
@@ -221,6 +229,12 @@ export default function App() {
     const pollNotes = () => void fetchPickNotifications().then(setPickNotes).catch(() => undefined);
     pollNotes();
     const notesTimer = window.setInterval(pollNotes, 60_000);
+    // ⚠ Re-read the enrolment on the same cadence so the "Not enrolled" pill clears by itself once
+    // somebody enrols in Settings → Till device, and appears if the credential is forgotten. It is a
+    // localStorage read, not a request — cheap, and it must not depend on the network, because a
+    // till that cannot reach Plutus is exactly when its identity matters most.
+    const pollEnrolment = () => setEnrolled(getDeviceCredential() !== null);
+    const enrolTimer = window.setInterval(pollEnrolment, 5_000);
     // ⚠⚠ W-P2 — RE-READ THE ROSTER, AND PUT A DISABLED OPERATOR OUT. Matt, 2026-08-11: *"If a user
     // is disabled, the user needs immediately logging out with an information message."* MAUI has
     // done this since till 1.41.0; the web till signed out only REACTIVELY (`handle401`), and login
@@ -267,6 +281,7 @@ export default function App() {
     return () => {
       offOutbox();
       window.clearInterval(notesTimer);
+      window.clearInterval(enrolTimer);
       window.clearInterval(annTimer);
       window.clearInterval(themeTimer);
       window.clearInterval(rosterTimer);
@@ -368,7 +383,25 @@ export default function App() {
             {queued} queued
           </span>
         )}
-        {tillName && <span className="till-name-badge" title="This till">{tillName}</span>}
+        {/* ⚠⚠ NOT ENROLLED SAYS SO, LOUDLY (Matt, 2026-08-25: *"If its not enrolled, it needs to say
+            it on the till screen so that its obvious… can it say 'Not enrolled' in an orange pill"*).
+            Before this the badge simply did not render, so an un-enrolled till looked identical to a
+            healthy one — right up until somebody tried to take money, because the device token is
+            what `postSale` and every cash event need. **Signing in and building a basket work fine
+            without a credential**, which is exactly what makes the silence dangerous: the till looks
+            ready and fails at the till point.
+            ⚠ It sits where the till NAME goes, because they are the same fact: this browser's
+            identity. A name means enrolled; the pill means there is no identity to show. */}
+        {tillName
+          ? <span className="till-name-badge" title="This till">{tillName}</span>
+          : !enrolled && (
+              <span
+                className="till-name-badge not-enrolled"
+                title="This browser is not enrolled as a till device. It can sign in and browse, but it cannot take money until it is enrolled — Settings → Till device."
+              >
+                Not enrolled
+              </span>
+            )}
         {/* Switch to the management portal. Only for operators who can actually use it, and it
             warns first when a basket would be abandoned by leaving. */}
         {portalHref && hasPortalAccess(sessionScopes()) && (

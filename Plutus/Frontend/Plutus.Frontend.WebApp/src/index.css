@@ -143,6 +143,23 @@ body {
   white-space: nowrap;
 }
 
+/* ⚠⚠ "Not enrolled" — the same slot as the till name, because they are the same fact: this
+ * browser's identity. Matt, 2026-08-25: *"If its not enrolled, it needs to say it on the till screen
+ * so that its obvious."*
+ *
+ * ⚠ ORANGE, not red. Red is for a REVOKED till (which must stop trading); amber is "you can look
+ * around but you cannot take money yet", which is recoverable in about thirty seconds from
+ * Settings → Till device. Using the same colour for both would make the recoverable one look
+ * catastrophic and the catastrophic one look ordinary.
+ *
+ * ⚠ Fixed literal colours rather than a token: this pill sits on the accent-coloured app bar in both
+ * themes, so it must contrast with THAT, not with the page background. */
+.till-name-badge.not-enrolled {
+  background: #f59e0b;
+  color: #1f2937;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15) inset;
+}
+
 /* jump to the management portal (sibling.ts) */
 .switch-app {
   font: inherit;
@@ -1081,6 +1098,94 @@ tr.return-line td {
   width: 1.2rem;
   height: 1.2rem;
 }
+
+/* ⚠⚠ A PRIMARY BUTTON INSIDE A SETTING ROW IS NOT FULL WIDTH. Matt, 2026-08-25, on Settings → Till
+ * device: *"can the text box saying 'Till name Unique across your tills — a duplicate is rejected.'
+ * be expanded more, the save name is very large!"*
+ *
+ * `button.primary` is `width: 100%` because its usual home is stacked at the bottom of a dialog. In
+ * a flex `.setting-row` that 100% becomes its flex basis, so the button claims the whole row and
+ * squeezes the `.grow` label into a narrow column — the description then wraps into a tall thin
+ * stack, which is exactly what the screenshot showed.
+ *
+ * ⚠ Scoped to `.setting-row >` so dialogs keep their full-width buttons. */
+.setting-row > button.primary {
+  width: auto;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 0.45rem 1.1rem;
+  white-space: nowrap;
+}
+
+/* ⚠ `min-width: 0` lets the label actually use the space it is given: a flex item defaults to
+ * `min-width: auto`, so a long unbroken description can refuse to shrink and push the row instead of
+ * wrapping inside it. */
+.setting-row > .grow {
+  min-width: 0;
+}
+
+/* The printer walkthrough (PrinterHelp.tsx) — a <details> so it costs nothing when closed. */
+.help-block {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0.8rem 0;
+  background: var(--surface);
+}
+
+.help-block > summary {
+  cursor: pointer;
+  font-weight: 600;
+  /* ⚠ The marker stays: a <details> with no disclosure triangle reads as a heading, and nobody
+   * clicks a heading. This is a help panel nobody would find twice. */
+}
+
+.help-block[open] > summary {
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.help-h {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.help-steps {
+  margin: 0.4rem 0;
+  padding-left: 1.3rem;
+  line-height: 1.55;
+}
+
+.help-steps > li { margin-bottom: 0.7rem; }
+
+/* ⚠ The address in step 4 is meant to be COPIED, so it gets its own line and a selectable box —
+ * an exact string match is easy to mistranscribe, and mistranscribing it is the fault. */
+.help-origin {
+  margin: 0.4rem 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  overflow-x: auto;
+  user-select: all;
+}
+
+.help-shot {
+  margin: 0.5rem 0 0;
+}
+
+/* ⚠ `max-width: 100%` and a height cap: these are screenshots of a desktop app dropped in by hand,
+ * so their dimensions are not under our control and one oversized file must not stretch the page. */
+.help-shot img {
+  display: block;
+  max-width: 100%;
+  max-height: 22rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.help-shot figcaption { margin-top: 0.25rem; }
 
 /* A pick-one row — a radio, its label, and an explanation under it.
  *

@@ -4,7 +4,7 @@ import { setSession, type Session } from "./session.ts";
 import { PlutusMark } from "./PlutusMark.tsx";
 import { sessionExpiresAt, signInOffline } from "./offlineLogin.ts";
 import { checkConnection, clockIsSuspect, toneFor, type ConnectionStatus } from "./connectionCheck.ts";
-import { portalUrl } from "./siteLinks.ts";
+import { portalUrl } from "./sibling.ts";
 
 interface Props {
   onLogin: (session: Session) => void;

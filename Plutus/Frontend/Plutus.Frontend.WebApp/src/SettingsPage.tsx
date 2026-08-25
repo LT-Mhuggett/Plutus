@@ -18,6 +18,7 @@ import {
   type AgentAccessState, type AgentStatus,
 } from "./hardware.ts";
 import { receiptToDocument } from "./till/receiptDoc.ts";
+import PrinterHelp from "./PrinterHelp.tsx";
 import { ask } from "./Ask.tsx";
 import { getSession } from "./session.ts";
 import Receipt, { ReceiptBody, type ReceiptData } from "./till/Receipt.tsx";
@@ -266,6 +267,12 @@ function HardwareSection({ canSettings }: { canSettings: boolean }) {
           {result && <p className="small">{result}</p>}
         </>
       )}
+
+      {/* ⚠ The walkthrough sits ABOVE the download and the driver links, because somebody whose
+          printer has stopped needs the diagnosis before the downloads — and step 4 (the agent's
+          allowed address) is the fault that presents as "no agent found". Collapsed by default so
+          it does not push the controls down for the people who do not need it. */}
+      <PrinterHelp />
 
       {/* Downloads — shown in every state: with no agent this is how you get one; with an
           agent, the driver links are still the fix for "my printer isn't in the list". */}
