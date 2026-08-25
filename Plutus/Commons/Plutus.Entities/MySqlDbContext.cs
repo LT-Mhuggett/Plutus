@@ -205,6 +205,25 @@ namespace Plutus.Entities
             typeof(Person), typeof(CheckoutItemChange),
             // Sales v2 (T1.3) — real TenantId columns; the loop reuses them (no shadow added).
             typeof(SaleV2), typeof(SaleLine), typeof(SaleTender), typeof(SaleAdjustment),
+            // ⚠⚠ ADDED 2026-08-25 BY AUDIT, AND BOTH WERE ALREADY BEING TREATED AS IF FILTERED.
+            // `TenancyInvariantTests` compares every entity carrying a TenantId against this list;
+            // these two carried one and were never added, so every query on them returned all
+            // tenants' rows.
+            //
+            // ⚠ The giveaway was the escape hatches: `LoyaltyTierBackfill` already calls
+            // `IgnoreQueryFilters()` with the comment *"cross-tenant maintenance pass, not a
+            // request"*, and `PlatformQuarantineController` does the same throughout — code written
+            // by somebody who believed the filter existed. Those calls were no-ops. They are real now.
+            //
+            // ⚠ `LoyaltyTier` was a live cross-tenant bug: `LoyaltyTiersController`'s duplicate-name
+            // check ran across ALL tenants, so one shop's tier name would have blocked another's —
+            // the same shape as the store-name conflict Matt hit on 2026-08-24.
+            //
+            // ⚠ `SaleQuarantine` was worse than a read leak: `WebstoresController` replays parked
+            // rows into a tenant's webstore pipeline, unfiltered, so it could have replayed ANOTHER
+            // tenant's quarantined sales. Platform surfaces keep their `IgnoreQueryFilters()`, and
+            // `PlatformHealthController` runs unscoped anyway, so nothing operator-side changes.
+            typeof(LoyaltyTier), typeof(SaleQuarantine),
             // RBAC (WP3.1) — real TenantId columns, per-tenant roles/assignments.
             typeof(RbacRole), typeof(RbacRoleGrant), typeof(RbacRoleAssignment),
             // Admin surface (WP3.2, WP11.1).

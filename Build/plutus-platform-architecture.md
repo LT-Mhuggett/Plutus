@@ -82,6 +82,43 @@ For SaaS scale, use the **pooled model: shared database, shared schema, `TenantI
 
 Why not schema-per-tenant or DB-per-tenant as default: at hundreds of tenants, migrations, connection pooling, and backup management become the dominant operational cost. Pooled + query filters + the pointer escape hatch is the standard SaaS trajectory.
 
+### 3.1 ⚠⚠ THE TENANCY INVARIANT — the rule, and what enforces it
+
+> **A `TenantId` column is not protection. The filter is.**
+>
+> **Every entity that carries a `TenantId` MUST be in `MySqlDbContext.TenantOwned`, or be listed as
+> a deliberate exception with a written reason.** There is no third state, and "the caller scopes it"
+> is not one — callers forget, and the forgetting is invisible.
+
+⚠ The row above this one says query filters *"enforce it on every query"*. On **2026-08-25 that was
+untrue in four different ways at once**, all found in a single evening, none caught by a test:
+
+| # | What happened | Why the usual reasoning missed it |
+|---|---|---|
+| 1 | An **impersonating operator saw every tenant.** `HttpTenantContext` checked platform-admin *before* `tid`, so a scoped impersonation resolved to `Guid.Empty` — which the filter reads as "all tenants". | Two controls each assumed the other held the line: `OperatorBoundaryMiddleware` deliberately stands aside once a `tid` is present, *because* it expects that `tid` to do the scoping. |
+| 2 | The **portal dashboard counted every tenant's tills.** `Device` carries a `TenantId` and was never added to `TenantOwned`. | Four of the five figures on that page were right, because their entities *are* filtered. One wrong number among four right ones reads as a data problem. |
+| 3 | A **non-Kapow user's login token came out holding `pos.sell` alone.** Login is anonymous, so the tenant fell back to Kapow, and the *filter itself* hid that user's role assignments from the query that decides their permissions. | The filter was working perfectly. It was applied in the one place where there is no tenant yet. |
+| 4 | **`LoyaltyTier` and `SaleQuarantine`** were queried across all tenants — a tier name in one shop blocked another's, and a webstore replay could have pulled another tenant's parked sales. | Both had `IgnoreQueryFilters()` escape hatches already written *by authors who assumed the filter existed*. The escape hatch was the evidence, and it read as reassurance. |
+
+**The four shapes to check for, because they are the ones that have actually happened:**
+
+1. **Unfiltered by omission** — has `TenantId`, not in `TenantOwned`. *(→ the invariant test catches this.)*
+2. **Unscoped context** — `TenantId` resolves to `Guid.Empty` when it should not. Platform-admin is
+   entitled to that; **an impersonating operator is not.**
+3. **Filtered where there is no tenant yet** — anything running before authentication (login,
+   enrolment, password reset, signup) or outside a request (a hosted service, a backfill) must use
+   `IgnoreQueryFilters()` and key on something globally unique.
+4. **Filter present, caller bypasses it** — an `IgnoreQueryFilters()` that is not a platform surface.
+
+**What enforces it:** [`tests/Plutus.Tests.Unit/TenancyInvariantTests.cs`](../tests/Plutus.Tests.Unit/TenancyInvariantTests.cs)
+interrogates **EF's own model** — not the source, not the database, because only the model knows the
+table, the shadow properties and the query filter together. It fails on any entity with a `TenantId`
+and no filter, and its exemption list demands a reason per entry. Guessing at the mapping between CLR
+names and table names is precisely how `Device` was missed for months.
+
+⚠ **The exemption list is the design record.** Adding a name to it is a decision to hand-scope that
+entity at every call site for ever. If you cannot write why, it belongs in `TenantOwned` instead.
+
 ---
 
 ## 4. Sale ingestion — the one pipeline

@@ -88,3 +88,16 @@ parity review.
 | **`origin` cannot be pushed to** | A **151 MB** zip in old history exceeds GitHub's 100 MB limit, and fixing it means rewriting history `origin` already has. **`upstream` is the off-machine copy** and is current. |
 | **`dotnet build` of the whole `Plutus.slnx` reports 6 errors** | They are the **box, not the code**: no Android SDK and no .NET Framework 4.7.2 targeting pack on this Windows machine. Build the projects you need. |
 | **No node on the Windows dev box** | Matt's preference. Every TypeScript gate (`tsc`, `eslint`, `vitest`) therefore runs **on the Mac** — see `repo-runbook.md`. Not a gap to close, a constraint to work with. |
+
+## 7. Tenancy — the audit of 2026-08-25, and what it left open
+
+The full audit is in `plutus-platform-architecture.md` **§3.1**; the mechanism is
+`TenancyInvariantTests`, which fails on any entity carrying a `TenantId` without a query filter.
+These are the rows it left open.
+
+| What | State |
+|---|---|
+| ⚠ **`MemberNoCounter` — UNTRIAGED** | A per-tenant counter for member numbers, with **no query filter**. If it is read unfiltered, two tenants could advance or collide on one counter — and member numbers are supposed to be unique per tenant, with a check character that assumes it. ⚠ The audit found **no `_db.MemberNoCounters` call site**, so it is reached some other way (raw SQL, or a differently-named set) and needs eyes on it. Exempted in the test **only to record it honestly**, not because it is safe. |
+| ⚠ **`TenantSendingIdentity` — UNTRIAGED** | Per-tenant email sending identities, no filter. Plausibly operator-managed like the other `Tenant*` rows, but nobody has checked. Same caveat as above. |
+| **`Device` — hand-scoped, by necessity** | See §5. The device-auth paths look a device up with no tenant context, so a bare filter would stop every non-Kapow till getting a token. The proper fix is the filter **plus** `IgnoreQueryFilters()` on each auth path, verified with the device-token probe. |
+| ⚠ **The integration suite is flaky under parallelism** | Observed twice on 2026-08-25: one run failed `ImpersonationE2eTests`, the next failed four unrelated `E2eTests`, the next passed **241/241**. The failures are `EnsureCreated()` during host start-up, i.e. fixture contention, not logic. **This matters more than it looks:** a suite you re-run until it goes green is a suite where a real failure gets waved through — which is exactly how the three tenancy bugs above survived. |

@@ -52,6 +52,7 @@ cheap path, not the disciplined one.
 | Add or change a till capability | Fill its Part B row for **every** till, same commit — see D3 |
 | Ship a feature to one till only | Give the others a ⬜ **with a WP number and a reason**; add the WP if none covers it |
 | Work on the MAUI till at all | The retrofit is **finished and archived** (2026-08-23). Everything that still binds a build moved into `till-design.md` **Part E** — Matt's rulings, the binding defaults, the pitfalls, the VAT settlement. What is left to PROVE is [`Build/Test Maui.md`](Build/Test%20Maui.md) |
+| **Add an entity, or query one that has a `TenantId`** | ⚠⚠ **Read `plutus-platform-architecture.md` §3.1 — the tenancy invariant.** A `TenantId` column is **not** protection; the filter is. Put it in `MySqlDbContext.TenantOwned`, or add a reason to the exemption list in `TenancyInvariantTests`. ⚠ And if your code runs **before authentication** (login, enrolment, reset, signup) or **outside a request** (hosted service, backfill), it needs `IgnoreQueryFilters()` — the filter is what broke a whole tenant's login on 2026-08-25 |
 | Write a rule that could live in more than one place | Put it in `Plutus.SharedKernel`; add a row to C1 |
 | Find yourself copying logic between TypeScript and .NET | Add a row to C2 saying what pins the copies — or state honestly that nothing does |
 | Add a new till surface or platform | Follow D2, then add its column to Part B |
