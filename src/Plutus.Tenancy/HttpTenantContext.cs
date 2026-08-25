@@ -36,9 +36,26 @@ namespace Plutus.Tenancy
         {
             get
             {
-                if (IsPlatformAdmin) return Guid.Empty; // unscoped: query filter shows all tenants
+                // ⚠⚠ `tid` WINS OVER PLATFORM-ADMIN, AND THE ORDER OF THESE TWO LINES IS THE FIX.
+                // Matt, 2026-08-25: *"I logged into the 'New store' and I could see Kapow data, e.g.
+                // number of tills."* He had impersonated the new tenant, and this returned
+                // `Guid.Empty` anyway because the platform-admin check came first — which the query
+                // filter reads as "show every tenant". So impersonation, whose entire purpose is to
+                // NARROW an operator to one shop, was removing scoping altogether.
+                //
+                // ⚠⚠ AND THE BOUNDARY MIDDLEWARE CANNOT CATCH IT, BY CONSTRUCTION.
+                // `OperatorBoundaryMiddleware` 403s a platform-admin from tenant data only while
+                // they carry NO `tid` and are NOT impersonating. Impersonating stamps a `tid`, so
+                // the middleware deliberately steps aside — it is explicitly relying on this
+                // property to do the scoping from that point on. Two controls, each assuming the
+                // other holds the line.
+                //
+                // ⚠ A PLAIN platform-admin (no `tid`) is still unscoped, and must be: provisioning
+                // has to write across tenants and the operator console lists all of them.
                 var tid = User?.FindFirst("tid")?.Value;
-                return Guid.TryParse(tid, out var id) ? id : WellKnownTenants.Kapow;
+                if (Guid.TryParse(tid, out var id)) return id;
+                if (IsPlatformAdmin) return Guid.Empty; // unscoped: query filter shows all tenants
+                return WellKnownTenants.Kapow;
             }
         }
 

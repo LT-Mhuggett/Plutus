@@ -94,13 +94,47 @@ public class LoginTenantClaimTests
         var plain = ContextFor(new Claim("scope", PlutusPolicies.PlatformAdmin));
         Assert.True(plain.IsPlatformAdmin);
         Assert.Equal(Guid.Empty, plain.TenantId);
+    }
 
-        // ⚠ CURRENT BEHAVIOUR, pinned so a change is deliberate: platform-admin wins over tid, so an
-        // impersonation token is unscoped here and the boundary middleware is what confines it.
-        var impersonating = ContextFor(
+    /// <summary>
+    /// ⚠⚠ THE CROSS-TENANT LEAK, 2026-08-25. Matt: *"I logged into the 'New store' and I could see
+    /// Kapow data, e.g. number of tills."*
+    ///
+    /// ⚠⚠ AND THIS TEST USED TO ASSERT THE BUG. Its name said *"unless it is impersonating"* while
+    /// its body asserted `Guid.Empty` for the impersonating case and called it "CURRENT BEHAVIOUR,
+    /// pinned so a change is deliberate" — so the suite was green, the name described the intent,
+    /// and the assertion held the fault in place. **A test whose name and assertion disagree is
+    /// worse than no test: it reads as coverage.**
+    ///
+    /// The mechanism: `OperatorBoundaryMiddleware` 403s a platform-admin from tenant data only while
+    /// they carry no `tid` and are not impersonating. Impersonation stamps a `tid`, so the middleware
+    /// steps aside and relies on this property to scope them — and it returned `Guid.Empty`, which
+    /// the query filter reads as *every tenant*.
+    /// </summary>
+    [Fact]
+    public void An_impersonating_operator_is_scoped_to_the_tenant_they_are_impersonating()
+    {
+        var theShop = Guid.Parse("01a0343b-e88d-7c00-ba8b-ee0e231c6616"); // Test Business, the real one
+        var ctx = ContextFor(
             new Claim("scope", PlutusPolicies.PlatformAdmin),
-            new Claim("tid", Guid.NewGuid().ToString()));
-        Assert.Equal(Guid.Empty, impersonating.TenantId);
+            new Claim("tid", theShop.ToString()));
+
+        Assert.Equal(theShop, ctx.TenantId);
+
+        // ⚠ The property that was actually violated, stated on its own: an unscoped context is what
+        // the global query filter treats as "show all tenants", so this must NEVER be Empty while a
+        // tenant is being impersonated.
+        Assert.NotEqual(Guid.Empty, ctx.TenantId);
+        Assert.NotEqual(WellKnownTenants.Kapow, ctx.TenantId);
+    }
+
+    /// <summary>⚠ The other half must still hold, or provisioning and the operator console break:
+    /// a platform-admin with NO tenant claim stays unscoped deliberately.</summary>
+    [Fact]
+    public void A_plain_platform_admin_is_still_unscoped_so_provisioning_works()
+    {
+        var ctx = ContextFor(new Claim("scope", PlutusPolicies.PlatformAdmin));
+        Assert.Equal(Guid.Empty, ctx.TenantId);
     }
 
     /// <summary>⚠ A malformed `tid` must not be read as "no tenant, use the default" silently —

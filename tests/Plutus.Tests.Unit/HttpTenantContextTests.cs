@@ -40,12 +40,34 @@ public class HttpTenantContextTests
         Assert.False(ctx.IsPlatformAdmin);
     }
 
+    /// <summary>
+    /// ⚠ A platform-admin with NO tenant claim is unscoped, and must stay so: provisioning writes
+    /// across tenants and the operator console lists all of them.
+    /// </summary>
     [Fact]
     public void Platform_admin_scope_is_unscoped()
     {
-        var ctx = ContextWith(new Claim("scope", "platform-admin"), new Claim("tid", Guid.NewGuid().ToString()));
+        var ctx = ContextWith(new Claim("scope", "platform-admin"));
         Assert.True(ctx.IsPlatformAdmin);
         Assert.Equal(Guid.Empty, ctx.TenantId); // sees all tenants via the query filter's Guid.Empty branch
+    }
+
+    /// <summary>
+    /// ⚠⚠ THIS TEST USED TO BE THE ONE ABOVE, WITH A `tid` PASSED IN AND `Guid.Empty` ASSERTED — so
+    /// it pinned the 2026-08-25 cross-tenant leak in a SECOND place, under a name that sounded
+    /// right. Matt: *"I logged into the 'New store' and I could see Kapow data, e.g. number of
+    /// tills."* Impersonation stamps a `tid` and `OperatorBoundaryMiddleware` steps aside on the
+    /// strength of it; if this property then answers `Guid.Empty`, the global query filter shows
+    /// **every tenant** to an operator who asked to see one shop.
+    /// </summary>
+    [Fact]
+    public void Platform_admin_IMPERSONATING_is_scoped_to_that_tenant()
+    {
+        var shop = Guid.NewGuid();
+        var ctx = ContextWith(new Claim("scope", "platform-admin"), new Claim("tid", shop.ToString()));
+        Assert.True(ctx.IsPlatformAdmin);         // still an operator…
+        Assert.Equal(shop, ctx.TenantId);         // …but confined to the shop they are acting as
+        Assert.NotEqual(Guid.Empty, ctx.TenantId); // the property that was violated
     }
 
     [Fact]
