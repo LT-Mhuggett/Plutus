@@ -55,8 +55,7 @@ parity review.
 | What | State | Fix |
 |---|---|---|
 | ⚠⚠ **Every discount rule is inert** | **Verified 2026-08-25:** all 6 rows in `Discounts` have `AutoApply = 0` and `DaysOfWeekMask = NULL`. The scheduled/automatic discount engine is live on both tills and **applying nothing** — correctly, because nothing is configured. | Portal → Prices → Discounts → e.g. **Warhammer Wednesday Discount** (id 5, already 15%, already targets a category) → Edit → tick *Apply it automatically*, tick *Wed*, Save. This is `Test Maui.md` **§G65b**. |
-| **Test Business counts toward MRR** | Flagged `sandbox = 0`, so a tenant created for testing is counted as a paying subscriber and inflates the revenue figure. | Portal → the subscriber detail → the sandbox toggle. |
-| **Test Business store 5 has no name** | `Stores` id 5 shows `(no name)` at address "Main" — the placeholder provisioning made before it named the first store after the business (fixed 2026-08-24, new tenants only). Store 6 "Test Store" is the real one. | Name it in the portal, or delete it. |
+| ~~Test Business counts toward MRR~~ · ~~store 5 has no name~~ | ✅ **Moot 2026-08-25 — both tenants deleted.** Test Business and Demo Store were removed after the provisioning fix, so they can be recreated complete rather than repaired. Verified: Kapow untouched (only `TenantRequestStats` moved, +14, live request telemetry) and its money identical to the penny — 21,952 sales / £565,005.78. | — |
 
 ## 4. Infrastructure
 
@@ -101,3 +100,34 @@ These are the rows it left open.
 | ⚠ **`TenantSendingIdentity` — UNTRIAGED** | Per-tenant email sending identities, no filter. Plausibly operator-managed like the other `Tenant*` rows, but nobody has checked. Same caveat as above. |
 | **`Device` — hand-scoped, by necessity** | See §5. The device-auth paths look a device up with no tenant context, so a bare filter would stop every non-Kapow till getting a token. The proper fix is the filter **plus** `IgnoreQueryFilters()` on each auth path, verified with the device-token probe. |
 | ✅ **The integration suite — FIXED 2026-08-25** | ⚠ Recorded twice with the wrong cause before it was fixed: first *"flaky under parallelism"* (parallelism was already disabled on 2026-08-11), then correctly as the DPA seeder race. **Both faults are now gone.** (1) `DpaSeedHostedService` started alongside schema creation, lost the race and retried 10× at 3s; it now runs inside `EnsureSchemaThenSeed` **after** the schema exists — no retry, nothing outliving its host. (2) Two VAT test classes blind-inserted rate points that a provisioned tenant is now born with, colliding on `UNIQUE (TenantId, Band, EffectiveFromUtc)`; both now upsert, keeping their assertions exact. **Five consecutive full runs at 241/241**, and zero `no such table: DpaDocuments` in three of them. |
+
+## 8. The tenant hard-delete leaves orphans
+
+⚠ Found 2026-08-25 while deleting Test Business and Demo Store.
+
+`TenantLifecycleService.HardDeleteTenantAsync` discovers its tables from `information_schema` — every
+table carrying a `TenantId` column — which is a good, self-maintaining design and needs no list to go
+stale. **But three tables belong to a tenant WITHOUT carrying a `TenantId`, so the sweep walks
+straight past them:**
+
+| Table | Why it is missed | Left behind |
+|---|---|---|
+| `Employees` | The **TPT child** of `People`. The parent carries the `TenantId`, the child does not — the same inheritance detail that made `Employee` a false positive in `TenancyInvariantTests`. | one row per employee |
+| `WebCredentials` | Keyed on `EmployeeId`, no `TenantId` of its own. ⚠ **An orphaned login keeps its email claimed**, so that address cannot be reused by a future tenant. | one row per login |
+| `Role` | References `Business`, no `TenantId`. **0 rows today**, so harmless — but it is the same hole. |  — |
+
+⚠ **The live database is clean**: the deletion run on 2026-08-25 removed all three explicitly, by
+join, before the `information_schema` sweep. Verified afterwards — 0 employees and 0 web-credentials
+without a parent, other than a pre-existing one (below).
+
+⚠⚠ **The SERVICE is still wrong.** The next tenant deleted through the proper path — portal →
+deletion request → `RetentionSweeper` → `HardDeleteTenantAsync` — **will** leave the orphans behind,
+and nothing will say so.
+
+**The fix:** delete those three by join before the sweep, exactly as the manual run did. ⚠ Do *not*
+"fix" it by giving `Employees` a `TenantId`: it is a TPT child, and the column belongs on the root.
+A test should assert that deleting a tenant leaves no row anywhere referencing it.
+
+⚠ **Pre-existing and unrelated:** `throwaway@test.local` is an orphaned `WebCredentials` + `Employees`
+pair that predates all of this — it had no tenant *before* the delete either. Litter from an old
+test; left alone rather than removed unasked.
