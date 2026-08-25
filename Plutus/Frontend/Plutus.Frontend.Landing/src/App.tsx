@@ -39,10 +39,15 @@ export default function App() {
           <a href="#pricing">Pricing</a>
         </nav>
         {/* ⚠⚠ LINKS, NEVER A LOGIN FORM (architecture §12c). Hidden rather than broken when the
-            URLs are not configured — see appUrls(). */}
+            URLs are not configured — see appUrls().
+            ⚠ Wording and order are Matt's, 2026-08-25: *"a 'Login' in the top right hand corner that
+            takes you to the 'Portal' login. This needs a 'Switch to till' option that takes you to
+            the till login."* So **Login is the rightmost and the primary** — it is what a shopkeeper
+            arriving at their own platform wants — and "Switch to till" sits beside it, matching the
+            till's own "Switch to portal" so the pair reads the same from either side. */}
         <div className="signin">
-          {till && <a className="btn ghost" href={till}>Sign in to your till</a>}
-          {portal && <a className="btn ghost" href={portal}>Manage my shop</a>}
+          {till && <a className="btn ghost" href={till}>Switch to till</a>}
+          {portal && <a className="btn primary" href={portal}>Login</a>}
         </div>
       </header>
 

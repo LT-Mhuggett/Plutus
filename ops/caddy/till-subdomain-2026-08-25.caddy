@@ -1,0 +1,70 @@
+# The till moves to its own subdomain; plutus.huggett.dscloud.me becomes the landing page.
+#
+# Matt, 2026-08-25: *"Can you make the plutus.huggett.dscloud.me default page the new landing page"*
+# and *"New till subdomain please."*
+#
+# ⚠⚠ APPLY IN TWO STEPS, NOT ONE. Step 1 adds the till's new home while the old one keeps working,
+# so there is never a moment with no till. Only once both tills are re-enrolled and trading on the
+# new host does step 2 hand the bare host over to the landing page. The full sequence, with the
+# re-enrolment and the verification, is in `Build/till-subdomain-cutover.md`.
+#
+# ⚠ DNS needs nothing: the Synology DDNS wildcard already resolves any depth
+# (`till.plutus.huggett.dscloud.me` → 94.6.166.54, verified 2026-08-25). Caddy will get its own
+# certificate on first request.
+#
+# ⚠ Never touch the ETRIE blocks in this file, and re-run the ETRIE health curl after every reload.
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 1 — ADD THIS. Nothing else changes; the till now answers on BOTH hosts.
+# ─────────────────────────────────────────────────────────────────────────────
+till.plutus.huggett.dscloud.me {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:5100
+	}
+
+	handle {
+		root * /srv/apps/PLUTUS/web/current
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/plutus-till-access.log
+		format console
+	}
+}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 2 — REPLACE the existing `plutus.huggett.dscloud.me { … }` block with this.
+#
+# ⚠ Only after both tills are trading on till.plutus…, because this is the moment the old URL
+#   stops being a till.
+# ⚠ `/api/*` STAYS. The landing page calls `/api/v1/signup`, `/signup/dpa` and `/signup/dpa/accept`;
+#   drop the proxy and the signup form fails on a page a stranger is looking at.
+# ⚠ The landing dist ships a TOMBSTONE `/sw.js` that unregisters the till's old service worker. It
+#   must be served as a real file — which `try_files` does, because the file exists. Do not "tidy"
+#   it away: without it the old worker survives, since the SPA fallback would answer 200 with HTML
+#   for a missing /sw.js and the browser would keep the worker it already has.
+# ─────────────────────────────────────────────────────────────────────────────
+plutus.huggett.dscloud.me {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:5100
+	}
+
+	handle {
+		root * /srv/apps/PLUTUS/landing/current
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output file /var/log/caddy/plutus-access.log
+		format console
+	}
+}

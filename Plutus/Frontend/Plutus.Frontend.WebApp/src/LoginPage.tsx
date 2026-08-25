@@ -4,12 +4,15 @@ import { setSession, type Session } from "./session.ts";
 import { PlutusMark } from "./PlutusMark.tsx";
 import { sessionExpiresAt, signInOffline } from "./offlineLogin.ts";
 import { checkConnection, clockIsSuspect, toneFor, type ConnectionStatus } from "./connectionCheck.ts";
+import { portalUrl } from "./siteLinks.ts";
 
 interface Props {
   onLogin: (session: Session) => void;
 }
 
 export default function LoginPage({ onLogin }: Props) {
+  // ⚠ Read once at render, not in state: it is a build-time constant, not something that changes.
+  const portal = portalUrl();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -165,6 +168,18 @@ export default function LoginPage({ onLogin }: Props) {
             </span>
           )}
         </button>
+
+        {/* ⚠ "Switch to portal" — the till and the portal are separate sites on separate hosts since
+            2026-08-25, so somebody who wants the back office has no way there from here otherwise.
+            ⚠ An `<a>`, not a button: it LEAVES this app, and a keyboard or middle-click user should
+            get the browser's own behaviour for that.
+            ⚠ Hidden when `VITE_PORTAL_URL` is unset. A dead link on a login screen is worse than no
+            link, because it is offered to somebody who is already stuck. */}
+        {portal && (
+          <p className="small centre">
+            <a className="linklike" href={portal}>Switch to portal</a>
+          </p>
+        )}
 
         <p className="muted small centre">Test environment</p>
       </form>
