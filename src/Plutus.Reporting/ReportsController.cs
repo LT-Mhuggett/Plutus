@@ -204,8 +204,30 @@ namespace Plutus.Reporting
                 .Select(r => new { r.BusinessDay, r.GrossPence })
                 .ToListAsync();
 
+            // ⚠⚠ SCOPED BY HAND, BECAUSE `Device` HAS NO GLOBAL QUERY FILTER. Matt, 2026-08-25:
+            // *"when I log into the portal as test business I still see 5 active tills … That looks
+            // like Kapow?"* It was: `Device` is **not** in `MySqlDbContext.TenantOwned`, so this
+            // count saw every tenant's devices and reported Kapow's five to a shop that owns none.
+            //
+            // ⚠ Every other figure on this dashboard was right, which is what made it convincing —
+            // `People`, `Stores`, `StockLocation` and `WebStoreDetails` ARE filtered, so users,
+            // stores, warehouses and webstores all read correctly for the tenant. One unfiltered
+            // table among four filtered ones looks like a data problem rather than a scoping one.
+            //
+            // ⚠⚠ WHY NOT JUST ADD `Device` TO `TenantOwned`: the device-auth paths look a device up
+            // by id with NO tenant context — `SalesIngestService`, `HeartbeatController`,
+            // `CashModule`, `EnrolmentService` — because the caller IS the device and is presenting a
+            // secret, not a tenant claim. A global filter would resolve those to the fallback tenant
+            // and stop any non-Kapow till from getting a token. `TillsController` already scopes
+            // Devices by hand for the same reason; this now matches it. The systemic fix is recorded
+            // in `Build/Platform Gaps.md`.
+            //
+            // ⚠ `Guid.Empty` means an unscoped platform-admin, who is entitled to the estate-wide
+            // figure — the same convention the query filter itself uses.
+            var tenantScope = _tenant.TenantId;
             var activeTills = await _db.Devices.AsNoTracking()
                 .Where(d => d.Status == DeviceStatus.Active)
+                .Where(d => tenantScope == Guid.Empty || d.TenantId == tenantScope)
                 .Select(d => d.TillId).Distinct().CountAsync();
 
             // ⚠ DRAWERS THAT DID NOT BALANCE, SURFACED WHERE SOMEBODY IS ALREADY LOOKING.
