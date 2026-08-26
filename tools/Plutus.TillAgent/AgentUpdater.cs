@@ -28,7 +28,7 @@ namespace Plutus.TillAgent
     /// running exe, so `PlutusTillAgentUpdater.exe` does the swap after this process exits.
     ///
     /// ⚠⚠ AND IT WILL NOT INSTALL AN UNVERIFIED BINARY. The agent exe is not code-signed yet
-    /// (Platform Gaps §4), so `latest.json` carries a SHA-256 and this refuses anything that does not
+    /// (Platform Gaps §9), so `latest.json` carries a SHA-256 and this refuses anything that does not
     /// match. **No hash in the manifest means no update** — a channel that executes whatever the
     /// server serves is a channel that installs whatever anybody who reaches the server serves.
     /// </summary>

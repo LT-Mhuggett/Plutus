@@ -29,6 +29,7 @@ Part B), how to prove a MAUI build works ([`Test Maui.md`](Test%20Maui.md)), and
 | **The landing domain** | Then: a Caddy vhost, drop the `noindex`, and set `VITE_TILL_URL` / `VITE_PORTAL_URL`. A temporary URL in a marketing page outlives every intention. | `WP-landing.md` §278 |
 | **Blocking vs nagging** | Whether an unsigned DPA / unpaid subscription blocks use or merely nags. | `plutus-platform-architecture.md` §12d |
 | ⚠ **Whether to rotate the MySQL password** | The backend printed it in plaintext to `~/.pm2/logs/plutus-backend-out.log` on **every boot** from at least 2026-08-12 until it was found and fixed on 2026-08-25 (`Redact.ConnectionString`, backend 1.34.1). The logs have been masked in place and no live copy remains on disk — but it was readable to anything with the admin user's file access for ~2 weeks, and it was surfaced in a session transcript on 2026-08-25. **Matt's call.** ⚠ If rotating: the `caching_sha2_password` trap — a rotation breaks every plain-TCP client, which is why the backend and the nightly backup both use the unix socket. Check `~/PLUTUS/secrets/mysql.env`, the pm2 ecosystem env, and anything else holding the credential before turning it. | `repo-runbook.md` |
+| ⚠⚠ **Which code-signing route** | Nothing we ship to Windows is signed, and since **2026-08-26** an unattended updater downloads and executes a binary on every till. **Two questions, in order: (1) is Leading Talent 3+ years old** — a two-minute check that decides everything, because Azure Trusted Signing (~£7/month, no key to look after) requires it; **(2) if not, £200/yr OV or £350/yr EV.** Until one is chosen the MSIX cannot be installed on a shop PC and the update channel can only verify a hash, not a publisher. | §9 |
 | **WP10 — an item editor on a till at all** | Arguably not a gap: MAUI has no full editor *deliberately*, because a till-created item reaches no report, no other till and no VAT return. Recorded as Matt's call rather than as work. | `till-design.md` Part B |
 
 ## 2. Needs a person at a screen — the largest remaining risk
@@ -44,6 +45,7 @@ parity review.
 | **Web till A0 rows never exercised by a person** | **21 🟡** | same |
 | **The two 🟠** — park/recall's retrieve is a toolbar item nobody finds; the portal theme paints only ONE screen | 2 | `Test Maui.md` §5c items 1 and 10 |
 | **Web till stock adjust** — built, gated and mutation-checked 2026-08-25, never used by a person | 1 🟡 | `till-design.md` A0 |
+| ⚠ **The agent auto-update, first real run** — built and hash-verified 2026-08-26, **never exercised end to end**. Watch one till take it before trusting both; `%LOCALAPPDATA%\PlutusTillAgent\update.log` records every decision. | 1 | §9 |
 | **The landing page** — nobody has looked at it | — | `http://10.1.1.40:5275` |
 
 *(Counts re-derived from `till-design.md` A0 with `awk` on 2026-08-25: MAUI 44 ✅ / 41 🟡 / 0 ⬜ / 3 ➖ / 2 🟠; web 68 ✅ / 21 🟡 / 0 ⬜ / 3 ➖. The old handover said "36 🟡" and was stale.)*
@@ -65,7 +67,7 @@ parity review.
 | **Keycloak is dev-mode H2** | Open work | `start-dev` with an embedded H2 file. Postgres is already running on that host for other stacks. The volume closes the data-loss hole; it does not make this a production IdP. |
 | **Keycloak's `plutus-webpos` client still names the OLD till host** | Latent — bites the day the web till uses OIDC | Its `rootUrl`, redirect URIs and web origins are all `https://plutus.huggett.dscloud.me`, which since 2026-08-25 is the landing page; the till is on `till.plutus…`. Nothing breaks today because **the web till runs in password mode** and never reaches Keycloak. The moment `VITE_AUTH_MODE=oidc` is used for the till, every redirect is rejected. Fix via `kcadm.sh` on the running container — and ⚠ the same edit must reach `ops/keycloak/plutus-realm.json`, which has *already* drifted (row below). |
 | **The committed realm JSON has drifted** | Open work | Repo `ops/keycloak/plutus-realm.json` is **8853 bytes**; the Mac's copy — the one actually bind-mounted and imported — is **7162**, and they differ in content. Reconcile before any re-import. ⚠ **Do not reconcile by committing a real realm export**: exports embed password hashes and TOTP secrets and must never enter git. Account recovery comes from the backup, not the repo. |
-| **MSIX signing** | Open work | A cert in the store plus `PackageCertificateThumbprint`. Needed before anyone installs the MAUI till on a shop PC; **not** needed to test it. |
+| ⚠⚠ **CODE SIGNING — nothing we ship is signed** | **Open work, and the stakes rose on 2026-08-26** | See §9 below. It stopped being only about install friction the moment the agent gained auto-update: there is now an unattended process on a shop PC that downloads a binary and executes it. |
 | ⚠ **The till still shares a host with the landing page** | **Cutover written and staged 2026-08-25, to run out of hours** | `plutus.huggett.dscloud.me` serves the till today and becomes the landing page; the till moves to `till.plutus.huggett.dscloud.me`. ⚠⚠ **It cannot be a single step**: the till is an installed PWA whose service worker is network-first and **re-caches whatever `/` returns as its offline shell**, so flipping `/` would make each till adopt the marketing page as the thing it shows when the network drops. Two-step sequence, re-enrolment of both web tills (new origin = new `localStorage`), and a tombstone `sw.js` are all in [`till-subdomain-cutover.md`](till-subdomain-cutover.md). ⚠ DNS needs nothing — the DDNS wildcard already resolves any depth, verified. |
 | **MAUI source runs ahead of every artefact** | By design, but it has cost a test run | Source **1.121.0**; newest artefact **1.120.0** (`D:\tmp\plutus-till-1.120.0\`). MAUI builds **only when Matt asks** (2026-08-16). ⚠ On 2026-08-20 a fault was reported for the second time while the fix sat in an undeployed bundle: **a fix that is built and not shipped is indistinguishable from a fix that was never made.** |
 
@@ -131,3 +133,65 @@ A test should assert that deleting a tenant leaves no row anywhere referencing i
 ⚠ **Pre-existing and unrelated:** `throwaway@test.local` is an orphaned `WebCredentials` + `Employees`
 pair that predates all of this — it had no tenant *before* the delete either. Litter from an old
 test; left alone rather than removed unasked.
+
+---
+
+## 9. Code signing — the decision, the options, and the order to do it in
+
+⚠ **Nothing Plutus ships to a Windows machine is signed.** That was install friction while the only
+consequence was a SmartScreen warning. It stopped being only that on **2026-08-26**, when the till
+agent gained auto-update: there is now an **unattended process on a shop PC that downloads a binary
+and executes it**.
+
+⚠ The hash gate in `AgentUpdater` is real protection and was built for exactly this reason — but be
+clear about what it proves. **A SHA-256 proves the file matches the manifest. A signature proves we
+built it.** If someone can serve the manifest, the hash agrees with them.
+
+### What has to be signed — three artefacts, and the middle one matters most
+
+| Artefact | Why |
+|---|---|
+| `PlutusTillAgent.exe` | Runs on every till PC, drives the printer and cash drawer |
+| ⚠⚠ `PlutusTillAgentUpdater.exe` | **The process whose entire job is replacing executables.** If one thing on this list gets signed, it is this |
+| The MAUI till's **MSIX** | Cannot be installed on a shop PC unsigned. Wire via `PackageCertificateThumbprint` |
+
+⚠ Doing all three **together, in the publish scripts**, is what makes it easy afterwards. Signing that
+lives in somebody's head is signing that gets skipped on the release where it matters.
+
+### The options, with the catch that decides it
+
+| Route | Cost | Notes |
+|---|---|---|
+| ⭐ **Azure Trusted Signing** | **~£7/month** | The modern answer. **No key to look after** — Microsoft holds it, which removes the mistake small businesses actually make (a `.pfx` sitting in a repo or on a dev box). Works from a publish script or CI. ⚠⚠ **Requires the organisation to be 3+ years old.** Check Leading Talent against that FIRST — it decides everything below |
+| **OV certificate** | ~£200/year | Key on a hardware token, so signing needs the token present — friction on every release. ⚠ SmartScreen reputation builds slowly, so early installs still warn |
+| **EV certificate** | ~£350/year | Instant SmartScreen reputation. HSM required. The route if Trusted Signing's age rule blocks us and warnings are unacceptable |
+| Self-signed | £0 | ⚠ **Dev only.** Requires installing our own root on every machine — which is a worse security posture than not signing, because it teaches people to trust a certificate we mailed them |
+
+### The order
+
+1. **Check the 3-year rule** against Leading Talent's incorporation date. Everything else follows from
+   the answer, and it is a two-minute check.
+2. **Get the certificate** — Trusted Signing needs org identity validation (Companies House details),
+   typically a few days.
+3. **Sign in the publish scripts**, not by hand: `tools/Plutus.TillAgent/publish-agent.ps1` for both
+   agent binaries, `PackageCertificateThumbprint` for the MSIX. ⚠ **Always timestamp** (`signtool
+   /tr`), or every signature expires with the certificate instead of outliving it.
+4. ⚠⚠ **Then upgrade the update gate from hash to signature.** `AgentUpdater` and
+   `Plutus.TillAgent.Updater` both verify SHA-256 today; once there is a publisher to check, verify
+   the **signature and the publisher name** as well. That is the step that makes the update channel
+   trustworthy rather than merely consistent — and it is small, on top of what is already there.
+5. **Then** the MSIX install path unblocks, which is what §4 was originally about.
+
+⚠ **Until step 4, treat the manifest as part of the trust boundary.** Anything that can write
+`/agent/latest.json` and `/agent/*.exe` on the till host can run code as the shop user on every till.
+Today that is the same box and the same admin account as everything else, so it adds no new exposure —
+but it is now a path worth knowing about, and it is the reason the hash check refuses outright when a
+manifest carries no hash at all.
+
+### ⚠ Also outstanding from the same change
+
+**The auto-update path has never run end to end.** It is built, hash-verified, and published as agent
+1.6.0 — but no real 1.4.0 or 1.5.0 agent has yet taken an update through it. **Watch one till do it
+before trusting both.** Every decision it makes is logged to
+`%LOCALAPPDATA%\PlutusTillAgent\update.log`, including the reasons it declines (busy, recently
+printed, no checksum, unwritable directory).

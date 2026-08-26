@@ -22,7 +22,7 @@ namespace Plutus.TillAgent.Updater
     /// ⚠ IT VERIFIES THE HASH BEFORE IT TOUCHES ANYTHING. The agent verifies it too, on download —
     /// this is the second check, and it is the one that matters, because between the download and
     /// this swap the file has been sitting in a world-writable temp directory. The agent's exe is
-    /// **not code-signed yet** (Platform Gaps §4), so this hash is the only thing standing between an
+    /// **not code-signed yet** (Platform Gaps §9), so this hash is the only thing standing between an
     /// update channel and running an arbitrary binary as the logged-in shop user.
     /// ⚠ No hash supplied = refuse. A missing hash must never mean "skip the check".
     ///

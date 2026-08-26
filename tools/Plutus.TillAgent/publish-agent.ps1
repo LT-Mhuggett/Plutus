@@ -63,7 +63,7 @@ Copy-Item $updaterSrc.FullName (Join-Path $OutDir $updaterName) -Force
 
 # ⚠⚠ THE CHECKSUMS ARE NOT OPTIONAL. The agent refuses to install anything whose SHA-256 does not
 # match the manifest, and refuses outright if the manifest carries none — because the exe is NOT
-# code-signed yet (Platform Gaps §4), so this hash is the only thing between the update channel and
+# code-signed yet (Platform Gaps §9), so this hash is the only thing between the update channel and
 # running an arbitrary binary as the shop user. A manifest without them is a manifest that disables
 # auto-update, which is the safe direction but not a silent one.
 $exeSha = (Get-FileHash (Join-Path $OutDir $exeName) -Algorithm SHA256).Hash
