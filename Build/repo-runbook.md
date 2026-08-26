@@ -32,8 +32,8 @@ DOTNET="/c/Program Files/dotnet/dotnet.exe"
 "$DOTNET" test tests/Plutus.Tests.Architecture/Plutus.Tests.Architecture.csproj -c Debug --nologo
 ```
 
-**Green baseline, verified 2026-08-25:** Unit **1736** · Architecture **56** · Integration **241**.
-Web till (vitest, on the Mac): **28 files / 420 tests**. Keep them green.
+**Green baseline, verified 2026-08-26:** Unit **1764** · Architecture **62** · Integration **241**.
+Web till (vitest, on the Mac): **31 files / 450 tests**. Keep them green.
 
 ⚠ These numbers only ever go up, so a count BELOW one of these means tests were lost, not that the
 suite shrank — check before assuming your branch is fine.
@@ -228,7 +228,9 @@ grep -rq "__APP_VERSION__\|__BUILD_TIME__" dist/assets/*.js && { echo "unsubstit
 Then: back up `current` → `current.pre-<tag>`, clear, `cp -r dist/. current/`, and re-check the
 same grep against the deployed bundle before declaring victory.
 
-⚠⚠ **THE WEB TILL'S `current/agent/` IS NOT IN THE BUILD OUTPUT, AND `rm -rf current/*` DELETES IT.**
+⚠ **FIXED 2026-08-26: the agent payload now lives in the app's `public/agent/`, so vite copies it into `dist` and a deploy CARRIES it.** The paragraph below is why, and stays as the reason the check is still worth doing.
+
+⚠⚠ **IT USED TO LIVE ONLY IN `current/agent/`, WHICH IS NOT BUILD OUTPUT, SO `rm -rf current/*` DELETED IT.**
 It holds `PlutusTillAgent-<ver>.exe` and `latest.json`, published separately by
 `tools/Plutus.TillAgent/publish-agent.ps1`. The **2026-08-21 deploy of till-web 1.31.0 removed it and
 nobody noticed for four days** — Settings → Hardware just said *"download unavailable — reload this
