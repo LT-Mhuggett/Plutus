@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Plutus Till Agent's updater — a separate process for one reason: Windows will not let a
+    running .exe be overwritten. Something has to outlive the agent long enough to swap the file and
+    start the new one, and that something cannot be the agent.
+
+    ⚠ DELIBERATELY TINY AND DEPENDENCY-FREE. It runs unattended on a shop PC, replaces an executable
+    and launches it. Every line it does not have is a line that cannot go wrong at 9am on a Saturday.
+    No WinForms, no HTTP, no JSON — the agent does the downloading and the verifying; this only
+    performs the swap it is told to.
+
+    ⚠ NOT self-contained, and not single-file. It sits BESIDE the agent, which already carries the
+    whole .NET runtime — so this can be a small framework-dependent binary that runs on the runtime
+    the agent unpacked... no: a single-file agent does not expose its runtime. So it IS self-contained,
+    for the same reason the agent is: a till PC has no .NET install and must not need one.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Plutus.TillAgent.Updater</RootNamespace>
+    <AssemblyName>PlutusTillAgentUpdater</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)../../versions/agent.txt').Trim())</Version>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+</Project>

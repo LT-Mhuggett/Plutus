@@ -55,6 +55,20 @@ namespace Plutus.TillAgent
         public string AllowedOrigin { get; set; } = "https://till.plutus.huggett.dscloud.me";
 
         /// <summary>
+        /// Update this agent from the till without somebody walking to the PC.
+        ///
+        /// ⚠⚠ DEFAULT ON, and the 2026-08-25 hostname move is the argument. The fix for it shipped
+        /// the same day and reached nobody: updating an agent meant exiting the tray app, downloading
+        /// 67 MB, replacing the file and running it — per till. Two tills, two visits, and printing
+        /// silently dead in between. An estate that cannot be updated is an estate that stays broken.
+        ///
+        /// ⚠ It is still safe to leave on, because <see cref="AgentUpdater"/> only ever acts when the
+        /// agent is idle and only ever installs a binary whose SHA-256 matches the manifest. A shop
+        /// that would rather control the timing can turn it off in Settings.
+        /// </summary>
+        public bool AutoUpdate { get; set; } = true;
+
+        /// <summary>
         /// Is this browser origin allowed to drive the hardware?
         ///
         /// ⚠ Exact match per entry, case-insensitive, trailing slashes ignored — an Origin header

@@ -44,10 +44,40 @@ $src = Get-ChildItem (Join-Path $PSScriptRoot "bin\Release") -Recurse -Filter Pl
     Where-Object { $_.FullName -like "*\publish\*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $src) { throw "published exe not found under bin\Release" }
 
+# ⚠⚠ THE UPDATER SHIPS WITH THE AGENT (2026-08-26). Windows will not let a running .exe be
+# overwritten, so a separate helper performs the swap after the agent exits. Publishing one without
+# the other gives an estate that can detect an update and not apply it.
+$updaterProj = Join-Path $PSScriptRoot "..\Plutus.TillAgent.Updater\Plutus.TillAgent.Updater.csproj"
+& $dotnet publish $updaterProj -c Release --nologo
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish (updater) failed" }
+
+$updaterSrc = Get-ChildItem (Join-Path $PSScriptRoot "..\Plutus.TillAgent.Updater\bin\Release") -Recurse -Filter PlutusTillAgentUpdater.exe |
+    Where-Object { $_.FullName -like "*\publish\*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $updaterSrc) { throw "published updater exe not found" }
+
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $exeName = "PlutusTillAgent-$version.exe"
+$updaterName = "PlutusTillAgentUpdater-$version.exe"
 Copy-Item $src.FullName (Join-Path $OutDir $exeName) -Force
+Copy-Item $updaterSrc.FullName (Join-Path $OutDir $updaterName) -Force
+
+# ⚠⚠ THE CHECKSUMS ARE NOT OPTIONAL. The agent refuses to install anything whose SHA-256 does not
+# match the manifest, and refuses outright if the manifest carries none — because the exe is NOT
+# code-signed yet (Platform Gaps §4), so this hash is the only thing between the update channel and
+# running an arbitrary binary as the shop user. A manifest without them is a manifest that disables
+# auto-update, which is the safe direction but not a silent one.
+$exeSha = (Get-FileHash (Join-Path $OutDir $exeName) -Algorithm SHA256).Hash
+$updaterSha = (Get-FileHash (Join-Path $OutDir $updaterName) -Algorithm SHA256).Hash
+
 Set-Content -Path (Join-Path $OutDir "latest.json") -Encoding utf8 -Value (
-    ConvertTo-Json ([ordered]@{ version = "$version"; file = $exeName })
+    ConvertTo-Json ([ordered]@{
+        version       = "$version"
+        file          = $exeName
+        sha256        = "$exeSha"
+        updater       = $updaterName
+        updaterSha256 = "$updaterSha"
+    })
 )
-"published $exeName ($('{0:N1}' -f ($src.Length / 1MB)) MB) + latest.json -> $OutDir"
+"published $exeName ($('{0:N1}' -f ($src.Length / 1MB)) MB)"
+"          $updaterName ($('{0:N1}' -f ($updaterSrc.Length / 1MB)) MB)"
+"          latest.json with both SHA-256s -> $OutDir"

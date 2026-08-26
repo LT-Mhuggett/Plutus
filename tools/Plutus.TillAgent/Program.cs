@@ -33,6 +33,9 @@ namespace Plutus.TillAgent
         public static readonly string AgentVersion =
             Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
 
+        /// <summary>The auto-updater, so the tray's "Check for updates now" can force a look.</summary>
+        public static AgentUpdater? Updater { get; private set; }
+
         public const int Port = 9123;
 
         [STAThread]
@@ -61,6 +64,17 @@ namespace Plutus.TillAgent
 
             var web = BuildWebHost(state);
             _ = web.RunAsync();   // Kestrel on the background; the message loop owns the foreground
+
+            // ⚠ This build has started, so the version it replaced is no longer needed as a rollback.
+            // Doing it HERE rather than in the updater is deliberate: the old exe survives until the
+            // new one has actually run, so a build that cannot start can be renamed back by hand.
+            AgentUpdater.CleanUpAfterUpdate();
+
+            // ⚠ Fire and forget, and never awaited: an update check must not be able to delay or
+            // prevent the agent serving the till. It waits ten minutes before its first look, then
+            // hourly, and only ever acts while the agent is idle — see AgentUpdater.
+            Updater = new AgentUpdater(state);
+            Updater.Start();
 
             ApplicationConfiguration.Initialize();
             using var tray = new TrayApp(state, web);
@@ -194,8 +208,23 @@ namespace Plutus.TillAgent
         /// NatApp proved against Kapow's TSP143.</summary>
         private bool UsePos => !string.IsNullOrWhiteSpace(Config.PosDeviceId);
 
+        /// <summary>
+        /// How many hardware operations are in flight right now.
+        ///
+        /// ⚠⚠ THIS EXISTS FOR THE AUTO-UPDATER (2026-08-26) AND NOTHING ELSE READS IT. An agent that
+        /// replaces its own executable while a receipt is halfway out of the printer is worse than an
+        /// agent a version behind: the customer is standing there and the money has already moved.
+        /// `AgentUpdater` refuses to hand over while this is non-zero.
+        ///
+        /// ⚠ `Interlocked`, because the print endpoints are served concurrently by Kestrel and this
+        /// is read from a background timer.
+        /// </summary>
+        public int PrintsInFlight => Volatile.Read(ref _printsInFlight);
+        private int _printsInFlight;
+
         public async Task<IResult> PrintAsync(PrintDocument doc)
         {
+            Interlocked.Increment(ref _printsInFlight);
             try
             {
                 if (!UsePos && string.IsNullOrWhiteSpace(Config.PrinterName))
@@ -238,10 +267,19 @@ namespace Plutus.TillAgent
             {
                 return Fail(ex.Message);
             }
+            finally
+            {
+                // ⚠ In a finally, so a printer that throws still releases the guard — otherwise one
+                // failed print would pin the agent as "busy" for ever and auto-update would never run.
+                Interlocked.Decrement(ref _printsInFlight);
+            }
         }
 
         public async Task<IResult> KickDrawerAsync()
         {
+            // ⚠ The drawer counts as hardware in flight too. Restarting the agent between the print
+            // and the kick leaves the cash drawer shut on a completed cash sale.
+            Interlocked.Increment(ref _printsInFlight);
             try
             {
                 if (UsePos || Emulation == EmulationResolver.Gdi)
@@ -264,6 +302,10 @@ namespace Plutus.TillAgent
             catch (Exception ex)
             {
                 return Fail(ex.Message);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _printsInFlight);
             }
         }
 

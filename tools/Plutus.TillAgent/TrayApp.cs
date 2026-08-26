@@ -196,6 +196,7 @@ namespace Plutus.TillAgent
         // honest place to say so, because the mechanism cannot be changed without making the agent a
         // service, and a tray app cannot be one.
         private readonly CheckBox _autoStart = new() { Text = "Start automatically when somebody logs in to this PC", AutoSize = true };
+        private readonly CheckBox _autoUpdate = new() { Text = "Update this agent automatically (only when the till is idle)", AutoSize = true };
         private readonly Label _status = new() { AutoSize = true, MaximumSize = new Size(360, 0) };
 
         public SettingsForm(AgentState state)
@@ -272,6 +273,27 @@ namespace Plutus.TillAgent
             _autoStart.Checked = TrayApp.AutoStartEnabled();
             Add(_autoStart);
 
+            // ⚠ Auto-update is ON by default and this is how a shop opts out. It only ever acts while
+            // the agent is idle and only ever installs a binary whose SHA-256 matches the manifest —
+            // see AgentUpdater — so the honest reason to turn it off is wanting to choose the moment,
+            // not distrust of the mechanism.
+            _autoUpdate.Checked = state.Config.AutoUpdate;
+            Add(_autoUpdate);
+
+            // ⚠ "Now" exists because the automatic path deliberately waits ten minutes after start-up
+            // and then an hour between looks. After a release somebody wants to pull it immediately,
+            // and without this the only way is to wait or restart the agent.
+            var checkNow = new Button { Text = "Check for updates now", Width = 180 };
+            checkNow.Click += async (_, _) =>
+            {
+                Save();
+                _status.Text = "Checking…";
+                var updater = Program.Updater ?? new AgentUpdater(_state);
+                try { _status.Text = await updater.CheckOnceAsync(); }
+                catch (Exception ex) { _status.Text = "⚠ " + ex.Message; }
+            };
+            Add(checkNow, 30);
+
             var test = new Button { Text = "Test print", Width = 110 };
             test.Click += async (_, _) => { Save(); await _state.PrintAsync(Program.TestReceipt(_state.Config.Columns)); ShowResult("Test print sent."); };
             var drawer = new Button { Text = "Open drawer", Width = 110, Left = 140 };
@@ -342,6 +364,7 @@ namespace Plutus.TillAgent
                 _ => Plutus.TillAgent.Core.EmulationResolver.Auto,
             };
             _state.Config.AllowedOrigin = _origin.Text.Trim();
+            _state.Config.AutoUpdate = _autoUpdate.Checked;
             _state.Config.Save();
             TrayApp.SetAutoStart(_autoStart.Checked);
         }
